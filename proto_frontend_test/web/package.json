@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"@types/es6-promise": "^3.3.0",
+		"monaco-editor": "^0.17.1"
+	}
+}

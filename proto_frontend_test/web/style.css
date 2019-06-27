@@ -1,0 +1,18 @@
+
+.messageBar { 
+	position: fixed; top: 0; left: 0; right: 0; padding: 10px; background: #FDD835; color: white; font-size: 12pt; 
+	display:none; 
+}
+.progressBar { 
+	position: fixed; top: 0; left: 0; width: 30%; height: 5px; background: #0091EA;
+	animation: slide 5s forwards;display:none; 
+}
+.visible {display:block;}
+@keyframes slide {
+	0% { width: 30%; }
+	30% { width: 50%; }
+	100% { width: 60%; }
+}
+.messageBar.error { background: #E53935;  }
+.messageBar.success { background: #43a047;  }
+

@@ -5,10 +5,10 @@ let socket : WebSocket;
 
 var reqId = 1;
 var requests : any = {};
-export function exec(cmd : string, args : any) {
+export function exec(cmd : string, args : any) : Promise<any> {
 	var id = reqId++;
 	Status.showProgress();
-	return new Promise((resolve, reject) => {
+	return new Promise<any>((resolve, reject) => {
 		requests[id] = [resolve, reject];
 		var request = encode({ "id": id, "cmd": cmd, "args": args });
 		console.log("Request:",request);
@@ -31,8 +31,10 @@ function handleResponse(response_binary : ArrayBuffer) {
 	}
 }
 export function init(cb : EventListener) {
+	Status.showProgress();
 	socket = new WebSocket("ws://localhost:5678")
 	socket.addEventListener("open", cb);
+	socket.addEventListener("open", () => Status.hideProgress());
 	socket.onmessage = function(event) {
 		let blob : Blob = event.data; 
 		let reader = new FileReader();
@@ -41,4 +43,17 @@ export function init(cb : EventListener) {
 		};
 		reader.readAsArrayBuffer(blob)
 	};
+	socket.onerror = function(e) {
+		Status.hideProgress()
+		console.warn("Websocket error",e)
+	}
+	socket.onclose = function(e) {
+		console.warn("Websocket closed",e)
+		Status.show("error", "Websocket closed", null);
+		setTimeout(function() {
+			init(function() {
+				Status.hide("error");
+			});
+		}, 2000);
+	}
 }

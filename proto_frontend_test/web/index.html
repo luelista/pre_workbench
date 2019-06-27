@@ -1,26 +1,44 @@
 <!DOCTYPE HTML>
 <html manifest="">
 <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes">
-    <title>proto_frontend_test1</title>
-    <link rel="stylesheet" href="style.css">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes">
+	<title>proto_frontend_test1</title>
+	<link rel="stylesheet" href="style.css">
+	<link type="text/css" rel="stylesheet" href="node_modules/golden-layout/src/css/goldenlayout-base.css" />
+	<link type="text/css" rel="stylesheet" href="node_modules/golden-layout/src/css/goldenlayout-dark-theme.css" />
 </head>
 <body>
 
+	<script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+	<script>
+		require.config({ paths: {
+			'vs': 'node_modules/monaco-editor/min/vs',
+			'golden-layout': 'node_modules/golden-layout/dist/goldenlayout.min.js',
+			'jquery': "node_modules/jquery/dist/jquery.min.js",
+			'jqueryui': 'node_modules/slickgrid/lib/jquery-ui-1.11.3.min.js',
+			'dragevent': 'node_modules/slickgrid/lib/jquery.event.drag-2.2.min.js',
+			'slickcore': 'node_modules/slickgrid/lib/slick.core',
+			'slickgrid': 'node_modules/slickgrid/lib/slick.grid',
+		},
+		shim: {
+			jquery: { exports: '$' },
+			jqueryui: ['jquery'],
+			dragevent: ['jquery'],
+			slickcore: ['jqueryui'],
+			slickgrid: {
+				deps: ['slickcore', 'dragevent'],
+				exports: 'Slick'
+			},
+		}
+		});
+		require(['vs/editor/editor.main', './main', 'jquery', 'golden-layout'], function(editor_main, main, rpc) {
+			
+			main.startApp();
 
-    <div id="container" style="width:800px;height:600px;border:1px solid grey"></div>
-
-    <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-    <script>
-        require.config({ paths: { 'vs': 'node_modules/monaco-editor/min/vs' }});
-        require(['vs/editor/editor.main', './main'], function(editor_main, main, rpc) {
-            
-            main.startApp();
-
-        });
-    </script>
+		});
+	</script>
 
 </body>
 </html>

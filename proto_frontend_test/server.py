@@ -13,7 +13,7 @@ from http import HTTPStatus
 
 this_dir = os.path.dirname(os.path.realpath(__file__))
 server_root = os.path.join(this_dir, "web")
-scriptdir_root = os.path.join(this_dir, "data/scripts")
+datadir_root = os.path.join(this_dir, "data/")
 
 
 METHODS = {}
@@ -24,27 +24,29 @@ def register_rpc(name):
 	return decorator_register_rpc
 
 @register_rpc("parse_pcap_file")
-def parse_pcap_file(pcap_filename, scapycode):
-	handle, scriptname = tempfile.mkstemp(suffix=".py")
-	f = os.fdopen(handle, "w")
-	f.write(scapycode)
-	f.close()
-	result = subprocess.check_output(["python3", scriptname, pcap_filename])
-	return result
+def parse_pcap_file(pcap_filename, script_filename):
+	result = subprocess.run(["python3", "wrapper.py", "data/" + script_filename, pcap_filename], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	return [result.returncode, result.stdout, result.stderr.decode("utf8")]
 
 
-@register_rpc("test")
-def test_rpc(name):
+@register_rpc("login")
+def login_rpc(name):
 	return "Hello "+name+"!"
+
+@register_rpc("listdir")
+def listdir_rpc(dir):
+	path = datadir_root + dir
+	return [dict(zip('mode ino dev nlink uid gid size atime mtime ctime'.split(), os.stat( os.path.join(path, n) )) , name=n) 
+		for n in os.listdir(path)]
 
 @register_rpc("getscript")
 def getscript_rpc(file):
-	with open(os.path.join(scriptdir_root, file), "r") as f:
+	with open(os.path.join(datadir_root, file), "r") as f:
 		return f.read()
 
 @register_rpc("putscript")
 def putscript_rpc(file, content):
-	with open(os.path.join(scriptdir_root, file), "w") as f:
+	with open(os.path.join(datadir_root, file), "w") as f:
 		f.write(content)
 
 
@@ -94,11 +96,12 @@ async def hello(websocket, path):
 	while True:
 		request_str = await websocket.recv()
 		request = cbor.loads(request_str)
-		print("Request:",request)
+		#print("Request:",request)
+		print("Calling "+request['cmd'])
 		try:
 			method = METHODS[request['cmd']]
 			response = method(**request['args'])
-			print("Answer:", response)
+			#print("Answer:", response)
 			await websocket.send(cbor.dumps({ 'id': request['id'], 'ans': response }))
 		except Exception as e:
 			print("Sending error response")

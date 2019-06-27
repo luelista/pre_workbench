@@ -1,11 +1,17 @@
+body,td  { font: 10pt Helvetica, Arial, sans-serif; color: #ddd; }
+.GridCtrl{ border-collapse: collapse; width: 100%; height:100%}
+.GridCtrl tbody{ overflow:auto;display: block;}
+.GridCtrl th { padding: 4px 2px; text-align: left; }
+.GridCtrl td { padding: 1px 2px; }
+.GridCtrl tr:hover{ background-color:#555;}
 
 .messageBar { 
 	position: fixed; top: 0; left: 0; right: 0; padding: 10px; background: #FDD835; color: white; font-size: 12pt; 
-	display:none; 
+	display:none; z-index: 999;
 }
 .progressBar { 
 	position: fixed; top: 0; left: 0; width: 30%; height: 5px; background: #0091EA;
-	animation: slide 5s forwards;display:none; 
+	animation: slide 5s forwards;display:none;  z-index: 1000;
 }
 .visible {display:block;}
 @keyframes slide {
@@ -15,4 +21,15 @@
 }
 .messageBar.error { background: #E53935;  }
 .messageBar.success { background: #43a047;  }
+
+.hexdump { white-space: pre-wrap; font: 10pt "Hack",monospace;color:#88ff88; overflow:auto; height:100%; width:100%; }
+
+
+.raumsel
+ { position: absolute; border: 1px solid #888; overflow-y: auto;  box-shadow: 1px 1px 6px #333; background: black; padding: 5px 0; min-width: 200px; z-index: 12; }
+.raumsel div
+  { padding: 8px 15px; cursor: default; }
+.raumsel div:hover
+  { background: #444; }
+.raumsel div.disabled, .raumsel div.disabled:hover { color: #888; background: inherit; }
 

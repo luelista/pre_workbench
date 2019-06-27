@@ -10,7 +10,7 @@ export function show(className : string, text : string, interval: number | null)
 	if (interval) setInterval(function() { hide(className); }, interval);
 };
 export function hide(className : string) {
-	document.getElementById("#loadingWidget_"+className)!!.classList.remove("visible");
+	document.getElementById("loadingWidget_"+className)!!.classList.remove("visible");
 };
 
 document.body.insertAdjacentHTML("afterbegin", '<div class="progressBar" id="statusindicator_progressBar"></div>');
@@ -22,7 +22,7 @@ export function showProgress() {
 	loadingCtr++;
 }
 export function hideProgress() {
-	loadingCtr--;
+	if (loadingCtr > 0) loadingCtr--;
 	if (loadingCtr > 0) return;
 	if(timeout)clearTimeout(timeout);
 	timeout = setTimeout(function() {

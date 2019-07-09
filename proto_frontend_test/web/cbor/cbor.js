@@ -184,7 +184,13 @@ function encode(value) {
 }
 
 function decode(data, tagger, simpleValue) {
-  var dataView = new DataView(data);
+  var dataView;
+  if (data instanceof ArrayBuffer)
+    dataView = new DataView(data);
+  else if (data instanceof Uint8Array)
+    dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  else
+    throw new TypeError("parameter to CBOR.encode must by ArrayBuffer or Uint8Array")
   var offset = 0;
 
   if (typeof tagger !== "function")
@@ -197,7 +203,10 @@ function decode(data, tagger, simpleValue) {
     return value;
   }
   function readArrayBuffer(length) {
-    return commitRead(length, new Uint8Array(data, offset, length));
+    if (data instanceof ArrayBuffer)
+      return commitRead(length, new Uint8Array(data, offset, length));
+    else
+      return commitRead(length, data.subarray(offset, offset+length));
   }
   function readFloat16() {
     var tempArrayBuffer = new ArrayBuffer(4);

@@ -6,6 +6,7 @@ import cbor
 
 script_file = sys.argv[1]
 pcap_file = sys.argv[2]
+outfile = open(sys.argv[3], "wb")
 
 with open(script_file) as f:
     code = compile(f.read(), script_file, 'exec')
@@ -19,7 +20,7 @@ def add_packet_tree2(p):
         't':p.time,
         'f':[
             (layer.name, field.name, display, binary)
-            for layer, fields in layerlist
+            for layer, fields in reversed(layerlist)
             for field, display, binary in fields
             ]
     })
@@ -27,9 +28,10 @@ def add_packet_tree2(p):
 #pf = rdpcap(pcap_file)
 sniff(store=0, prn=add_packet_tree2, offline=pcap_file)
 
-sys.stdout.buffer.write(cbor.dumps({
+
+outfile.write(cbor.dumps({
     "script":script_file,
     "pcap":pcap_file,
     "packets":output
     }))
-
+outfile.close()

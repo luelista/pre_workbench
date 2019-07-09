@@ -1,12 +1,12 @@
 
 import * as rpc from './rpc';
-import {GridCtrl} from 'PacketGrid';
+import {GridCtrl,SlickGridCtrl} from 'PacketGrid';
 import {ShowDropdown} from 'Dropdown';
 
 export class FileList extends GridCtrl {
 	dir : string = ""; //always ends with "/"
 
-	constructor(root : HTMLTableElement, dir : string) {
+	constructor(root : HTMLElement, dir : string) {
 		super(root,  ["name","size"]);
 		this.loadDir(dir);
 	}
@@ -20,9 +20,6 @@ export class FileList extends GridCtrl {
 	}
 
 	showList(entries : any[]) {
-		this.clearRows();
-		for(var i=0;i<entries.length;i++) {
-			this.appendRow(entries[i]);
-		}
+		this.setData(entries, true);
 	}
 }

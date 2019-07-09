@@ -23,9 +23,37 @@ def register_rpc(name):
 		return func
 	return decorator_register_rpc
 
-@register_rpc("parse_pcap_file")
-def parse_pcap_file(pcap_filename, script_filename):
-	result = subprocess.run(["python3", "wrapper.py", "data/" + script_filename, pcap_filename], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+@register_rpc("parse_pcap_file_with_scapy")
+def parse_pcap_file_with_scapy(pcap_filename, script_filename):
+	fd, tmpout = tempfile.mkstemp(".cbor")
+	result = subprocess.run(["python3", "wrapper.py", "data/" + script_filename, "data/" + pcap_filename, tmpout], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+	tmpfile = os.fdopen(fd, "rb")
+	out = tmpfile.read()
+	tmpfile.close()
+	os.unlink(tmpout)
+	return [result.returncode, out, result.stdout.decode("utf8")]
+
+def _readerthread(fh, buffer):
+	buffer.append(fh.read())
+	fh.close()
+
+"""
+@register_rpc("parse_pcap_file_with_scapy2")
+def parse_pcap_file_with_scapy2(pcap_filename, script_filename):
+	read_fd, write_fd = os.pipe()
+	proc = subprocess.Popen(["python3", "wrapper.py", "data/" + script_filename, "data/" + pcap_filename, str(write_fd)], 
+		stdout=subprocess.PIPE,stderr=subprocess.PIPE, pass_fds=[write_fd])
+	mypipe_buff = []
+	mypipe = os.fdopen(read_fd, "rb")
+	mypipe_thread = threading.Thread(target=_readerthread, args=(mypipe, mypipe_buff), daemon=True)
+	mypipe_thread.start()
+	stdout, stderr = proc.communicate(timeout=5000)
+
+	return [result.returncode, result.stdout, result.stderr.decode("utf8")]
+"""
+@register_rpc("parse_pcap_file_with_tshark")
+def parse_pcap_file_with_tshark(pcap_filename, script_filename):
+	result = subprocess.run(["tshark", "-r", "data/" + pcap_filename, "-T", "pdml"], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 	return [result.returncode, result.stdout, result.stderr.decode("utf8")]
 
 

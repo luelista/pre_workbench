@@ -40,3 +40,27 @@ KaiTai struct
 - https://formats.kaitai.io/pcap/index.html
 
 
+- einige interessante antworten https://stackoverflow.com/questions/18270311/dynamic-recognition-and-handling-of-protocol-data-units-in-bytestream
+    - "next generation network analyzer" ??? https://i.stack.imgur.com/3iF6s.png
+
+
+
+# Hex editors
+
+
+HexEd.It 
+- Javascript hex editor mit nettem Data Inspector (closed source)
+- https://hexed.it/?hl=en
+
+IceBuddha
+- Javascript hex editor
+- "Generic binary file parser" mit python-skripten die im browser ausgeführt werden mit Skulpt (http://skulpt.org/)
+- http://icebuddha.com/
+- https://github.com/0xdabbad00/icebuddha
+
+HexWorks
+- Javascript hex editor, owner drawn on canvas
+- simple color highlighting by drag and click, can apply colorization to other files
+- simple binary diff
+- http://hex-works.com/eng
+- open source https://github.com/michbil/hex-works

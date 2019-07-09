@@ -4,7 +4,8 @@
 		"golden-layout": "^1.5.9",
 		"jquery": "^3.4.1",
 		"monaco-editor": "^0.17.1",
-		"slickgrid": "^2.4.9"
+		"slickgrid": "^2.4.9",
+		"xterm": "^3.14.4"
 	},
 	"devDependencies": {
 		"@types/jquery": "^3.3.30",

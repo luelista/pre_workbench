@@ -17,13 +17,3 @@ sniffer sessions allow IP defragmentation
 scapy packet to JSON
 - https://gist.github.com/cr0hn/1b0c2e672cd0721d3a07
 
-
-TODO
-
-assertions für feldwerte?
-
-wireshark xml-ausgaben
-wireshark python dissector - komplexere strukturen syntax
-
-wireshark dissektor generieren?
-

@@ -26,7 +26,8 @@ import { decode as cbor_decode } from 'cbor/cbor';
 import GoldenLayout from 'golden-layout';
 import $ from 'jquery';
 import { generateTypeEditorByName } from './TypeEditor';
-import { PacketGrid, GridCtrl } from 'PacketGrid';
+import { PacketGrid } from 'PacketGrid';
+import { PacketDetailTree } from 'PacketDetailTree';
 import { FileList } from 'FileList';
 import { typedArrayToBuffer, bufferToHex } from 'helper';
 import { HexView } from 'HexView';
@@ -73,31 +74,36 @@ var layoutConfig = {
 			{
 				type:'component',
 				componentName: 'filelist',
-				componentState: { dir: 'scripts/' },
-				isClosable: false
+				componentState: { dir: '' },
+				isClosable: false,
+				id: 'filelist',
 			},
 			{
 				type:'component',
 				title:'scripts/hallo.py',
 				componentName: 'editor',
-				componentState: { filename: 'scripts/hallo.py' },
+				componentState: { id: 'scripts/hallo.py' },
+				id: 'scripts/hallo.py',
 			},
 			{
 				type:'component',
 				componentName: 'packetlist',
-				componentState: { filename: '../test3.pcap' }
+				componentState: { id: 'pcaps/test3.pcap' },
+				id: 'pcaps/test3.pcap',
 			},
 			{
 				type:'component',
 				componentName: 'packetdetail',
 				componentState: {  },
-				isClosable: false
+				isClosable: false,
+				id: 'packetdetail',
 			},
 			{
 				type:'component',
 				componentName: 'hexdump',
 				componentState: {  },
-				isClosable: false
+				isClosable: false,
+				id: 'hexdump',
 			},
 			{
 				type:'component',
@@ -109,12 +115,11 @@ var layoutConfig = {
 	  }]
 };
 
-var globalEditor : monaco.editor.IStandaloneCodeEditor;
 var pg : PacketGrid;
 var hexView : HexView;
-var packetDetail : GridCtrl;
+var packetDetail : PacketDetailTree;
 
-export function activateItem(id:string) : any {
+export function activateItem(id:string, createComponentIfNotExists:string|null) : any {
 	var items = layout.root.getItemsById(id);
 	console.log("activateItem "+id,items);
 	if (items.length > 0) {
@@ -124,26 +129,28 @@ export function activateItem(id:string) : any {
 		return null;
 	}
 }
-export function openEditor(filename : string) /*: monaco.editor.IStandaloneCodeEditor*/ {
-	var item;
-	if (item = activateItem('editor:'+filename)) return null;
-	layout.selectedItem.addChild({
-		id: "editor:"+filename,
-		type:'component',
-		title: filename,
-		componentName: 'editor',
-		componentState: { filename: filename },
-	});
+
+export function navigate(filename : string) : monaco.editor.IStandaloneCodeEditor {
+	var component="editor";
+	if (filename.endsWith(".pcap") || filename.endsWith(".pcapng")) component="packetlist";
+	return openComponent(filename, component);
+}
+export function openEditor(filename : string) : monaco.editor.IStandaloneCodeEditor {
+	return openComponent(filename, "editor");
 }
 export function openTerminal(id : string) : xterm.Terminal {
+	return openComponent("terminal:"+id, "terminal");
+}
+export function openComponent(id : string, createComponentIfNotExists : string|null) : any {
 	var item;
-	if (!(item = activateItem('terminal:'+id))){
+	if (!(item = activateItem(id))){
+		if (!createComponentIfNotExists) return null;
 		item = layout.createContentItem({
-			id: "terminal:"+id,
+			id: id,
 			type:'component',
 			title: id,
-			componentName: 'terminal',
-			componentState: {  },
+			componentName: createComponentIfNotExists,
+			componentState: { id:id },
 		}, layout.selectedItem);
 		layout.selectedItem.addChild(item);
 	}
@@ -166,7 +173,7 @@ export function startApp() {
 	
 	
 	layout.registerComponent( 'editor', function( container:any, state:any ){
-		var editor = globalEditor = monaco.editor.create(container.getElement()[0]!!, {
+		var editor = monaco.editor.create(container.getElement()[0]!!, {
 			value: [
 				'# eile mit weile'
 			].join('\n'),
@@ -175,13 +182,13 @@ export function startApp() {
 		});
 		editor.getModel()!!.updateOptions({insertSpaces:false});
 
-		rpc.exec('getscript', {'file':state.filename}).then(function(result) {
+		rpc.exec('getscript', {'file':state.id}).then(function(result) {
 			editor.setValue(<string>result);
 		})
 
 		function saveScript() {
 			console.log("Save...");
-			return rpc.exec('putscript', {'file':state.filename, 'content':editor.getValue()})
+			return rpc.exec('putscript', {'file':state.id, 'content':editor.getValue()})
 			.then(function() {
 				console.log("Saved");
 			});
@@ -192,7 +199,7 @@ export function startApp() {
 			console.log(e);
 			if (e.code == "Enter" && (e.metaKey || e.ctrlKey)) {
 				saveScript().then(function() {
-					return rpc.exec('parse_pcap_file_with_scapy', {'pcap_filename':"pcaps/AP-SOPPALCO.pcap", 'script_filename':state.filename})
+					return rpc.exec('parse_pcap_file_with_scapy', {'pcap_filename':"pcaps/AP-SOPPALCO.pcap", 'script_filename':state.id})
 				})
 				.then(function(response : any) {
 					var returnCode = response[0], enc_data = response[1], stderr = response[2];
@@ -222,7 +229,8 @@ export function startApp() {
 		})
 		container.on("resize", function() {
 			editor.layout();
-		})
+		});
+		return editor;
 	});
 	layout.registerComponent( 'packetlist', function( container:any, state:any ){
 		var grid = pg = new PacketGrid(container.getElement()[0], ["time", "IP.src", "IP.dst"]);
@@ -230,39 +238,57 @@ export function startApp() {
 			grid.resizeCanvas();
 		})
 		grid.onItemClick.on(function(data) {
-			hexView.showPacketHex(data._packetData.f);
-			packetDetail.setData(
-				data._packetData.f.map((x:any[])=>({ 
-					proto:x[0], field:x[1], display:x[2], raw:bufferToHex(x[3]) 
-				})), 
-				false);
+			hexView.showPacketHex(data._packetData);
+			packetDetail.setTreeData(data._packetData);
 		});
+		rpc.exec('parse_pcap_file_with_tshark', {'pcap_filename':state.id})
+		.then(function(response : any) {
+			var returnCode = response[0], enc_data = response[1], stderr = response[2];
+			
+			var term = openTerminal("log");
+			term.write((stderr+"\n").replace(/\n/g, "\r\n"));
+			if (returnCode != 0) {
+				//var errstring = new TextDecoder("utf-8").decode(enc_data);
+				alert("Error: " + returnCode + "\n" + stderr);
+				term.write("\x1b[38;5;9mCommand returned error code "+returnCode+"\x1b[0m\r\n");
+			}
+			term.write("\r\n");
+			
+			var data : any = cbor_decode(typedArrayToBuffer(enc_data));
+			console.log("tshark result",data)
+			grid.displayPackets(data[0][1]);
+		});
+		return grid;
 	});
 	layout.registerComponent( 'filelist', function( container:any, state:any ){
 		var fl = new FileList(container.getElement()[0], state.dir);
 		fl.onItemClick.on(function(item) {
-			var filename = fl.dir + item.name;
-			//alert(filename)
-			openEditor(filename);
+			navigate(item._path);
 		});
 		container.on("resize", function() {
 			fl.resizeCanvas();
 		})
+		return fl;
 	});
 
 	layout.registerComponent( 'hexdump', function( container:any, state:any ){
 		return hexView = new HexView(container.getElement()[0]);
 	});
 	layout.registerComponent( 'packetdetail', function( container:any, state:any ){
-		return packetDetail = new GridCtrl(container.getElement()[0], ['proto','field','display','raw']);
+		return packetDetail = new PacketDetailTree(container.getElement()[0]);
 	});
 	layout.registerComponent( 'terminal', function( container:any, state:any ){
 		console.log(TerminalConstructor)
 		var term = new TerminalConstructor({});
+		var isInitialized=false;
 		container.on("open", function() {
-			term.open(container.getElement()[0]);
+			//container is not ready here, despite what the docs say :/
 		})
 		container.on("resize", function() {
+			if (!isInitialized) {
+				term.open(container.getElement()[0]);
+				isInitialized = true;
+			}
 			//@ts-ignore
 			try{term.fit();}catch(ex){console.warn("failed to fit terminal",term)}
 		})

@@ -1,16 +1,17 @@
 
 import $ from 'jquery';
 
-export function ShowDropdown(event : MouseEvent, menuItems : any) {
+export function ShowDropdown(event : MouseEvent, menuItems : any[]) {
 		console.log(event)
 		var menu = $("<div class='raumsel'></div>");
-		for(var k in menuItems) {
-				var item = $("<div>"+k+"</div>").appendTo(menu);
-				if (menuItems[k] === false)
-						item.addClass("disabled");
-					else
-						item.click(menuItems[k]);
-		}
+		menuItems.forEach(item => {
+				var el = $("<div>"+item.text+"</div>").appendTo(menu);
+				if (item.action)
+					el.click(item.action);
+				else
+					el.addClass("disabled");
+						
+		})
 		$(document.body).append(menu);
 		var left = event.pageX;
 		if (left + menu[0].clientWidth > window.innerWidth) left = window.innerWidth - menu[0].clientWidth ;

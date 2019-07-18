@@ -10,10 +10,16 @@ import subprocess
 import os
 
 from http import HTTPStatus
+from pdml_helper import convertPdmlToPacketTree
 
 this_dir = os.path.dirname(os.path.realpath(__file__))
 server_root = os.path.join(this_dir, "web")
 datadir_root = os.path.join(this_dir, "data/")
+
+RPC_OP_CALL = 1
+RPC_OP_ANSWER = 2
+RPC_OP_ANSWERERROR = 3
+RPC_OP_FAIL = 4
 
 
 METHODS = {}
@@ -52,9 +58,9 @@ def parse_pcap_file_with_scapy2(pcap_filename, script_filename):
 	return [result.returncode, result.stdout, result.stderr.decode("utf8")]
 """
 @register_rpc("parse_pcap_file_with_tshark")
-def parse_pcap_file_with_tshark(pcap_filename, script_filename):
+def parse_pcap_file_with_tshark(pcap_filename):
 	result = subprocess.run(["tshark", "-r", "data/" + pcap_filename, "-T", "pdml"], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-	return [result.returncode, result.stdout, result.stderr.decode("utf8")]
+	return [result.returncode, cbor.dumps(convertPdmlToPacketTree(result.stdout)), result.stderr.decode("utf8")]
 
 
 @register_rpc("login")
@@ -77,6 +83,26 @@ def putscript_rpc(file, content):
 	with open(os.path.join(datadir_root, file), "w") as f:
 		f.write(content)
 
+@register_rpc("http_get")
+def respond_to_get_request(path, **kw):
+	if path == '/':
+		path = '/index.html'
+
+	full_path = os.path.realpath(os.path.join(server_root, path[1:]))
+
+	print("GET", path, end=' ')
+
+	# Validate the path
+	if os.path.commonpath((server_root, full_path)) != server_root or \
+			not os.path.exists(full_path) or not os.path.isfile(full_path):
+		print("404 NOT FOUND")
+		return HTTPStatus.NOT_FOUND, [], b'404 NOT FOUND'
+
+	print("200 OK")
+	body = open(full_path, 'rb').read()
+	return [HTTPStatus.OK, [
+		('Content-Type', get_mimetype(path))
+	], body]
 
 types={".html":"text/html",".js":"text/javascript",".css":"text/css"}
 def get_mimetype(path):
@@ -96,48 +122,36 @@ class WebSocketServerProtocolWithHTTP(websockets.WebSocketServerProtocol):
 		if "Upgrade" in request_headers:
 			return  # Probably a WebSocket connection
 
-		if path == '/':
-			path = '/index.html'
+		code, response_headers, body = respond_to_get_request(path)
 
-		response_headers = [
-			('Server', 'asyncio'),
-			('Connection', 'close'),
-			('Content-Type', get_mimetype(path))
-		]
-		
-		full_path = os.path.realpath(os.path.join(server_root, path[1:]))
-
-		print("GET", path, end=' ')
-
-		# Validate the path
-		if os.path.commonpath((server_root, full_path)) != server_root or \
-				not os.path.exists(full_path) or not os.path.isfile(full_path):
-			print("404 NOT FOUND")
-			return HTTPStatus.NOT_FOUND, [], b'404 NOT FOUND'
-
-		print("200 OK")
-		body = open(full_path, 'rb').read()
+		response_headers.append(('Server', "asyncio"))
+		response_headers.append(('Connection', "close"))
 		response_headers.append(('Content-Length', str(len(body))))
-		return HTTPStatus.OK, response_headers, body
+
+		return code, response_headers, body
 
 async def hello(websocket, path):
 	while True:
 		request_str = await websocket.recv()
 		request = cbor.loads(request_str)
-		#print("Request:",request)
-		print("Calling "+request['cmd'])
-		try:
-			method = METHODS[request['cmd']]
-			response = method(**request['args'])
-			#print("Answer:", response)
-			await websocket.send(cbor.dumps({ 'id': request['id'], 'ans': response }))
-		except Exception as e:
-			print("Sending error response")
-			print(e)
-			await websocket.send(cbor.dumps({ 'id': request['id'], 'error': str(e) }))
+		op_code = request[0]
+		if op_code == RPC_OP_CALL:
+			op_code, request_id, object_id, interface_id, method_id, params = request
+			#print("Request:",request)
+			print("Calling "+method_id)
+			try:
+				method = METHODS[method_id]
+				response = method(**params)
+				#print("Answer:", response)
+				await websocket.send(cbor.dumps([ RPC_OP_ANSWER, request_id, response ]))
+			except Exception as e:
+				print("Sending error response")
+				print(e)
+				await websocket.send(cbor.dumps([ RPC_OP_ANSWERERROR, request_id, 1, str(e), {} ]))
 		
 
 start_server = websockets.serve(hello, 'localhost', 5678, create_protocol=WebSocketServerProtocolWithHTTP)
+print("Listening http://localhost:5678")
 
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()

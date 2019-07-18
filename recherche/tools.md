@@ -44,6 +44,14 @@ KaiTai struct
     - "next generation network analyzer" ??? https://i.stack.imgur.com/3iF6s.png
 
 
+# Wireshark dissectors
+- https://stackoverflow.com/questions/4904991/how-can-i-add-a-custom-protocol-analyzer-to-wireshark
+  -    wssdl -- A Lua library that defines a domain-specific language built on top of Lua for the purpose of defining protocol dissectors.
+  -    wsgd -- A generic dissector that parses a protocol definition and uses it to dissect messages.
+  -    asn2wrs -- A tool that compiles an ASN.1 specification and some C glue to a Wireshark dissector.
+  -    csjark -- A tool for generating Lua dissectors from C struct definitions to use with Wireshark.
+
+
 
 # Hex editors
 

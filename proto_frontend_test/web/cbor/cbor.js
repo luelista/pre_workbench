@@ -359,7 +359,8 @@ function decode(data, tagger, simpleValue) {
             appendUtf16Data(utf16data, length);
         } else
           appendUtf16Data(utf16data, length);
-        return String.fromCharCode.apply(null, utf16data);
+        //return String.fromCharCode.apply(null, utf16data);
+        return new TextDecoder('utf-8').decode(new Uint8Array(utf16data));
       case 4:
         var retArray;
         if (length < 0) {

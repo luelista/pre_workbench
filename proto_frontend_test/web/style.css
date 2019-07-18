@@ -10,6 +10,12 @@ body,td  { font: 10pt Helvetica, Arial, sans-serif; color: #ddd; }
 .GridCtrl .th { padding: 4px 2px; text-align: left; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #888; position: absolute; }
 .GridCtrl .td { padding: 1px 2px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #666; position: absolute; white-space: nowrap; }
 .GridCtrl .tr:hover{ background-color:#333;}
+.GridCtrl .tr:hover+.treeChildren{ background-color:#2a2a2a;}
+.GridCtrl .treeRow.expanded>.tr>.td:first-child::before{ content:"▼ ";width:15px;display: inline-block;color:#aaa; }
+.GridCtrl .treeRow.collapsed>.tr>.td:first-child::before{ content:"► ";width:15px;display: inline-block;color:#aaa; }
+.GridCtrl .treeRow.expanded>.tr>.td:first-child:hover::before,
+.GridCtrl .treeRow.collapsed>.tr>.td:first-child:hover::before{ color:#fff; }
+.GridCtrl .treeRow.empty>.tr>.td:first-child::before{ content:"▱ ";width:15px;display: inline-block;color:#777; }
 
 .messageBar { 
 	position: fixed; top: 0; left: 0; right: 0; padding: 10px; background: #FDD835; color: white; font-size: 12pt; 

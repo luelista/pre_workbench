@@ -12,7 +12,6 @@ class PdmlConvertParser:
 	def data(self, data):
 		pass            # We do not need to do anything with data.
 	def close(self):
-		print(self.stack)
 		return self.stack[0][1]
 
 

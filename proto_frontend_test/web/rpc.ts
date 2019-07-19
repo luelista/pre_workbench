@@ -11,15 +11,9 @@ let socket : WebSocket;
 var reqId = 1;
 var requests : any = {};
 export function exec(cmd : string, args : any) : Promise<any> {
-	var id = reqId++;
-	Status.showProgress();
-	return new Promise<any>((resolve, reject) => {
-		requests[id] = [resolve, reject];
-		var request = encode([ OP_CALL, id, 0, "0", cmd, args ]);
-		console.log("Request:",request);
-		socket.send(request);
-	});
+	return callMethod(1, "pft", cmd, args);
 }
+window.rpcExec = exec;
 export function callMethod(oid : number|string, iid : string, cmd : string, args : any) : Promise<any> {
 	var id = reqId++;
 	Status.showProgress();
@@ -44,7 +38,13 @@ function handleResponse(response_binary : ArrayBuffer) {
 	case OP_ANSWERERROR:
 		var request = requests[request_id];
 		request[1](response[3]);
+		delete requests[request_id];
+		Status.hideProgress();
 		Status.show("error", response[3], 4000);
+		break;
+	default:
+		console.error("unexpected RPC op:",response);
+		break;
 	}
 	/*if (!('progress' in response)) {
 		delete requests[response.id];
@@ -53,7 +53,7 @@ function handleResponse(response_binary : ArrayBuffer) {
 }
 export function init(cb : EventListener) {
 	Status.showProgress();
-	socket = new WebSocket("ws://localhost:5678")
+	socket = new WebSocket("wss://localhost:8080")
 	socket.addEventListener("open", cb);
 	socket.addEventListener("open", () => Status.hideProgress());
 	socket.onmessage = function(event) {

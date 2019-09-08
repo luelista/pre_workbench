@@ -1,0 +1,89 @@
+
+import xdrlib
+XDRM_inlong = 0b000  # rest: value
+XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false
+XDRM_utf8   = 0b100  # rest: length in bytes
+XDRM_bytes  = 0b101  # rest: length in bytes
+XDRM_array  = 0b110  # rest: count
+XDRM_map    = 0b111  # rest: pair-count
+
+def loads(data):
+	unpacker = xdrlib.Unpacker(data)
+	return unpack_xdrm(unpacker)
+def dumps(data):
+	packer = xdrlib.Packer()
+	pack_xdrm(packer, data)
+	return packer.get_buffer()
+
+def unpack_xdrm(unpacker):
+	typecode = unpacker.unpack_uint()
+	type, rest = typecode & 0b111, typecode >> 3
+	if type == XDRM_inlong:
+		return rest
+	elif type == XDRM_number and rest == 0x0800:
+		return unpacker.unpack_hyper()
+	elif type == XDRM_number and rest == 0x0802:
+		return unpacker.unpack_double()
+	elif type == XDRM_number and (rest == 0x0010 or rest == 0x0011):
+		return None
+	elif type == XDRM_number and rest == 0x0012:
+		return True
+	elif type == XDRM_number and rest == 0x0013:
+		return False
+	elif type == XDRM_utf8:
+		return unpacker.unpack_fstring(rest).decode("utf-8",'surrogateescape')
+	elif type == XDRM_bytes:
+		return unpacker.unpack_fopaque(rest)
+	elif type == XDRM_array:
+		result = []
+		for i in range(rest):
+			result.append(unpack_xdrm(unpacker))
+		return result
+	elif type == XDRM_map:
+		result = dict()
+		for i in range(rest):
+			key = unpack_xdrm(unpacker)
+			result[key] = unpack_xdrm(unpacker)
+		return result
+	else:
+		raise Exception("invalid typecode 0x%08x" % (typecode))
+
+def pack_xdrm(packer, data):
+	if type(data) is int and data  >= 0 and data < 0x1fffffff:
+		packer.pack_uint(XDRM_inlong | (data << 3))
+	elif type(data) is int:
+		packer.pack_uint(XDRM_number | (0x0800 << 3))
+		packer.pack_hyper(data)
+	elif type(data) is float:
+		packer.pack_uint(XDRM_number | (0x0802 << 3))
+		packer.pack_double(data)
+	elif type(data) is str:
+		bin = data.encode("utf-8",'surrogateescape')
+		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
+		packer.pack_fopaque(len(bin), bin)
+	elif type(data) is bytes:
+		packer.pack_uint(XDRM_bytes | (len(data) << 3))
+		packer.pack_fopaque(len(data), data)
+	elif isinstance(data, (list, tuple)):
+		packer.pack_uint(XDRM_array | (len(data) << 3))
+		for el in data:
+			pack_xdrm(packer, el)
+	elif isinstance(data, dict):
+		packer.pack_uint(XDRM_map | (len(data) << 3))
+		for key, value in data.items():
+			pack_xdrm(packer, key)
+			pack_xdrm(packer, value)
+	elif data == None:
+		packer.pack_uint(XDRM_number | (0x0010 << 3))
+	elif data == True:
+		packer.pack_uint(XDRM_number | (0x0012 << 3))
+	elif data == False:
+		packer.pack_uint(XDRM_number | (0x0013 << 3))
+	else:
+		#raise Exception("can't pack "+str(type(data)))
+		print("WARNING: packing "+str(type(data))+" as str")
+		bin = str(data).encode("utf-8",'surrogateescape')
+		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
+		packer.pack_fopaque(len(bin), bin)
+
+

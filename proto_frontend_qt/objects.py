@@ -11,7 +11,7 @@ class ByteBuffer(QObject):
 - int length
 - dict<string,(number,number)> ranges
 - dict<string,field> fields
-    field = ()
+	field = ()
 	"""
 	on_new_data = pyqtSignal()
 	def __init__(self, buf=None):
@@ -28,6 +28,28 @@ class ByteBuffer(QObject):
 			self.buffer = buf
 		self.length = len(self.buffer)
 
+	def ensureCapacity(self, newLength):
+		if self.length < newLength:
+			self.buffer = self.buffer + (newLength - self.length) * b"\0"
+			self.length = len(self.buffer)
+
+	def setBytes(self, offset, newBytes, meta, style):
+		if type(newBytes) == bytes:
+			n = len(newBytes)
+			self.ensureCapacity(offset + n)
+			for i in range(n):
+				self.buffer[offset + i] = newBytes[i]
+		elif type(newBytes) == int:
+			n = newBytes
+			self.ensureCapacity(offset + n)
+		else:
+			raise TypeError("newBytes must be of type 'bytes' or 'int'")
+		if meta != None or style != None:
+			r = Range(offset, offset+n-1)
+			if meta != None: r.metadata = meta
+			if style != None: r.style = style
+
+
 	def getByte(self, i):
 		return self.buffer[i]
 	def getBytes(offset, length):
@@ -35,7 +57,7 @@ class ByteBuffer(QObject):
 	def getDecoded(offset, structUnpackFormat):
 		return struct.unpack_from(structUnpackFormat, self.buffer, offset)
 
-	def getAnnotations(self, i, annotationProperty):
+	def getAnnotationValues(self, i, annotationProperty):
 		if i >= self.length: return []
 
 		# TODO check whether a more efficient algorithm needs to be used
@@ -43,6 +65,16 @@ class ByteBuffer(QObject):
 		for rr in self.ranges:
 			if rr.contains(i) and annotationProperty in rr.metadata:
 				values.append(rr.metadata[annotationProperty])
+		return values
+
+	def getContainingRanges(self, i):
+		if i >= self.length: return []
+
+		# TODO check whether a more efficient algorithm needs to be used
+		values = []
+		for rr in self.ranges:
+			if rr.contains(i):
+				values.append(rr)
 		return values
 
 	def getStyle(self, i, styleName, defaultValue):
@@ -65,9 +97,9 @@ class ByteBuffer(QObject):
 		return hexdump.hexdump(self.buffer, result='return')
 
 class Range:
-	def __init__(self):
-		self.start = 0
-		self.end = 0
+	def __init__(self, start, end):
+		self.start = start
+		self.end = end
 		self.metadata = dict()
 		self.style = dict()
 	def contains(self, i):
@@ -83,6 +115,8 @@ class ByteBufferList(QObject):
 	def add(self, bbuf):
 		self.buffers.append(bbuf)
 		self.on_new_packet.emit()
+	def __len__(self):
+		return len(self.buffers)
 	
 
 

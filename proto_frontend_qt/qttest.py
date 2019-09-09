@@ -13,271 +13,270 @@ Website: zetcode.com
 Last edited: August 2017
 """
 
-import sys
+import sys, os
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-    QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout,\
-    QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox
+	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout,\
+	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject)
+from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QSize)
 
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
 from datasource import PcapFileDataSource, FileDataSource, LiveCaptureDataSource
 import configs
-from widgets import ExpandWidget, SettingsGroup
+from genericwidgets import ExpandWidget, SettingsGroup, printsizepolicy
+from datawidgets import DynamicDataWidget
+from hexview import HexView2
+from typeregistry import DataSourceTypes, WindowTypes
 
-DataSourceTypes = [PcapFileDataSource, FileDataSource, LiveCaptureDataSource]
-def getDataSourceList():
-    return [(dt.__name__, dt.DisplayName) for dt in DataSourceTypes]
-def getDataSourceByType(typename):
-    for dt in DataSourceTypes:
-        if dt.__name__ == typename:
-            return dt
+MRU_MAX = 5
+class ProtoFrontendMain(QMainWindow):
+	def __init__(self):
+		super().__init__()
+		
+		self.initUI()
+		self.restoreChildren()
 
-class Example(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        
-        self.initUI()
-        
-        
-    def initUI(self):               
-        
-        self.mdiArea = QMdiArea()
-        self.setCentralWidget(self.mdiArea)
+	def restoreChildren(self):
+		for wndInfo in configs.getValue("ChildrenInfo", []):
+			clz = WindowTypes.find(name=wndInfo["clz"])
+			wnd = clz(**wndInfo["par"])
+			wnd.restoreGeometry(wndInfo["geo"])
+			self.mdiArea.addSubWindow(wnd)
+			wnd.show()
 
-        exitAct = QAction('Exit', self)
-        exitAct.setShortcut('Ctrl+Q')
-        exitAct.setStatusTip('Exit application')
-        exitAct.triggered.connect(self.close)
+	def saveChildren(self):
+		childrenInfo = [
+			{
+				"clz": type(wnd.widget()).__name__,
+				"geo": bytes(wnd.saveGeometry()),
+				"par": wnd.widget().saveParams(),
+			}
+			for wnd in self.mdiArea.subWindowList()
+		]
+		configs.setValue("ChildrenInfo", childrenInfo)
+		
+		
+	def initUI(self):               
+		
+		self.mdiArea = QMdiArea()
+		self.setCentralWidget(self.mdiArea)
 
-        newAct = QAction('New window', self)
-        newAct.setShortcut('Ctrl+N')
-        newAct.setStatusTip('New window')
-        newAct.triggered.connect(self.onFileNewWindowAction)
+		exitAct = QAction('Exit', self)
+		exitAct.setShortcut('Ctrl+Q')
+		exitAct.setStatusTip('Exit application')
+		exitAct.triggered.connect(self.close)
 
-        openAct = QAction('Open', self)
-        openAct.setShortcut('Ctrl+O')
-        openAct.setStatusTip('Open file')
-        openAct.triggered.connect(self.onFileOpenAction)
+		newAct = QAction('New window', self)
+		newAct.setShortcut('Ctrl+N')
+		newAct.setStatusTip('New window')
+		newAct.triggered.connect(self.onFileNewWindowAction)
 
-        self.statusBar()
+		openAct = QAction('Open', self)
+		openAct.setShortcut('Ctrl+O')
+		openAct.setStatusTip('Open file')
+		openAct.triggered.connect(self.onFileOpenAction)
 
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(openAct)
-        fileMenu.addAction(exitAct)
+		self.statusBar()
 
-        toolbar = self.addToolBar('Main')
-        toolbar.addAction(newAct)
-        toolbar.addAction(openAct)
-        toolbar.addAction(exitAct)
-        
-        self.setGeometry(300, 300, 850, 850)
-        self.setWindowTitle('Main window')    
-        self.show()
+		menubar = self.menuBar()
+		fileMenu = menubar.addMenu('&File')
+		fileMenu.addAction(newAct)
+		fileMenu.addAction(openAct)
+		fileMenu.addSeparator()
+		self.mruActions = list()
+		for i in range(MRU_MAX):
+			a = fileMenu.addAction("-")
+			a.triggered.connect(self.onMruClicked)
+			self.mruActions.append(a)
+		self.updateMruActions()
+		fileMenu.addSeparator()
+		fileMenu.addAction(exitAct)
 
-    def onFileNewWindowAction(self):
-        ow = ObjectWindow()
-        ow.setConfig({})
-        self.mdiArea.addSubWindow(ow)
-        ow.show()
+		toolbar = self.addToolBar('Main')
+		toolbar.addAction(newAct)
+		toolbar.addAction(openAct)
+		toolbar.addAction(exitAct)
+		
+		self.setGeometry(300, 300, 850, 850)
+		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
+		self.setWindowTitle('Main window')    
+		self.show()
 
+	def onMruClicked(self):
+		self.openFile(self.sender().data())
 
-    def onFileOpenAction(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", configs.getValue("lastOpenFile",""),"All Files (*);;Python Files (*.py)", options=options)
-        if fileName:
-            configs.setValue("lastOpenFile", fileName)
-            self.openFile(fileName)
-    
-    def openFile(self, fileName):
-        if fileName.endswith(".pcap") or fileName.endswith(".pcapng"):
-            meta = {
-                "name": fileName,
-                "dataSourceType": "PcapFilePacketList",
-                "fileName": fileName
-            }
-        else:
-            meta = {
-                "name": fileName,
-                "dataSourceType": "FileByteBuffer",
-                "fileName": fileName
-            }
-        ow = ObjectWindow()
-        ow.setConfig(meta)
-        self.mdiArea.addSubWindow(ow)
-        ow.show()
+	def updateMruActions(self):
+		mru = configs.getValue("MainFileMru", [])
+		for i in range(MRU_MAX):
+			self.mruActions[i].setVisible(i < len(mru))
+			if i < len(mru):
+				self.mruActions[i].setText(os.path.basename(mru[i]))
+				self.mruActions[i].setData(mru[i])
 
 
+	def closeEvent(self, e):
+		configs.setValue("MainWindowGeometry", self.saveGeometry())
+		self.saveChildren()
+		super().closeEvent(e)
 
+	def onFileNewWindowAction(self):
+		ow = ObjectWindow()
+		ow.setConfig({})
+		self.mdiArea.addSubWindow(ow)
+		ow.show()
+
+
+	def onFileOpenAction(self):
+		options = QFileDialog.Options()
+		options |= QFileDialog.DontUseNativeDialog
+		fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", configs.getValue("lastOpenFile",""),"All Files (*);;Python Files (*.py)", options=options)
+		if fileName:
+			configs.setValue("lastOpenFile", fileName)
+			self.openFile(fileName)
+	
+	def openFile(self, fileName):
+		configs.updateMru("MainFileMru", fileName, MRU_MAX)
+		self.updateMruActions()
+
+		if fileName.endswith(".pcap") or fileName.endswith(".pcapng"):
+			meta = {
+				"name": fileName,
+				"dataSourceType": "PcapFileDataSource",
+				"fileName": fileName
+			}
+		else:
+			meta = {
+				"name": fileName,
+				"dataSourceType": "FileDataSource",
+				"fileName": fileName
+			}
+		ow = ObjectWindow(collapseSettings=True)
+		ow.setConfig(meta)
+		self.mdiArea.addSubWindow(ow)
+		ow.show()
+		ow.reload()
+
+
+@WindowTypes.register()
 class ObjectWindow(QWidget):
-    def __init__(self, name="Untitled", dataSourceType=None):
-        super().__init__()
-        self.params = {"name": name, "dataSourceType": dataSourceType}
-        self.dataSource = None
-        self.dataSourceType = None
-        self.initUI()
-        
-    def initUI(self):
-        layout=QVBoxLayout()
-        self.setLayout(layout)
-        #tb = QToolBox(self)
-        #layout.addWidget(tb)
-        self.metaConfig = SettingsGroup([
-            ("name", "Name", "text", {}),
-            ("dataSourceType", "Data Source Type", "select", {"options":getDataSourceList()}),
-        ])
-        self.metaConfig.item_changed.connect(self.onConfigChanged)
-        #tb.addItem(self.metaConfig, "Metadata")
-        layout.addWidget(ExpandWidget("Metadata", self.metaConfig))
+	def __init__(self, name="Untitled", dataSourceType="", collapseSettings=False, **kw):
+		super().__init__()
+		kw["name"] = name
+		kw["dataSourceType"] = dataSourceType
+		kw["collapseSettings"] = collapseSettings
+		self.params = kw
+		self.dataSource = None
+		self.dataSourceType = ""
+		self.initUI(collapseSettings)
+		self.metaConfig.setValues(self.params)
 
-        self.sourceConfig = SettingsGroup([])
-        self.sourceConfig.item_changed.connect(self.onConfigChanged)
-        #tb.addItem(self.sourceConfig, "Data Source Options")
-        layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig))
+	def saveParams(self):
+		self.params["collapseSettings"] = self.sourceConfig.parent().collapsed
+		return self.params
 
-        self.dataDisplay = QWidget()
-        #tb.addItem(self.dataDisplay, "Results")
-        layout.addWidget(ExpandWidget("Results", self.dataDisplay))
+	def sizeHint(self):
+		return QSize(600,400)
+	def initUI(self, collapseSettings):
+		layout=QVBoxLayout()
+		layout.setContentsMargins(0,0,0,0)
+		self.setLayout(layout)
+		#tb = QToolBox(self)
+		#layout.addWidget(tb)
+		self.metaConfig = SettingsGroup([
+			("name", "Name", "text", {}),
+			("dataSourceType", "Data Source Type", "select", {"options":DataSourceTypes.getSelectList("DisplayName")}),
+		])
+		self.metaConfig.item_changed.connect(self.onConfigChanged)
+		#tb.addItem(self.metaConfig, "Metadata")
+		layout.addWidget(ExpandWidget("Metadata", self.metaConfig, collapseSettings))
 
-    def setConfig(self, config):
-        self.metaConfig.setValues(config)
-        self.sourceConfig.setValues(config)
-        self.params.update(config)
-        self.loadDataSource()
+		self.sourceConfig = SettingsGroup([])
+		self.sourceConfig.item_changed.connect(self.onConfigChanged)
+		#tb.addItem(self.sourceConfig, "Data Source Options")
+		layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
-    def onConfigChanged(self, key, value):
-        self.params[key] = value
-        if key == "dataSourceType":
-            self.loadDataSource()
-        else:
-            if self.dataSource != None:
-                try:
-                    self.dataSource.updateParam(key, value)
-                except ReloadRequired as ex:
-                    self.loadDataSource()
+		toolbar = QToolBar()
+		self.cancelAction = toolbar.addAction("Cancel")
+		self.cancelAction.triggered.connect(self.onCancelFetch)
+		self.cancelAction.setEnabled(False)
+		self.reloadAction = toolbar.addAction("Reload")
+		self.reloadAction.triggered.connect(self.reload)
+		layout.addWidget(toolbar)
 
-    def loadDataSource(self):
-        if not self.params["dataSourceType"]: return
-        clz = getDataSourceByType(self.params["dataSourceType"])
-        if self.dataSourceType != self.params["dataSourceType"]:
-            self.sourceConfig.setFields(clz.ConfigFields)
-            self.sourceConfig.setValues(self.params)
-            self.dataSourceType = self.params["dataSourceType"]
-        self.dataSource = clz(self.params)
+		self.dataDisplay = DynamicDataWidget()
+		#tb.addItem(self.dataDisplay, "Results")
+		#layout.addWidget(ExpandWidget("Results", self.dataDisplay))
+		layout.addWidget(self.dataDisplay)
 
+	def setConfig(self, config):
+		self.metaConfig.setValues(config)
+		self.sourceConfig.setValues(config)
+		self.params.update(config)
+		self.loadDataSource()
 
+	def onConfigChanged(self, key, value):
+		self.params[key] = value
+		if key == "name":
+			self.setWindowTitle(value)
+		elif key == "dataSourceType":
+			self.loadDataSource()
+		else:
+			pass
+			#if self.dataSource != None:
+			#    try:
+			#        self.dataSource.updateParam(key, value)
+			#    except ReloadRequired as ex:
+			#        self.loadDataSource()
 
+	def loadDataSource(self):
+		if not self.params["dataSourceType"]: return
+		clz = DataSourceTypes.find(name=self.params["dataSourceType"])
+		if self.dataSourceType != self.params["dataSourceType"]:
+			self.sourceConfig.setFields(clz.ConfigFields)
+			self.sourceConfig.setValues(self.params)
+			self.dataSourceType = self.params["dataSourceType"]
 
+	def onFinished(self):
+		self.cancelAction.setEnabled(False)
 
-class PacketListWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-        
-        self.initUI()
-        
-        
-    def initUI(self):
-        toolbar = QToolBar()
-        self.cancelAction = toolbar.addAction("Cancel")
-        self.cancelAction.triggered.connect(self.onCancelFetch)
-        self.reloadAction = toolbar.addAction("Reload")
-        self.reloadAction.triggered.connect(self.reload)
+	def onCancelFetch(self):
+		self.dataSource.cancelFetch()
 
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+	def reload(self):
+		try:
+			self.cancelAction.setEnabled(True)
+			clz = DataSourceTypes.find(name=self.params["dataSourceType"])
+			self.dataSource = clz(self.params)
+			self.dataSource.on_finished.connect(self.onFinished)
+			result = self.dataSource.startFetch()
+			self.dataDisplay.setContents(result)
+		except Exception as e:
+			self.dataDisplay.setErrMes(str(e))
+			self.cancelAction.setEnabled(False)
 
-        tabs = QTabWidget()
-        layout.setMenuBar(toolbar)
-        layout.addWidget(tabs)
-        
-        self.packetlist = QTableWidget()
-        tabs.addTab(self.packetlist, "Raw Frames")
+@WindowTypes.register()
+class PcapngFileWindow(QWidget):
+	def __init__(self, **params):
+		super().__init__()
+		self.params = params
+		self.initUI()
+	def saveParams(self):
+		return self.params
+	def sizeHint(self):
+		return QSize(600,400)
+	def initUI(self):
+		self.setLayout(QVBoxLayout())
+		self.dataDisplay = PacketListWidget()
+		self.layout().addWidget(self.dataDisplay)
 
-        self.iplist = QTableWidget()
-        tabs.addTab(self.iplist, "IP Payloads")
-
-        self.udplist = QTableWidget()
-        tabs.addTab(self.udplist, "UDP Payloads")
-
-        self.sessionlist = QTableWidget()
-        tabs.addTab(self.sessionlist, "TCP Sessions")
-
-    def setPacketList(self, lstObj):
-        self.listObject = lstObj
-        self.setWindowTitle(str(lstObj))
-        self.listObject.on_new_packet.connect(self.onNewPacket)
-        self.listObject.on_finished.connect(self.onFinished)
-
-    def onNewPacket(self):
-        pass
-
-    def onFinished(self):
-        self.cancelAction.setEnabled(False)
-
-    def onCancelFetch(self):
-        self.listObject.cancelFetch()
-
-    def reload(self):
-        self.listObject.startFetch()
-
-    def run_ndis(self):
-        pass
-
-
-
-class ByteBufferWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-        
-        self.initUI()
-        
-        
-    def initUI(self):
-        toolbar = QToolBar()
-        self.cancelAction = toolbar.addAction("Cancel")
-        self.cancelAction.triggered.connect(self.onCancelFetch)
-        self.reloadAction = toolbar.addAction("Reload")
-        self.reloadAction.triggered.connect(self.reload)
-        self.splitIntoPacketsAction = toolbar.addAction("Split into packets")
-        self.splitIntoPacketsAction.triggered.connect(self.splitIntoPackets)
-
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-
-        self.textbox = QTextEdit()
-        layout.setMenuBar(toolbar)
-        layout.addWidget(self.textbox)
-        
-
-    def setByteBuffer(self, bufObj):
-        self.bufferObject = bufObj
-        self.setWindowTitle(str(bufObj))
-        self.textbox.setText(bufObj.toHexDump())
-        self.bufferObject.on_new_data.connect(self.onNewData)
-        self.bufferObject.on_finished.connect(self.onFinished)
-
-    def onNewData(self):
-        self.textbox.setText(self.bufferObject.toHexDump())
-
-    def onFinished(self):
-        self.cancelAction.setEnabled(False)
-
-    def onCancelFetch(self):
-        self.bufferObject.cancelFetch()
-
-    def reload(self):
-        self.bufferObject.startFetch()
-
-    def run_ndis(self):
-        pass
 
 
 
 
 if __name__ == '__main__':
-    
-    app = QApplication(sys.argv)
-    ex = Example()
-    sys.exit(app.exec_())
+	
+	app = QApplication(sys.argv)
+	ex = ProtoFrontendMain()
+	#os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
+	sys.exit(app.exec_())
+

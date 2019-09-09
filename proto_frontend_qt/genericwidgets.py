@@ -1,0 +1,117 @@
+
+from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
+	QFileDialog, QTabWidget, QFrame, QWidget, QToolBar, QVBoxLayout,\
+	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy
+from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject)
+
+
+class SettingsGroup(QFrame):
+	item_changed = pyqtSignal(str, str)
+
+	def __init__(self, definition):
+		super().__init__()
+		self.layout = QFormLayout()
+		self.setLayout(self.layout)
+		self.setFields(definition)
+		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+	
+	def setFields(self, definition):
+		for i in reversed(range(self.layout.count())): 
+			self.layout.itemAt(i).widget().deleteLater()
+		for fieldId, title, fieldtype, params in definition:
+			if fieldtype == "text":
+				field = QLineEdit()
+				field.textChanged.connect(self.textChanged)
+			elif fieldtype == "select":
+				field = QComboBox()
+				for value, text in params["options"]:
+					field.addItem(text, value)
+				field.activated.connect(self.selectChanged)
+			elif fieldtype == "check":
+				field = QCheckBox()
+				field.stateChanged.connect(self.checkChanged)
+			field.setObjectName(fieldId)
+			self.layout.addRow(title, field)
+
+	@pyqtSlot(str)
+	def textChanged(self, newText):
+		fieldId = self.sender().objectName()
+		self.onChange(fieldId, newText)
+	
+	@pyqtSlot(int)
+	def selectChanged(self, newIndex):
+		fieldId = self.sender().objectName()
+		self.onChange(fieldId, self.sender().itemData(newIndex))
+	
+	@pyqtSlot(int)
+	def checkChanged(self, newState):
+		fieldId = self.sender().objectName()
+		self.onChange(fieldId, "True" if newState == Qt.Checked else "False")
+
+	def onChange(self, fieldId, value):
+		self.item_changed.emit(fieldId, value)
+	
+	def setValue(self, fieldId, value):
+		value = str(value)
+		field = self.findChild(QWidget, fieldId)
+		if isinstance(field, QLineEdit):
+			field.setText(value)
+		elif isinstance(field, QComboBox):
+			idx = field.findData(value)
+			if idx == -1: raise Exception("invalid select value: "+value)
+			field.setCurrentIndex(idx)
+		elif isinstance(field, QCheckBox):
+			if value == "True":
+				field.setState(Qt.Checked)
+			elif value == "False":
+				field.setState(Qt.Unchecked)
+			else:
+				raise Exception("invalid check value: "+value)
+
+	def setValues(self, values):
+		for k, v in values.items():
+			self.setValue(k, v)
+
+class ExpandWidget(QWidget):
+	def __init__(self, title, body, collapsed=False):
+		super().__init__()
+		layout = QVBoxLayout()
+		layout.setContentsMargins(0,0,0,0)
+
+		self.header = QPushButton()
+		self.header.setText(title)
+		#self.header.setStyleSheet("border: 1px solid #000000; background: #898983");
+		#self.header.setGeometry(QRect(0, 0, 330, 25))
+		self.header.clicked.connect(self.onHeaderClick)
+		layout.addWidget(self.header)
+
+		self.body = body
+		layout.addWidget(self.body)
+		self.setSizePolicy(self.body.sizePolicy())
+
+		self.setLayout(layout)
+		self.setCollapsed(collapsed)
+		#self.setStyleSheet("background-color:#ffeeaa;border: 2px solid black;")
+		#pal = self.palette()
+		#pal.setColor(QPalette.Window, Qt.blue)
+		#self.setPalette(pal)
+
+	def onHeaderClick(self):
+		self.setCollapsed(not self.collapsed)
+	def setCollapsed(self, value):
+		self.collapsed = value
+		if self.collapsed:
+			self.body.hide()
+		else:
+			self.body.show()
+
+
+def printsizepolicy(pol):
+	print("controlType", pol.controlType())
+	print("expandingDirections", pol.expandingDirections())
+	print("horizontalPolicy", pol.horizontalPolicy())
+	print("horizontalStretch", pol.horizontalStretch())
+	print("verticalPolicy", pol.verticalPolicy())
+	print("verticalStretch", pol.verticalStretch())
+	

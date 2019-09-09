@@ -4,9 +4,9 @@
 
 
 import sys
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy
 from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
+from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QSize)
 
 from objects import ByteBuffer
 from hexdump import hexdump
@@ -42,6 +42,7 @@ class HexView2(QWidget):
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
 		self.showHex(bytes())
 		self.setMouseTracking(True)
+		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 	
 	def onCustomContextMenuRequested(self, point):
 		hit = self.hitTest(point)
@@ -59,6 +60,10 @@ class HexView2(QWidget):
 	def buildSelectionContextMenu(self):
 		ctx = QMenu("Context menu", self)
 		ctx.addAction("Selection %d-%d"%(self.selStart,self.selEnd))
+		for d in self.buffers[0].getContainingRanges(self.selStart):
+			ctx.addAction("Range %d-%d:" % (d.start, d.end))
+			for k,v in d.metadata.pairs():
+				ctx.addAction("    %s=%s" % (k,v))
 		return ctx
 	def buildGeneralContextMenu(self):
 		ctx = QMenu("Context menu", self)
@@ -117,6 +122,11 @@ class HexView2(QWidget):
 		self.firstLine = 0;
 		self.redraw();
 	
+	def setBuffer(self, bbuf):
+		self.buffers = [ bbuf ];
+		self.firstLine = 0;
+		self.redraw();
+	
 	def showPacketHex(self, packet):
 		print("showPacketHex",packet)
 		self.buffers = [ preparePacketHex(packet) ];
@@ -130,7 +140,7 @@ class HexView2(QWidget):
 	def maxLine(self):
 		return ceil(len(self.buffers[0]) / self.bytesPerLine);
 	
-	def resizeCanvas(self):
+	def resizeEvent(self, e):
 		self.redraw();
 	
 	def hitTest(self, point):
@@ -153,7 +163,11 @@ class HexView2(QWidget):
 		
 		return None
 
+	def sizeHint(self):
+		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)
+
 	def redraw(self):
+		if self.size().height() < 3 or self.size().width() < 3: return
 		if self.size() != self.backgroundPixmap.size():
 			self.backgroundPixmap = QPixmap(self.size())
 			self.textPixmap = QPixmap(self.size())
@@ -204,7 +218,7 @@ class HexView2(QWidget):
 			theByte = buffer.getByte(i)
 
 			#// if specified, print section header
-			sectionAnnotations = buffer.getAnnotations(i, "section");
+			sectionAnnotations = buffer.getAnnotationValues(i, "section");
 			if sectionAnnotations != lastSection:
 				lastSection = sectionAnnotations
 				if (ii != 0): y += self.dyLine;
@@ -244,10 +258,10 @@ class HexView2(QWidget):
 		return y + self.dyLine
 
 	def offsetToClientPos(self, offset):
-		line = floor(offset / self.bytesPerLine) - self.firstLine;
-		if (line < 0 or line > len(self.itemY)): return (0,0,0,0)
 		pos = offset % self.bytesPerLine;
-		y = self.itemY[offset - self.bytesPerLine*self.firstLine];
+		visibleIdx = offset - self.bytesPerLine*self.firstLine
+		if visibleIdx < 0 or visibleIdx >= len(self.itemY): return (0,0,0,0)
+		y = self.itemY[visibleIdx]
 		return (self.xHex + self.dxHex*pos, self.xAscii + self.dxAscii*pos,y,self.dyLine)
 	
 	def drawSelection(self, qp):

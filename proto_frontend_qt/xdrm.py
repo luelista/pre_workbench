@@ -49,21 +49,20 @@ def unpack_xdrm(unpacker):
 		raise Exception("invalid typecode 0x%08x" % (typecode))
 
 def pack_xdrm(packer, data):
-	if type(data) is int and data  >= 0 and data < 0x1fffffff:
+	typ = type(data)
+	if typ.__name__ == 'QByteArray': data=bytes(data); typ=bytes
+	if typ is int and data  >= 0 and data < 0x1fffffff:
 		packer.pack_uint(XDRM_inlong | (data << 3))
-	elif type(data) is int:
+	elif typ is int:
 		packer.pack_uint(XDRM_number | (0x0800 << 3))
 		packer.pack_hyper(data)
-	elif type(data) is float:
+	elif typ is float:
 		packer.pack_uint(XDRM_number | (0x0802 << 3))
 		packer.pack_double(data)
-	elif type(data) is str:
+	elif typ is str:
 		bin = data.encode("utf-8",'surrogateescape')
 		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
 		packer.pack_fopaque(len(bin), bin)
-	elif type(data) is bytes:
-		packer.pack_uint(XDRM_bytes | (len(data) << 3))
-		packer.pack_fopaque(len(data), data)
 	elif isinstance(data, (list, tuple)):
 		packer.pack_uint(XDRM_array | (len(data) << 3))
 		for el in data:
@@ -79,9 +78,12 @@ def pack_xdrm(packer, data):
 		packer.pack_uint(XDRM_number | (0x0012 << 3))
 	elif data == False:
 		packer.pack_uint(XDRM_number | (0x0013 << 3))
+	elif typ is bytes:
+		packer.pack_uint(XDRM_bytes | (len(data) << 3))
+		packer.pack_fopaque(len(data), data)
 	else:
-		#raise Exception("can't pack "+str(type(data)))
-		print("WARNING: packing "+str(type(data))+" as str")
+		#raise Exception("can't pack "+str(typ))
+		print("WARNING: packing "+str(typ)+" as str")
 		bin = str(data).encode("utf-8",'surrogateescape')
 		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
 		packer.pack_fopaque(len(bin), bin)

@@ -2,8 +2,9 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
 
+from typeregistry import DataSourceTypes
 
-class DataSource:
+class DataSource(QObject):
 	on_finished = pyqtSignal()
 	def updateParam(self, key, value):
 		raise ReloadRequired()
@@ -12,34 +13,37 @@ class DataSource:
 	def cancelFetch(self):
 		pass
 
+@DataSourceTypes.register(DisplayName = "Binary file")
 class FileDataSource(DataSource):
-	DisplayName = "Binary file"
+	
 	ConfigFields = [
 		("fileName", "File name", "text", {})
 	]
-	def __init__(self, fileName):
+	def __init__(self, params):
 		super().__init__()
-		self.fileName = fileName
+		self.fileName = params["fileName"]
 
 	def startFetch(self):
+		buf = ByteBuffer()
 		with open(self.fileName, "rb") as f:
-			self.setContent(f.read())
-		self.on_new_data.emit()
+			buf.setContent(f.read())
+		#self.on_new_data.emit()
 		self.on_finished.emit()
+		return buf
 		
 	def cancelFetch(self):
 		# cancel reading file
 		pass
 	
-
+@DataSourceTypes.register(DisplayName = "PCAP file")
 class PcapFileDataSource(DataSource):
-	DisplayName = "PCAP file"
+	
 	ConfigFields = [
 		("fileName", "File name", "text", {})
 	]
-	def __init__(self, fileName):
+	def __init__(self, params):
 		super().__init__()
-		self.fileName = fileName
+		self.fileName = params["fileName"]
 	def startFetch(self):
 		# start reading file
 		pass
@@ -47,16 +51,48 @@ class PcapFileDataSource(DataSource):
 		# cancel reading file
 		pass
 	
+import subprocess
+from pdml_helper import findTshark, convertPdmlToPacketList
+@DataSourceTypes.register(DisplayName = "PCAP file via Tshark")
+class TsharkPcapFileDataSource(DataSource):
+	
+	ConfigFields = [
+		("fileName", "File name", "text", {})
+	]
+	def __init__(self, params):
+		super().__init__()
+		self.fileName = params["fileName"]
+	def startFetch(self):
+		plist = ByteBufferList()
+		tshark_exec = findTshark()
+		result = subprocess.run([tshark_exec, "-r", self.fileName, "-T", "pdml"], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		stderr = result.stderr.decode("utf8")
+		#try:
+		print(stderr)
+		#print(result.stdout)
+		convertPdmlToPacketList(result.stdout, plist)
+		
+		#except Exception as eex:
+		#	convertedstdout = None
+		#	stderr+="\n\nconversion failed with exception: "+str(eex)
+		#	print(stderr)
 
+		return plist
 
+	def cancelFetch(self):
+		# cancel reading file
+		pass
+	
+
+@DataSourceTypes.register(DisplayName = "Live capture")
 class LiveCaptureDataSource(DataSource):
-	DisplayName = "Live capture"
+	
 	ConfigFields = [
 		("interface", "Interface", "text", {})
 	]
-	def __init__(self, interface):
+	def __init__(self, params):
 		super().__init__()
-		self.interface = interface
+		self.interface = params["interface"]
 	def startFetch(self):
 		# start the capture
 		pass

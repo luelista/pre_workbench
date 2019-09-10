@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy
 from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QSize)
 
-from objects import ByteBuffer
+from objects import ByteBuffer, Range
 from hexdump import hexdump
 from math import ceil, floor
 
@@ -47,7 +47,7 @@ class HexView2(QWidget):
 	def onCustomContextMenuRequested(self, point):
 		hit = self.hitTest(point)
 		ctxMenu = None
-		if hit:
+		if hit != None:
 			if hit < self.selStart or hit > self.selEnd:
 				self.selStart = self.selEnd = hit
 				self.selecting = False
@@ -59,15 +59,16 @@ class HexView2(QWidget):
 
 	def buildSelectionContextMenu(self):
 		ctx = QMenu("Context menu", self)
+		ctx.addAction("Copy selection hex", lambda: self.select(0, len(self.buffers[0])))
 		ctx.addAction("Selection %d-%d"%(self.selStart,self.selEnd))
-		for d in self.buffers[0].getContainingRanges(self.selStart):
-			ctx.addAction("Range %d-%d:" % (d.start, d.end))
-			for k,v in d.metadata.pairs():
+		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
+			ctx.addAction("Range %d-%d:" % (d.start, d.end), lambda d=d: self.selectRange(d))
+			for k,v in d.metadata.items():
 				ctx.addAction("    %s=%s" % (k,v))
 		return ctx
 	def buildGeneralContextMenu(self):
 		ctx = QMenu("Context menu", self)
-		ctx.addAction("Select all")
+		ctx.addAction("Select all", lambda: self.select(0, len(self.buffers[0])))
 		return ctx
 
 
@@ -107,10 +108,14 @@ class HexView2(QWidget):
 		return min(self.selStart, self.selEnd)
 	def selLength(self):
 		return max(self.selStart, self.selEnd) - self.selFirst() + 1
-	
+	def selRange(self):
+		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd))
+
 	def select(self, start:int, end:int):
 		self.selStart = start; self.selEnd = end; self.redrawSelection();
 		print("selection changed",self.selStart, self.selEnd, self.lastHit);
+	def selectRange(self, rangeObj):
+		self.select(rangeObj.start, rangeObj.end)
 	
 	def showHex(self, buf : bytes):
 		#abuf = ByteBuffer();
@@ -218,13 +223,12 @@ class HexView2(QWidget):
 			theByte = buffer.getByte(i)
 
 			#// if specified, print section header
-			sectionAnnotations = buffer.getAnnotationValues(i, "section");
-			if sectionAnnotations != lastSection:
-				lastSection = sectionAnnotations
+			sectionAnnotations = buffer.getAnnotationValues(start=i, annotationProperty="section");
+			if len(sectionAnnotations) != 0:
 				if (ii != 0): y += self.dyLine;
 				qpTxt.setFont(self.fontSection)
 				qpTxt.setPen(self.fsSection);
-				qpTxt.drawText(5, y+5, "\n".join(sectionAnnotations))
+				qpTxt.drawText(5, y+TXT_DY, "\n".join(sectionAnnotations))
 				y += self.dyLine;
 				qpTxt.setFont(self.fontHex)
 				qpTxt.setPen(QColor("#555555"));

@@ -6,27 +6,48 @@ class PdmlToPacketListParser:
 	def __init__(self, destPacketList):
 		#self.interface = interface
 		self.destination = destPacketList
+		self.cur_proto = None
 		
 		
 	def start(self,tag,attrib):
-		#print("start",tag,attrib)
+		print("start",tag,attrib)
 		if tag == "pdml":
 			self.destination.metadata.update(attrib)
 			return
 
 		if tag == "packet":
 			self.next_packet = ByteBuffer()
+			self.cur_proto = None
 
-		for numattr in ('pos','size'):
-			if numattr in attrib: attrib[numattr] = int(attrib[numattr])
-		if "value" in attrib and "size" in attrib and len(attrib["value"]) == attrib["size"] * 2:
-			try:
-				attrib["value"] = binascii.unhexlify(attrib["value"])
-				self.next_packet.setBytes(attrib['pos'], attrib["value"], None, None)
-			except:
-				pass
-		if 'pos' in attrib:
-			self.next_packet.setBytes(attrib['pos'], attrib["size"], attrib, None)
+		if tag == "proto":
+			self.cur_proto = attrib["name"]
+			#self.next_packet.setBytes(int(attrib['pos']), int(attrib["size"]), {"section":}, None)
+			print(attrib)
+			if "showname" in attrib: attrib["section"] = attrib["showname"]
+
+		if self.cur_proto == "geninfo": # ignore all geninfo fields, they contain mostly bullshit
+			return
+
+		if self.cur_proto == "frame": # put frame metadata in the metadata dict
+			if tag == "field":
+				self.next_packet.metadata[attrib["name"]] = attrib["show"]
+			return
+
+		if 'pos' in attrib and "size" in attrib:
+			pos = int(attrib['pos'])
+			size = int(attrib['size'])
+			del attrib['pos']
+			del attrib['size']
+			if "value" in attrib and len(attrib["value"]) == size * 2:
+				#try:
+					self.next_packet.setBytes(pos, binascii.unhexlify(attrib["value"]), None, None)
+					del attrib['value']
+				#except:
+				#	pass
+			self.next_packet.setBytes(pos, size, attrib, None)
+
+
+
 
 	def end(self,tag):
 		if tag == "packet":

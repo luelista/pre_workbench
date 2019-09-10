@@ -9,9 +9,10 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject)
 class SettingsGroup(QFrame):
 	item_changed = pyqtSignal(str, str)
 
-	def __init__(self, definition):
+	def __init__(self, definition, values):
 		super().__init__()
 		self.layout = QFormLayout()
+		self.values = values
 		self.setLayout(self.layout)
 		self.setFields(definition)
 		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -33,27 +34,33 @@ class SettingsGroup(QFrame):
 				field.stateChanged.connect(self.checkChanged)
 			field.setObjectName(fieldId)
 			self.layout.addRow(title, field)
+			if fieldId in self.values:
+				self.updateField(fieldId)
+			elif "default" in params:
+				self.values[fieldId] = params["default"]
+				self.updateField(fieldId)
+			else:
+				self.values[fieldId] = ""
 
 	@pyqtSlot(str)
 	def textChanged(self, newText):
-		fieldId = self.sender().objectName()
-		self.onChange(fieldId, newText)
+		self.onFieldChanged(newText)
 	
 	@pyqtSlot(int)
 	def selectChanged(self, newIndex):
-		fieldId = self.sender().objectName()
-		self.onChange(fieldId, self.sender().itemData(newIndex))
+		self.onFieldChanged(self.sender().itemData(newIndex))
 	
 	@pyqtSlot(int)
 	def checkChanged(self, newState):
-		fieldId = self.sender().objectName()
-		self.onChange(fieldId, "True" if newState == Qt.Checked else "False")
+		self.onFieldChanged("True" if newState == Qt.Checked else "False")
 
-	def onChange(self, fieldId, value):
+	def onFieldChanged(self, value):
+		fieldId = self.sender().objectName()
+		self.values[fieldId] = value
 		self.item_changed.emit(fieldId, value)
 	
-	def setValue(self, fieldId, value):
-		value = str(value)
+	def updateField(self, fieldId):
+		value = str(self.values[fieldId])
 		field = self.findChild(QWidget, fieldId)
 		if isinstance(field, QLineEdit):
 			field.setText(value)
@@ -71,7 +78,8 @@ class SettingsGroup(QFrame):
 
 	def setValues(self, values):
 		for k, v in values.items():
-			self.setValue(k, v)
+			self.values[k] = v
+			self.updateField(k)
 
 class ExpandWidget(QWidget):
 	def __init__(self, title, body, collapsed=False):

@@ -1,7 +1,8 @@
 
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout,\
-	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel, QTableWidgetItem
+	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
+	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel, QTableWidgetItem, QMenu, \
+	QAbstractItemView, QDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QSize)
 
@@ -11,6 +12,16 @@ import configs
 from genericwidgets import ExpandWidget, SettingsGroup, printsizepolicy
 from hexview import HexView2
 from typeregistry import DataWidgetTypes
+
+def showData(data):
+	dlg = QDialog()
+	dv = DynamicDataWidget()
+	#dv.setGeometry(100,100,600,600)
+	dlg.setWindowTitle("Data view")
+	dv.setContents(data)
+	dlg.setLayout(QVBoxLayout())
+	dlg.layout().addWidget(dv)
+	dlg.exec()
 
 @DataWidgetTypes.register(handles=ByteBufferList)
 class PacketListWidget(QWidget):
@@ -29,6 +40,11 @@ class PacketListWidget(QWidget):
 		
 		self.packetlist = QTableWidget()
 		self.packetlist.setColumnCount(10)
+		self.packetlist.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.packetlist.customContextMenuRequested.connect(self.onPacketlistContextMenu)
+		self.packetlist.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.packetlist.horizontalHeader().customContextMenuRequested.connect(self.onHeaderContextMenu)
+		self.packetlist.setSelectionBehavior(QAbstractItemView.SelectRows)
 		tabs.addTab(self.packetlist, "Raw Frames")
 
 		self.iplist = QTableWidget()
@@ -48,9 +64,27 @@ class PacketListWidget(QWidget):
 		for bbuf in lstObj.buffers:
 			self.addPacketToList(bbuf)
 
+	def onPacketlistContextMenu(self, point):
+		item = self.packetlist.itemAt(point)
+		ctx = QMenu("Context menu", self.packetlist)
+		if item != None:
+			bbuf = self.listObject.buffers[item.row()]
+			ctx.addAction("Item details", lambda: showData(bbuf))
+			ctx.addSeparator()
+		ctx.addAction("Select all", lambda: self.packetlist.selectAll())
+
+		ctx.exec(self.packetlist.viewport().mapToGlobal(point))
+	def onHeaderContextMenu(self, point):
+		item = self.packetlist.itemAt(point)
+		print(item)
+
+		ctx = QMenu("Context menu", self.packetlist)
+		ctx.addAction("Header")
+		ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
+
 	def onNewPacket(self):
 		print("onNewPacket")
-		for bbuf in lstObj.buffers[self.packetlist.rowCount():]:
+		for bbuf in self.listObject.buffers[self.packetlist.rowCount():]:
 			self.addPacketToList(bbuf)
 
 	def run_ndis(self):
@@ -60,8 +94,15 @@ class PacketListWidget(QWidget):
 		idx = self.packetlist.rowCount()
 		self.packetlist.insertRow(idx)
 		c = 0
+		#print(bbuf.ranges)
 		for k,v in bbuf.metadata.items():
-			self.packetlist.setItem(idx, c, QTableWidgetItem(v))
+			#print(k,v)
+			self.packetlist.setItem(idx, c, QTableWidgetItem(str(v)))
+			c += 1
+			if c > 10: break
+		for rr in bbuf.ranges:
+			#print(rr)
+			self.packetlist.setItem(idx, c, QTableWidgetItem(str(rr.metadata)))
 			c += 1
 			if c > 10: break
 
@@ -111,8 +152,8 @@ class ByteBufferWidget(QWidget):
 
 class DynamicDataWidget(QWidget):
 	
-	def __init__(self):
-		super().__init__()
+	def __init__(self, *args):
+		super().__init__(*args)
 		self.setLayout(QVBoxLayout())
 		self.layout().setContentsMargins(0,0,0,0)
 		self.childWidget = None

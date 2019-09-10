@@ -57,15 +57,23 @@ from pdml_helper import findTshark, convertPdmlToPacketList
 class TsharkPcapFileDataSource(DataSource):
 	
 	ConfigFields = [
-		("fileName", "File name", "text", {})
+		("fileName", "File name", "text", {}),
+		("displayFilter", "Display filter", "text", {}),
+		("decodeAs", "Decode as", "text", {})
 	]
 	def __init__(self, params):
 		super().__init__()
 		self.fileName = params["fileName"]
+		self.params = params
 	def startFetch(self):
 		plist = ByteBufferList()
 		tshark_exec = findTshark()
-		result = subprocess.run([tshark_exec, "-r", self.fileName, "-T", "pdml"], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		cmd = [tshark_exec, "-r", self.fileName, "-T", "pdml"]
+		if self.params["displayFilter"] != "":
+			cmd += ["-Y", self.params["displayFilter"]]
+		if self.params["decodeAs"] != "":
+			cmd += ["-d", self.params["decodeAs"]]
+		result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 		stderr = result.stderr.decode("utf8")
 		#try:
 		print(stderr)

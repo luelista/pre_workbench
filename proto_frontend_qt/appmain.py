@@ -15,16 +15,17 @@ Last edited: August 2017
 
 import sys, os
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout,\
-	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel
+	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
+	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel, QDockWidget
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QSize)
 
+from dockwindows import FileBrowserWidget
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
 from datasource import PcapFileDataSource, FileDataSource, LiveCaptureDataSource
 import configs
 from genericwidgets import ExpandWidget, SettingsGroup, printsizepolicy
-from datawidgets import DynamicDataWidget
+from datawidgets import DynamicDataWidget, PacketListWidget
 from hexview import HexView2
 from typeregistry import DataSourceTypes, WindowTypes
 
@@ -56,8 +57,11 @@ class ProtoFrontendMain(QMainWindow):
 		configs.setValue("ChildrenInfo", childrenInfo)
 		
 		
-	def initUI(self):               
-		
+	def initUI(self):
+		dw=QDockWidget()
+		dw.setWidget(FileBrowserWidget())
+		self.addDockWidget(Qt.RightDockWidgetArea, dw)
+
 		self.mdiArea = QMdiArea()
 		self.setCentralWidget(self.mdiArea)
 
@@ -164,11 +168,13 @@ class ObjectWindow(QWidget):
 		kw["name"] = name
 		kw["dataSourceType"] = dataSourceType
 		kw["collapseSettings"] = collapseSettings
-		self.params = kw
+		self.params = {}
+
 		self.dataSource = None
 		self.dataSourceType = ""
 		self.initUI(collapseSettings)
-		self.metaConfig.setValues(self.params)
+		self.setConfig(kw)
+
 
 	def saveParams(self):
 		self.params["collapseSettings"] = self.sourceConfig.parent().collapsed
@@ -185,12 +191,12 @@ class ObjectWindow(QWidget):
 		self.metaConfig = SettingsGroup([
 			("name", "Name", "text", {}),
 			("dataSourceType", "Data Source Type", "select", {"options":DataSourceTypes.getSelectList("DisplayName")}),
-		])
+		], self.params)
 		self.metaConfig.item_changed.connect(self.onConfigChanged)
 		#tb.addItem(self.metaConfig, "Metadata")
 		layout.addWidget(ExpandWidget("Metadata", self.metaConfig, collapseSettings))
 
-		self.sourceConfig = SettingsGroup([])
+		self.sourceConfig = SettingsGroup([], self.params)
 		self.sourceConfig.item_changed.connect(self.onConfigChanged)
 		#tb.addItem(self.sourceConfig, "Data Source Options")
 		layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
@@ -229,11 +235,12 @@ class ObjectWindow(QWidget):
 			#        self.loadDataSource()
 
 	def loadDataSource(self):
+		print("dst="+self.params["dataSourceType"])
 		if not self.params["dataSourceType"]: return
 		clz = DataSourceTypes.find(name=self.params["dataSourceType"])
 		if self.dataSourceType != self.params["dataSourceType"]:
+			print(clz, clz.ConfigFields)
 			self.sourceConfig.setFields(clz.ConfigFields)
-			self.sourceConfig.setValues(self.params)
 			self.dataSourceType = self.params["dataSourceType"]
 
 	def onFinished(self):

@@ -23,9 +23,9 @@ class ByteBuffer(QObject):
 
 	def setContent(self, buf):
 		if buf is None:
-			self.buffer = bytes()
+			self.buffer = bytearray()
 		else:
-			self.buffer = buf
+			self.buffer = bytearray(buf)
 		self.length = len(self.buffer)
 
 	def ensureCapacity(self, newLength):
@@ -44,36 +44,35 @@ class ByteBuffer(QObject):
 			self.ensureCapacity(offset + n)
 		else:
 			raise TypeError("newBytes must be of type 'bytes' or 'int'")
+		print(offset,n,meta,style)
 		if meta != None or style != None:
 			r = Range(offset, offset+n-1)
 			if meta != None: r.metadata = meta
 			if style != None: r.style = style
+			self.ranges.append(r)
+			if "name" in meta: self.fields[meta["name"]] = r
 
 
 	def getByte(self, i):
 		return self.buffer[i]
-	def getBytes(offset, length):
+	def getBytes(self,offset, length):
 		return self.buffer[i:i+length]
-	def getDecoded(offset, structUnpackFormat):
+	def getDecoded(self,offset, structUnpackFormat):
 		return struct.unpack_from(structUnpackFormat, self.buffer, offset)
 
-	def getAnnotationValues(self, i, annotationProperty):
-		if i >= self.length: return []
-
+	def getAnnotationValues(self, contains=None, start=None, annotationProperty=None):
 		# TODO check whether a more efficient algorithm needs to be used
 		values = []
 		for rr in self.ranges:
-			if rr.contains(i) and annotationProperty in rr.metadata:
+			if rr.matches(contains=contains, start=start, hasMetaKey=annotationProperty):
 				values.append(rr.metadata[annotationProperty])
 		return values
 
-	def getContainingRanges(self, i):
-		if i >= self.length: return []
-
+	def matchRanges(self, **match):
 		# TODO check whether a more efficient algorithm needs to be used
 		values = []
 		for rr in self.ranges:
-			if rr.contains(i):
+			if rr.matches(**match):
 				values.append(rr)
 		return values
 
@@ -102,8 +101,22 @@ class Range:
 		self.end = end
 		self.metadata = dict()
 		self.style = dict()
+
 	def contains(self, i):
 		return i >= self.start and i <= self.end
+	def matches(self, start=None, end=None, contains=None, hasMetaKey=None, hasStyleKey=None, overlaps=None, **kw):
+		if start != None and start != self.start: return False
+		if end != None and end != self.end: return False
+		if contains != None and not self.contains(contains): return False
+		if overlaps != None and not (self.contains(overlaps.start) or self.contains(overlaps.end) or overlaps.contains(self.start) or overlaps.contains(self.end)): return False
+		if hasMetaKey != None and not hasMetaKey in self.metadata: return False
+		if hasStyleKey != None and not hasStyleKey in self.style: return False
+		for k,v in kw.items():
+			if self.metadata.get(k) == v: continue
+			if self.style.get(k) == v: continue
+			return False
+		return True
+
 
 class ByteBufferList(QObject):
 	on_new_packet = pyqtSignal()

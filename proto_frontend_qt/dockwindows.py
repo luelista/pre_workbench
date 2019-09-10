@@ -17,6 +17,8 @@ class FileBrowserWidget(QWidget):
         self.tree.setAnimated(False)
         self.tree.setIndentation(20)
         self.tree.setSortingEnabled(True)
+        self.tree.sortByColumn(0, 0)
+        self.tree.setColumnWidth(0, 200)
 
         self.tree.setWindowTitle("Dir View")
         self.tree.resize(640, 480)

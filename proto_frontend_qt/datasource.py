@@ -1,5 +1,5 @@
 
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
+from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QProcess)
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
 
 from typeregistry import DataSourceTypes
@@ -24,12 +24,11 @@ class FileDataSource(DataSource):
 		self.fileName = params["fileName"]
 
 	def startFetch(self):
-		buf = ByteBuffer()
+		bbuf = ByteBuffer()
 		with open(self.fileName, "rb") as f:
-			buf.setContent(f.read())
-		#self.on_new_data.emit()
+			bbuf.setContent(f.read())
 		self.on_finished.emit()
-		return buf
+		return bbuf
 		
 	def cancelFetch(self):
 		# cancel reading file
@@ -44,52 +43,80 @@ class PcapFileDataSource(DataSource):
 	def __init__(self, params):
 		super().__init__()
 		self.fileName = params["fileName"]
+
 	def startFetch(self):
 		# start reading file
+		self.on_finished.emit()
 		pass
 	def cancelFetch(self):
 		# cancel reading file
 		pass
 	
 import subprocess
-from pdml_helper import findTshark, convertPdmlToPacketList
+from pdml_helper import findTshark, convertPdmlToPacketList, PdmlToPacketListParser
+
+class AbstractTsharkDataSource(DataSource):
+	def __init__(self, params):
+		super().__init__()
+		self.params = params
+
+	def startFetch(self):
+		plist = ByteBufferList()
+		self.process = QProcess()
+		self.process.finished.connect(self.onProcessFinished)
+		self.process.readyReadStandardError.connect(self.onReadyReadStderr)
+		self.process.readyReadStandardOutput.connect(self.onReadyReadStdout)
+
+		self.process.start(findTshark(), self.getArgs())
+		self.target=PdmlToPacketListParser(plist)
+		return plist
+
+	def onReadyReadStderr(self):
+		print("STD-ERR FROM Tshark:",self.process.readAllStandardError())
+	def onReadyReadStdout(self):
+		self.target.feed(self.process.readAllStandardOutput())
+
+	def onProcessFinished(self, exitCode, exitStatus):
+		self.on_finished.emit()
+
+	def cancelFetch(self):
+		self.process.kill()
+		pass
+
+
 @DataSourceTypes.register(DisplayName = "PCAP file via Tshark")
-class TsharkPcapFileDataSource(DataSource):
+class TsharkPcapFileDataSource(AbstractTsharkDataSource):
 	
 	ConfigFields = [
 		("fileName", "File name", "text", {}),
 		("displayFilter", "Display filter", "text", {}),
 		("decodeAs", "Decode as", "text", {})
 	]
-	def __init__(self, params):
-		super().__init__()
-		self.fileName = params["fileName"]
-		self.params = params
-	def startFetch(self):
-		plist = ByteBufferList()
-		tshark_exec = findTshark()
-		cmd = [tshark_exec, "-r", self.fileName, "-T", "pdml"]
+	def getArgs(self):
+		args = ["-r", self.params["fileName"], "-T", "pdml"]
 		if self.params["displayFilter"] != "":
-			cmd += ["-Y", self.params["displayFilter"]]
+			args += ["-Y", self.params["displayFilter"]]
 		if self.params["decodeAs"] != "":
-			cmd += ["-d", self.params["decodeAs"]]
-		result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-		stderr = result.stderr.decode("utf8")
-		#try:
-		print(stderr)
-		#print(result.stdout)
-		convertPdmlToPacketList(result.stdout, plist)
-		
-		#except Exception as eex:
-		#	convertedstdout = None
-		#	stderr+="\n\nconversion failed with exception: "+str(eex)
-		#	print(stderr)
+			args += ["-d", self.params["decodeAs"]]
+		return args
 
-		return plist
+@DataSourceTypes.register(DisplayName = "Live capture via Tshark")
+class TsharkLiveDataSource(AbstractTsharkDataSource):
 
-	def cancelFetch(self):
-		# cancel reading file
-		pass
+	ConfigFields = [
+		("interface", "Interface", "text", {}),
+		("displayFilter", "Display filter", "text", {}),
+		("decodeAs", "Decode as", "text", {}),
+		("tsharkBinary", "tshark Binary", "text", {"default":findTshark()}),
+	]
+	def getArgs(self):
+		args = ["-i", self.params["interface"], "-T", "pdml"]
+		if self.params["displayFilter"] != "":
+			args += ["-Y", self.params["displayFilter"]]
+		if self.params["decodeAs"] != "":
+			args += ["-d", self.params["decodeAs"]]
+		return args
+
 	
 
 @DataSourceTypes.register(DisplayName = "Live capture")
@@ -101,8 +128,10 @@ class LiveCaptureDataSource(DataSource):
 	def __init__(self, params):
 		super().__init__()
 		self.interface = params["interface"]
+
 	def startFetch(self):
 		# start the capture
+		self.on_finished.emit()
 		pass
 	def cancelFetch(self):
 		# cancel the capture

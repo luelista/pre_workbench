@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy
 from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QSize)
 
+from guihelper import setClipboardText
 from objects import ByteBuffer, Range
 from hexdump import hexdump
 from math import ceil, floor
@@ -59,7 +60,8 @@ class HexView2(QWidget):
 
 	def buildSelectionContextMenu(self):
 		ctx = QMenu("Context menu", self)
-		ctx.addAction("Copy selection hex", lambda: self.select(0, len(self.buffers[0])))
+		ctx.addAction("Copy selection hex", lambda: setClipboardText(self.buffers[0].toHex(self.selFirst(), self.selLength(), " ", "%02X")))
+		ctx.addAction("Copy selection C Array", lambda: setClipboardText(self.buffers[0].toHex(self.selFirst(), self.selLength(), ", ", "0x%02X")))
 		ctx.addAction("Selection %d-%d"%(self.selStart,self.selEnd))
 		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
 			ctx.addAction("Range %d-%d:" % (d.start, d.end), lambda d=d: self.selectRange(d))

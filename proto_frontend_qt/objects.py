@@ -1,3 +1,5 @@
+import binascii
+
 import hexdump, struct
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
 
@@ -44,7 +46,7 @@ class ByteBuffer(QObject):
 			self.ensureCapacity(offset + n)
 		else:
 			raise TypeError("newBytes must be of type 'bytes' or 'int'")
-		print(offset,n,meta,style)
+		#print(offset,n,meta,style)
 		if meta != None or style != None:
 			r = Range(offset, offset+n-1)
 			if meta != None: r.metadata = meta
@@ -56,9 +58,10 @@ class ByteBuffer(QObject):
 	def getByte(self, i):
 		return self.buffer[i]
 	def getBytes(self,offset, length):
-		return self.buffer[i:i+length]
+		return self.buffer[offset:offset+length]
 	def getDecoded(self,offset, structUnpackFormat):
 		return struct.unpack_from(structUnpackFormat, self.buffer, offset)
+
 
 	def getAnnotationValues(self, contains=None, start=None, annotationProperty=None):
 		# TODO check whether a more efficient algorithm needs to be used
@@ -92,8 +95,18 @@ class ByteBuffer(QObject):
 		for buf in bufs:
 			lst.add(ByteBuffer(buf))
 	
-	def toHexDump(self):
-		return hexdump.hexdump(self.buffer, result='return')
+	def toHexDump(self, offset=0, length=None):
+		if length==None:
+			b=self.buffer[offset:]
+		else:
+			b=self.buffer[offset:offset+length]
+		return hexdump.hexdump(b, result='return')
+	def toHex(self, offset=0, length=None, joiner="", format="%02x"):
+		if length==None:
+			b=self.buffer[offset:]
+		else:
+			b=self.buffer[offset:offset+length]
+		return joiner.join(format % c for c in b)
 
 class Range:
 	def __init__(self, start, end):
@@ -101,7 +114,8 @@ class Range:
 		self.end = end
 		self.metadata = dict()
 		self.style = dict()
-
+	def length(self):
+		return self.end - self.start + 1
 	def contains(self, i):
 		return i >= self.start and i <= self.end
 	def matches(self, start=None, end=None, contains=None, hasMetaKey=None, hasStyleKey=None, overlaps=None, **kw):
@@ -130,6 +144,13 @@ class ByteBufferList(QObject):
 		self.on_new_packet.emit()
 	def __len__(self):
 		return len(self.buffers)
+
+	def getAllKeys(self, metadataKeys=True, fieldKeys=True):
+		s = set()
+		for bbuf in self.buffers:
+			if metadataKeys: s.update(bbuf.metadata.keys())
+			if fieldKeys: s.update(bbuf.fields.keys())
+		return s
 	
 
 

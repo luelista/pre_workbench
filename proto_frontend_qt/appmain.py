@@ -14,6 +14,8 @@ Last edited: August 2017
 """
 
 import sys, os
+import traceback
+
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
 	QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
 	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel, QDockWidget
@@ -33,7 +35,6 @@ MRU_MAX = 5
 class ProtoFrontendMain(QMainWindow):
 	def __init__(self):
 		super().__init__()
-		
 		self.initUI()
 		self.restoreChildren()
 
@@ -41,9 +42,8 @@ class ProtoFrontendMain(QMainWindow):
 		for wndInfo in configs.getValue("ChildrenInfo", []):
 			clz = WindowTypes.find(name=wndInfo["clz"])
 			wnd = clz(**wndInfo["par"])
-			wnd.restoreGeometry(wndInfo["geo"])
-			self.mdiArea.addSubWindow(wnd)
-			wnd.show()
+			self.showChild(wnd)
+			wnd.parent().restoreGeometry(wndInfo["geo"])
 
 	def saveChildren(self):
 		childrenInfo = [
@@ -58,9 +58,16 @@ class ProtoFrontendMain(QMainWindow):
 		
 		
 	def initUI(self):
-		dw=QDockWidget()
+		dw=QDockWidget("File browser")
+		dw.setObjectName("FileBrowser")
 		dw.setWidget(FileBrowserWidget())
 		self.addDockWidget(Qt.RightDockWidgetArea, dw)
+
+		dw=QDockWidget("Zoom")
+		dw.setObjectName("Zoom")
+		self.zoom = DynamicDataWidget()
+		dw.setWidget(self.zoom)
+		self.addDockWidget(Qt.BottomDockWidgetArea, dw)
 
 		self.mdiArea = QMdiArea()
 		self.setCentralWidget(self.mdiArea)
@@ -103,7 +110,8 @@ class ProtoFrontendMain(QMainWindow):
 		
 		self.setGeometry(300, 300, 850, 850)
 		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
-		self.setWindowTitle('Main window')    
+		self.restoreState(configs.getValue("MainWindowState", b""), 123)
+		self.setWindowTitle('PRE Workbench')
 		self.show()
 
 	def onMruClicked(self):
@@ -120,14 +128,14 @@ class ProtoFrontendMain(QMainWindow):
 
 	def closeEvent(self, e):
 		configs.setValue("MainWindowGeometry", self.saveGeometry())
+		configs.setValue("MainWindowState", self.saveState(123))
 		self.saveChildren()
 		super().closeEvent(e)
 
 	def onFileNewWindowAction(self):
 		ow = ObjectWindow()
 		ow.setConfig({})
-		self.mdiArea.addSubWindow(ow)
-		ow.show()
+		self.showChild(ow)
 
 
 	def onFileOpenAction(self):
@@ -156,13 +164,22 @@ class ProtoFrontendMain(QMainWindow):
 			}
 		ow = ObjectWindow(collapseSettings=True)
 		ow.setConfig(meta)
-		self.mdiArea.addSubWindow(ow)
-		ow.show()
+		self.showChild(ow)
 		ow.reload()
+
+	def onZoom(self, data):
+		self.zoom.setContents(data)
+
+	def showChild(self, widget):
+		self.mdiArea.addSubWindow(widget)
+		widget.on_data_selected.connect(self.onZoom)
+		widget.show()
+
 
 
 @WindowTypes.register()
 class ObjectWindow(QWidget):
+	on_data_selected = pyqtSignal(QObject)
 	def __init__(self, name="Untitled", dataSourceType="", collapseSettings=False, **kw):
 		super().__init__()
 		kw["name"] = name
@@ -210,6 +227,7 @@ class ObjectWindow(QWidget):
 		layout.addWidget(toolbar)
 
 		self.dataDisplay = DynamicDataWidget()
+		self.dataDisplay.on_data_selected.connect(self.on_data_selected.emit)
 		#tb.addItem(self.dataDisplay, "Results")
 		#layout.addWidget(ExpandWidget("Results", self.dataDisplay))
 		layout.addWidget(self.dataDisplay)
@@ -257,8 +275,9 @@ class ObjectWindow(QWidget):
 			self.dataSource.on_finished.connect(self.onFinished)
 			result = self.dataSource.startFetch()
 			self.dataDisplay.setContents(result)
+
 		except Exception as e:
-			self.dataDisplay.setErrMes(str(e))
+			self.dataDisplay.setErrMes(traceback.format_exc())
 			self.cancelAction.setEnabled(False)
 
 @WindowTypes.register()

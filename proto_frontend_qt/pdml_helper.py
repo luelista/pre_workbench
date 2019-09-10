@@ -7,10 +7,13 @@ class PdmlToPacketListParser:
 		#self.interface = interface
 		self.destination = destPacketList
 		self.cur_proto = None
-		
+		self.parser=XMLParser(target=self)
+
+	def feed(self, data):
+		self.parser.feed(data)
 		
 	def start(self,tag,attrib):
-		print("start",tag,attrib)
+		#print("start",tag,attrib)
 		if tag == "pdml":
 			self.destination.metadata.update(attrib)
 			return
@@ -22,7 +25,7 @@ class PdmlToPacketListParser:
 		if tag == "proto":
 			self.cur_proto = attrib["name"]
 			#self.next_packet.setBytes(int(attrib['pos']), int(attrib["size"]), {"section":}, None)
-			print(attrib)
+			#print(attrib)
 			if "showname" in attrib: attrib["section"] = attrib["showname"]
 
 		if self.cur_proto == "geninfo": # ignore all geninfo fields, they contain mostly bullshit

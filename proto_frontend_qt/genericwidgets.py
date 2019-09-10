@@ -1,9 +1,24 @@
 
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-	QFileDialog, QTabWidget, QFrame, QWidget, QToolBar, QVBoxLayout,\
-	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy
+	QFileDialog, QTabWidget, QFrame, QWidget, QToolBar, QVBoxLayout, \
+	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
+	QDialogButtonBox, QCompleter
 from PyQt5.QtGui import QIcon, QPalette
-from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject)
+from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QStringListModel)
+
+def showSettingsDlg(definition, values=None):
+	if values == None: values = {}
+	dlg = QDialog()
+	dlg.setLayout(QVBoxLayout())
+	sg = SettingsGroup(definition, values)
+	dlg.layout().addWidget(sg)
+	btn = QDialogButtonBox()
+	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+	btn.clicked.connect(dlg.accept)
+	btn.rejected.connect(dlg.reject)
+	dlg.layout().addWidget(btn)
+	if dlg.exec() == QDialog.Rejected: return None
+	return values
 
 
 class SettingsGroup(QFrame):
@@ -21,17 +36,23 @@ class SettingsGroup(QFrame):
 		for i in reversed(range(self.layout.count())): 
 			self.layout.itemAt(i).widget().deleteLater()
 		for fieldId, title, fieldtype, params in definition:
+			empty=""
 			if fieldtype == "text":
 				field = QLineEdit()
 				field.textChanged.connect(self.textChanged)
+				if "autocomplete" in params:
+					field.setCompleter(QCompleter(QStringListModel(list(params["autocomplete"]), field), field))
+
 			elif fieldtype == "select":
 				field = QComboBox()
 				for value, text in params["options"]:
 					field.addItem(text, value)
 				field.activated.connect(self.selectChanged)
+				empty = params["options"][0][0]
 			elif fieldtype == "check":
 				field = QCheckBox()
 				field.stateChanged.connect(self.checkChanged)
+				empty = "False"
 			field.setObjectName(fieldId)
 			self.layout.addRow(title, field)
 			if fieldId in self.values:
@@ -40,7 +61,7 @@ class SettingsGroup(QFrame):
 				self.values[fieldId] = params["default"]
 				self.updateField(fieldId)
 			else:
-				self.values[fieldId] = ""
+				self.values[fieldId] = empty
 
 	@pyqtSlot(str)
 	def textChanged(self, newText):

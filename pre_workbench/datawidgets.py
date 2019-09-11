@@ -118,6 +118,9 @@ class PacketListModel(QAbstractItemModel):
         self.endRemoveColumns()
         return True
 
+    def parent(self, child: QModelIndex) -> QModelIndex:
+        return QModelIndex()
+
 @DataWidgetTypes.register(handles=ByteBufferList)
 class PacketListWidget(QWidget):
     on_data_selected = pyqtSignal(QObject)

@@ -1,6 +1,8 @@
 import struct
 from collections import namedtuple
 
+from typeregistry import TypeRegistry
+
 
 class parse_exception(Exception):
 	def __init__(self, context, msg):
@@ -23,10 +25,19 @@ class value_not_found(parse_exception):
 
 
 class ParseContext:
-	def __init__(self):
+	def __init__(self, buf=None):
 		self.stack = list()
 		self.id = ""
-		self.offset = 0
+		self.buf_offset = 0
+		self.display_offset_delta = 0
+		self.buf = bytes()
+		if buf != None:
+			self.feed_bytes(buf)
+
+	def feed_bytes(self, data):
+		self.buf = self.buf[self.buf_offset:] + data
+		self.display_offset_delta += self.buf_offset
+		self.buf_offset = 0
 
 	def get_param(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack)-1, -1, -1):
@@ -60,13 +71,38 @@ class ParseContext:
 			return self.get_value(id)
 
 	def push(self, desc, value):
-		self.stack.append((desc, value, self.id))
+		self.stack.append((desc, value, self.id, self.buf_offset))
+
+	def restore_offset(self):
+		self.buf_offset = self.stack[-1][3]
 
 	def pop(self):
-		_, _, self.id = self.stack.pop()
+		_, _, self.id, _ = self.stack.pop()
 
 	def get_path(self):
 		return ".".join(x[2] for x in self.stack)
+
+	def remaining_bytes(self):
+		return len(self.buf) - self.buf_offset
+
+	def require_bytes(self, needed):
+		if self.remaining_bytes() < needed: raise incomplete(self, needed, self.remaining_bytes())
+
+	def peek_structformat(self, format_string):
+		return struct.unpack_from(format_string, self.buf, self.buf_offset)
+
+	def consume_bytes(self, count):
+		self.buf_offset += count
+
+	def read_bytes(self, count):
+		self.buf_offset += count
+		return self.buf[self.buf_offset - count:self.buf_offset]
+
+	def top_offset(self):
+		return self.stack[-1][3] + self.display_offset_delta
+
+	def top_length(self):
+		return self.buf_offset - self.stack[-1][3] + self.display_offset_delta
 
 	def pack_value(self, value):
 		return value
@@ -76,13 +112,28 @@ class ParseContext:
 
 class LoggingParseContext(ParseContext):
 	def pack_value(self, value):
-		print(self.get_path(), value)
+		print(type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
 		return value
+
+class BytebufferAnnotatingParseContext(ParseContext):
+	def __init__(self, bbuf):
+		super().__init__(bbuf.buffer)
+		self.bbuf = bbuf
+
+	def pack_value(self, value):
+		print(type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
+		meta = { 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0] }
+		meta.update(self.stack[-1][0].params)
+		self.bbuf.setBytes(self.top_offset(), self.top_length(), meta=meta, style=None)
+		return value
+
+def annotate_byte_buffer(bbuf, structDef):
+	return structDef.read_from_buffer(BytebufferAnnotatingParseContext(bbuf))
 
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
 		print(self.get_path(), value)
-		return DescValue(value, self.stack[-1][0], self.stack[-1][2])
+		return FIValue(value, self.stack[-1][0], self.stack[-1][2], self.top_offset(), self.top_length())
 
 	def unpack_value(self, packed_value):
 		return packed_value.value
@@ -95,11 +146,13 @@ def splitdot(expr):
 	except ValueError:
 		return expr, ""
 
-class DescValue:
-	def __init__(self, value, source_desc, field_name):
+class FIValue:
+	def __init__(self, value, source_desc, field_name, bytes_offset, bytes_size):
 		self.value=value
 		self.source_desc=source_desc
 		self.field_name=field_name
+		self.bytes_offset = bytes_offset
+		self.bytes_size = bytes_size
 
 
 def traverse_object(el, id):
@@ -112,85 +165,103 @@ def traverse_object(el, id):
 	else:
 		raise KeyError("can't descend into "+str(type(el)))
 
-class AbstractDesc:
+FITypes = TypeRegistry()
+
+def deserialize_fi(params):
+	if type(params) == dict:
+		t = FITypes.find(id=params['tid'])
+		return t(**params)
+	else:
+		return params
+
+class AbstractFI:
 	def __init__(self, **params):
 		self.params = params
 		self.init(**params)
+	def serialize(self):
+		self.params['tid'] = type(self)._type_registry_meta['id']
+		return self.params
 
-def require_bytes(context, buf, needed):
-	if len(buf) < needed: raise incomplete(context, needed, len(buf))
-
-
-class FixedFieldDesc(AbstractDesc):
-	def init(self, format, description="", magic=None, **kw):
+@FITypes.register(id=0)
+class FixedFieldFI(AbstractFI):
+	def init(self, format, magic=None, **kw):
 		self.pack_format=format
-		self.description=description
 		self.magic_value=magic
 		self.size = struct.calcsize(format)
 
-	def read_from_buffer(self, buf, context):
+	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
-			require_bytes(context, buf, self.size)
-			(value,), rest = struct.unpack_from(context.get_param("endianness") + self.pack_format, buf, 0), buf[self.size:]
+			context.require_bytes(self.size)
+			(value,) = context.peek_structformat(context.get_param("endianness") + self.pack_format)
 			if self.magic_value != None and value != self.magic_value:
 				raise invalid(context, "found magic_value %r doesn't match spec %r" % (value, self.magic_value))
-			return context.pack_value(value), rest
+			context.consume_bytes(self.size)
+			return context.pack_value(value)
+		except:
+			context.restore_offset()
+			raise
 		finally:
 			context.pop()
 
 
-class VarByteFieldDesc(AbstractDesc):
-	def init(self, size_expr="", description="", **kw):
+@FITypes.register(id=1)
+class VarByteFieldFI(AbstractFI):
+	def init(self, size_expr="", **kw):
 		self.pack_format=format
 		self.size_expr=size_expr
-		self.description=description
 
-	def read_from_buffer(self, buf, context):
+	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
 			n = context.eval(self.size_expr)
-			require_bytes(context, buf, n)
-			return buf[:n], buf[n:]
+			context.require_bytes(n)
+			return context.read_bytes(n)
+		except:
+			context.restore_offset()
+			raise
 		finally:
 			context.pop()
 
 
-class StructDesc(AbstractDesc):
+@FITypes.register(id=2)
+class StructFI(AbstractFI):
 	def init(self, children, **kw):
-		self.children = children
+		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
 		try:
-			self.size = sum(c.size for c in self.children)
+			self.size = sum(c.size for (name, c) in self.children)
 		except:
 			self.size = None
 
-	def read_from_buffer(self, buf, context):
+	def read_from_buffer(self, context):
 		try:
 			o = {}
 			context.push(self, o)
-			rest = buf
 			for name, child in self.children:
 				context.id = name
-				o[name], rest = child.read_from_buffer(rest, context)
-			return context.pack_value(o), rest
+				o[name] = child.read_from_buffer(context)
+			return context.pack_value(o)
+		except:
+			context.restore_offset()
+			raise
 		finally:
 			context.pop()
 
 
-class VariantStructDesc(AbstractDesc):
+@FITypes.register(id=3)
+class VariantStructFI(AbstractFI):
 	def init(self, variants, **kw):
-		self.variants = variants
+		self.variants = [deserialize_fi(c) for c in variants]
 		self.size = None
 
 
-	def read_from_buffer(self, buf, context):
+	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
 			for i, variant in enumerate(self.variants):
 				try:
 					context.id = str(i)
-					o, rest = variant.read_from_buffer(buf, context)
-					return context.pack_value(o), rest
+					return context.pack_value(variant.read_from_buffer(context))
 				#except (incomplete, invalid):
 				except invalid as ex:
 					#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
@@ -198,29 +269,31 @@ class VariantStructDesc(AbstractDesc):
 					print("variant %d no match: %r"%(i, ex))
 					pass
 			raise invalid(context, "no variant matched")
+		except:
+			context.restore_offset()
+			raise
 		finally:
 			context.pop()
 
 
 
-class RepeatStructDesc(AbstractDesc):
+@FITypes.register(id=4)
+class RepeatStructFI(AbstractFI):
 	def init(self, child, times=-1, **kw):
-		self.child = child
+		self.child = deserialize_fi(child)
 		self.times = times
 		self.size = None
 
-	def read_from_buffer(self, buf, context):
+	def read_from_buffer(self, context):
 		try:
 			o = []
 			context.push(self, o)
-			rest = buf
 			if self.times == "*":
 				i = 0
 				while True:
 					try:
 						context.id = str(i)
-						data, rest = self.child.read_from_buffer(rest, context)
-						o.append(data)
+						o.append(self.child.read_from_buffer(context))
 					except incomplete:
 						break
 					i += 1
@@ -228,16 +301,18 @@ class RepeatStructDesc(AbstractDesc):
 				n = context.eval(self.times)
 				for i in range(n):
 					context.id = str(i)
-					data, rest = self.child.read_from_buffer(rest, context)
-					o.append(data)
-			return context.pack_value(o), rest
+					o.append(self.child.read_from_buffer(context))
+			return context.pack_value(o)
+		except:
+			context.restore_offset()
+			raise
 		finally:
 			context.pop()
 
 
 
 """
-class FixedStructDesc(AbstractDesc):
+class FixedStructFI(AbstractFI):
 	def init(self, fields, default_endianness="!", **kw):
 		self.fields = fields
 		self.default_endianness = default_endianness

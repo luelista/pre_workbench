@@ -1,4 +1,4 @@
-from PyQt5 import Qt
+from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
@@ -89,7 +89,7 @@ class SettingsGroup(QFrame):
 
 	@pyqtSlot(int)
 	def checkChanged(self, newState):
-		self.onFieldChanged(True if newState == Qt.Checked else False)
+		self.onFieldChanged(True if newState == QtCore.Qt.Checked else False)
 
 	def onFieldChanged(self, value):
 		fieldId = self.sender().objectName()
@@ -225,13 +225,13 @@ class JsonView(QTreeWidget):
 
 
 	def keyPressEvent(self, event: QKeyEvent) -> None:
-		if event.key() == Qt.Key_F and event.modifiers() == Qt.CTRL:
+		if event.key() == QtCore.Qt.Key_F and event.modifiers() == QtCore.Qt.CTRL:
 			str = QInputDialog.getText(self, "Find", "Find string:", text=self.find_str)
 			if str is not None:
 				self.find_next(str)
-		if event.key() == Qt.Key_F3:
+		if event.key() == QtCore.Qt.Key_F3:
 			self.find_next(self.find_str)
-		if event.key() == Qt.Key_F5:
+		if event.key() == QtCore.Qt.Key_F5:
 			self.setContents(self.contents)
 
 	def find_next(self, find_str):

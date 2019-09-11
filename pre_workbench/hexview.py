@@ -4,16 +4,19 @@
 
 
 import sys
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy
-from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap, QFontMetrics
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QSize)
+from math import ceil, floor
+
+from PyQt5.QtCore import (Qt, QSize)
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog
 
 import configs
+import structinfo
+import xdrm
 from genericwidgets import showSettingsDlg
 from guihelper import setClipboardText
 from objects import ByteBuffer, Range
-from hexdump import hexdump
-from math import ceil, floor
+
 
 class HexView2(QWidget):
 	SettingsDefinition = [
@@ -140,9 +143,20 @@ class HexView2(QWidget):
 	def buildGeneralContextMenu(self):
 		ctx = QMenu("Context menu", self)
 		ctx.addAction("Select all", lambda: self.select(0, len(self.buffers[0])))
-		ctx.addAction("Options", self.showParamDialog)
+		ctx.addAction("Options ...", self.showParamDialog)
+		ctx.addAction("Apply format info ...", self.chooseAndApplyFormatInfo)
 		return ctx
 
+	def chooseAndApplyFormatInfo(self):
+		fileName, _ = QFileDialog.getOpenFileName(self,"Apply format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.prewbfi)")
+		if fileName:
+			configs.setValue(self.paramConfigName+"_lastOpenFile", fileName)
+			with open(fileName, "rb") as f:
+				fi = structinfo.deserialize_fi(xdrm.loads(f.read()))
+				self.applyFormatInfo(fi)
+
+	def applyFormatInfo(self, info):
+		structinfo.annotate_byte_buffer(self, info)
 
 	def wheelEvent(self, e):
 		if e.pixelDelta().isNull():

@@ -5,7 +5,7 @@ from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QProcess)
 
 import structinfo
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
-from structinfo import FixedFieldDesc, StructDesc, VariantStructDesc
+from structinfo import FixedFieldFI, StructFI, VariantStructFI
 from typeregistry import TypeRegistry
 
 DataSourceTypes = TypeRegistry()
@@ -50,7 +50,7 @@ class PcapFileDataSource(DataSource):
 		]
 	def startFetch(self):
 		with open(self.params['fileName'], "rb") as f:
-			pcapfile, rest = PcapFile.read_from_buffer(f.read(), structinfo.LoggingParseContext())
+			pcapfile = PcapFile.read_from_buffer(structinfo.LoggingParseContext(f.read()))
 			plist = ByteBufferList()
 			plist.metadata.update(pcapfile['file_header'])
 			for packet in pcapfile['packets']:
@@ -145,8 +145,7 @@ class LivePcapCaptureDataSource(DataSource):
 		]
 	def startFetch(self):
 		self.plist = ByteBufferList()
-		self.buf = bytes()
-		self.packetDesc = None
+		self.packetFI = None
 		self.ctx = structinfo.ParseContext()
 		self.process = QProcess()
 		self.process.finished.connect(self.onProcessFinished)
@@ -158,10 +157,10 @@ class LivePcapCaptureDataSource(DataSource):
 		return self.plist
 
 	def tryParseHeader(self):
-		for headerDesc, packetDesc in PcapVariants:
+		for headerFI, packetFI in PcapVariants:
 			try:
-				header, self.buf = headerDesc.read_from_buffer(self.buf, self.ctx)
-				self.packetDesc = packetDesc
+				header = headerFI.read_from_buffer(self.ctx)
+				self.packetFI = packetFI
 				self.plist.metadata.update(header)
 				return
 			except structinfo.invalid as ex:
@@ -173,12 +172,12 @@ class LivePcapCaptureDataSource(DataSource):
 	def onReadyReadStderr(self):
 		self.on_log.emit("STD-ERR:"+self.process.readAllStandardError().data().decode("utf-8", "replace"))
 	def onReadyReadStdout(self):
-		self.buf += self.process.readAllStandardOutput()
+		self.ctx.feed_bytes(self.process.readAllStandardOutput())
 		try:
-			if self.packetDesc == None:
+			if self.packetFI == None:
 				self.tryParseHeader()
 			while True:
-				packet, self.buf = self.packetDesc.read_from_buffer(self.buf, self.ctx)
+				packet = self.packetFI.read_from_buffer(self.ctx)
 				self.plist.add(ByteBuffer(packet['payload'], metadata=packet['header']))
 		except structinfo.incomplete:
 			return
@@ -196,34 +195,34 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 		pass
 
-PcapHeader = StructDesc(children=[
-	("magic_number",  FixedFieldDesc(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
-	("version_major", FixedFieldDesc(format="H", 	description="major number of the file format")),
-	("version_minor", FixedFieldDesc(format="H", 	description="minor number of the file format")),
-	("thiszone", 	  FixedFieldDesc(format="i", 	description="correction time in seconds from UTC to local time (0)")),
-	("sigfigs", 	  FixedFieldDesc(format="I", 	description="accuracy of time stamps in the capture (0)")),
-	("snaplen", 	  FixedFieldDesc(format="I", 	description="max length of captured packed (65535)")),
-	("network", 	  FixedFieldDesc(format="I", 	description="type of data link (1 = ethernet)")),
+PcapHeader = StructFI(children=[
+	("magic_number",  FixedFieldFI(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
+	("version_major", FixedFieldFI(format="H", 	description="major number of the file format")),
+	("version_minor", FixedFieldFI(format="H", 	description="minor number of the file format")),
+	("thiszone", 	  FixedFieldFI(format="i", 	description="correction time in seconds from UTC to local time (0)")),
+	("sigfigs", 	  FixedFieldFI(format="I", 	description="accuracy of time stamps in the capture (0)")),
+	("snaplen", 	  FixedFieldFI(format="I", 	description="max length of captured packed (65535)")),
+	("network", 	  FixedFieldFI(format="I", 	description="type of data link (1 = ethernet)")),
 ])
-PcapPacket = StructDesc(children=[
-	("header", StructDesc(children=[
-		("ts_sec", 		FixedFieldDesc(format="I",  description="timestamp seconds")),
-		("ts_usec", 	FixedFieldDesc(format="I",  description="timestamp microseconds")),
-		("incl_len", 	FixedFieldDesc(format="I",  description="number of octets of packet saved in file")),
-		("orig_len", 	FixedFieldDesc(format="I",  description="actual length of packet")),
+PcapPacket = StructFI(children=[
+	("header", StructFI(children=[
+		("ts_sec", 		FixedFieldFI(format="I",  description="timestamp seconds")),
+		("ts_usec", 	FixedFieldFI(format="I",  description="timestamp microseconds")),
+		("incl_len", 	FixedFieldFI(format="I",  description="number of octets of packet saved in file")),
+		("orig_len", 	FixedFieldFI(format="I",  description="actual length of packet")),
 	])),
-	("payload", 	structinfo.VarByteFieldDesc(size_expr="header.incl_len")),
+	("payload", 	structinfo.VarByteFieldFI(size_expr="header.incl_len")),
 ])
 PcapVariants = [
-	(VariantStructDesc(variants=[PcapHeader], endianness="<"), VariantStructDesc(variants=[PcapPacket], endianness="<")),
-	(VariantStructDesc(variants=[PcapHeader], endianness=">"), VariantStructDesc(variants=[PcapPacket], endianness=">")),
+	(VariantStructFI(variants=[PcapHeader], endianness="<"), VariantStructFI(variants=[PcapPacket], endianness="<")),
+	(VariantStructFI(variants=[PcapHeader], endianness=">"), VariantStructFI(variants=[PcapPacket], endianness=">")),
 	]
-PcapFile = VariantStructDesc(variants=[
-	StructDesc(children=[
-		("file_header", headerDesc),
-		("packets", structinfo.RepeatStructDesc(child=packetDesc, times="*")),
+PcapFile = VariantStructFI(variants=[
+	StructFI(children=[
+		("file_header", headerFI),
+		("packets", structinfo.RepeatStructFI(child=packetFI, times="*")),
 	])
-	for (headerDesc, packetDesc) in PcapVariants
+	for (headerFI, packetFI) in PcapVariants
 ])
 
 """

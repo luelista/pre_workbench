@@ -6,6 +6,7 @@ class TypeRegistry:
 		def wrapper(typ):
 			meta["name"] = typ.__name__
 			self.types.append([typ, meta])
+			typ._type_registry_meta = meta
 			return typ
 		return wrapper
 	def find(self, **checkForMeta):

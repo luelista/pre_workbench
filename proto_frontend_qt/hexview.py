@@ -14,7 +14,7 @@ from hexdump import hexdump
 from math import ceil, floor
 
 class HexView2(QWidget):
-	def __init__(self):
+	def __init__(self, byteBuffer=None):
 		super().__init__()
 		self.firstLine = 0
 		self.scrollY = 0
@@ -41,7 +41,10 @@ class HexView2(QWidget):
 		self.selecting = False
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
-		self.showHex(bytes())
+		if byteBuffer == None:
+			self.showHex(bytes())
+		else:
+			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 	
@@ -62,11 +65,14 @@ class HexView2(QWidget):
 		ctx = QMenu("Context menu", self)
 		ctx.addAction("Copy selection hex", lambda: setClipboardText(self.buffers[0].toHex(self.selFirst(), self.selLength(), " ", "%02X")))
 		ctx.addAction("Copy selection C Array", lambda: setClipboardText(self.buffers[0].toHex(self.selFirst(), self.selLength(), ", ", "0x%02X")))
+		ctx.addSeparator()
 		ctx.addAction("Selection %d-%d"%(self.selStart,self.selEnd))
+		ctx.addSeparator()
 		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
-			ctx.addAction("Range %d-%d:" % (d.start, d.end), lambda d=d: self.selectRange(d))
+			ctx.addAction("Range %d-%d (%s): %s" % (d.start, d.end, d.metadata.get("name"), d.metadata.get("showname")), lambda d=d: self.selectRange(d))
 			for k,v in d.metadata.items():
-				ctx.addAction("    %s=%s" % (k,v))
+				if k != "name" and k != "showname":
+					ctx.addAction("    %s=%s" % (k,v))
 		return ctx
 	def buildGeneralContextMenu(self):
 		ctx = QMenu("Context menu", self)
@@ -123,8 +129,6 @@ class HexView2(QWidget):
 		#abuf = ByteBuffer();
 		#abuf.setBytes(0, buf, undefined, undefined);
 		abuf = ByteBuffer(buf)
-		print("showHex\n")
-		hexdump(buf)
 		self.buffers = [ abuf ];
 		self.firstLine = 0;
 		self.redraw();

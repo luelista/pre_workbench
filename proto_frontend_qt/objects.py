@@ -39,8 +39,9 @@ class ByteBuffer(QObject):
 		if type(newBytes) == bytes:
 			n = len(newBytes)
 			self.ensureCapacity(offset + n)
-			for i in range(n):
-				self.buffer[offset + i] = newBytes[i]
+			#for i in range(n):
+			#	self.buffer[offset + i] = newBytes[i]
+			self.buffer[offset:offset+n] = newBytes
 		elif type(newBytes) == int:
 			n = newBytes
 			self.ensureCapacity(offset + n)
@@ -133,15 +134,26 @@ class Range:
 
 
 class ByteBufferList(QObject):
-	on_new_packet = pyqtSignal()
+	on_new_packet = pyqtSignal(int)
 	
 	def __init__(self):
 		super().__init__()
 		self.metadata = dict()
 		self.buffers = list()
+		self.updating = None
 	def add(self, bbuf):
 		self.buffers.append(bbuf)
-		self.on_new_packet.emit()
+		if self.updating is None:
+			self.on_new_packet.emit(1)
+		else:
+			self.updating += 1
+	def beginUpdate(self):
+		if self.updating is not None: raise AssertionError("endUpdate called while in update")
+		self.updating = 0
+	def endUpdate(self):
+		if self.updating is None: raise AssertionError("endUpdate called while not in update")
+		self.on_new_packet.emit(self.updating)
+		self.updating = None
 	def __len__(self):
 		return len(self.buffers)
 

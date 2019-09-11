@@ -1,3 +1,5 @@
+import re
+import subprocess
 from xml.etree.ElementTree import XMLParser
 import binascii, os, shutil
 from objects import ByteBuffer
@@ -79,3 +81,11 @@ def findTshark():
 		if path == None:
 			raise FileNotFoundError("tshark executable not found. please install wireshark and place tshark in path")
 		return path
+def parseInterfaceLine(s):
+	match = re.match(r"\d+\. ((\w+)( \(.*\))?)", s)
+	return (match.group(2) ,match.group(1))
+def findInterfaces():
+	return [parseInterfaceLine(s) for s in subprocess.check_output([findTshark(), "-D"]).decode("utf-8").split("\n") if ". " in s]
+
+if __name__=="__main__":
+	print(findInterfaces())

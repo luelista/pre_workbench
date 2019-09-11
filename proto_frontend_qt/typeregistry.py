@@ -23,5 +23,4 @@ class TypeRegistry:
 
 
 WindowTypes = TypeRegistry()
-DataSourceTypes = TypeRegistry()
 DataWidgetTypes = TypeRegistry()

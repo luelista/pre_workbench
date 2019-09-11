@@ -1,18 +1,15 @@
 import cgi
 
-from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-    QFileDialog, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
-    QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QLabel, QTableWidgetItem, QMenu, \
-    QAbstractItemView, QDialog, qApp, QTableView
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QSize, QAbstractItemModel, QModelIndex)
+from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex)
+from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
+    QTableWidgetItem, QMenu, \
+    QAbstractItemView, QTableView
 
-from objects import ByteBuffer, ByteBufferList, ReloadRequired
-from datasource import PcapFileDataSource, FileDataSource, LiveCaptureDataSource
-import configs
-from genericwidgets import ExpandWidget, SettingsGroup, printsizepolicy, showSettingsDlg
+from genericwidgets import ExpandWidget, showSettingsDlg, JsonView
 from hexview import HexView2
+from objects import ByteBuffer, ByteBufferList
 from typeregistry import DataWidgetTypes
+
 
 class ColumnInfo:
     def __init__(self, title, key=None, src="field", show="show"):
@@ -42,20 +39,30 @@ class ColumnInfo:
 
 
 class PacketListModel(QAbstractItemModel):
-    def __init__(self, plist, parent=None):
+    def __init__(self, plist=None, parent=None):
         super().__init__(parent)
-        self.listObject = plist
-        plist.on_new_packet.connect(self.onNewPacket)
         self.columns = [ColumnInfo("frame.time", src="meta"), ColumnInfo("frame.len", src="meta"), ColumnInfo("frame.number", src="meta"), ColumnInfo("frame.protocols", src="meta"),
                         ColumnInfo("eth.src"), ColumnInfo("eth.dst"), ColumnInfo("eth.type"),
                         ColumnInfo("ip.src"), ColumnInfo("ip.dst"), ColumnInfo("ip.proto"),
                         ColumnInfo("Payload", key="tcp.payload", show="hex")]
+        self.listObject = None
+        self.setList(plist)
         #self.rootItem = TreeItem(("Model", "Status","Location"))
 
-    def onNewPacket(self):
-        idx = len(self.listObject) - 1
-        print("onNewPacket",idx)
-        self.beginInsertRows(QModelIndex(), idx, idx)
+    def setList(self, plist):
+        self.beginResetModel()
+        if self.listObject is not None:
+            self.listObject.on_new_packet.disconnect(self.onNewPacket)
+        self.listObject = plist
+        if self.listObject is not None:
+            self.listObject.on_new_packet.connect(self.onNewPacket)
+        self.endResetModel()
+
+    def onNewPacket(self, count):
+        if count < 1: return
+        idx = len(self.listObject)
+        print("onNewPacket",idx,count)
+        self.beginInsertRows(QModelIndex(), idx - count, idx - 1)
         self.endInsertRows()
 
     def columnCount(self, parent):
@@ -66,6 +73,9 @@ class PacketListModel(QAbstractItemModel):
             return None
 
         if role != Qt.DisplayRole:
+            return None
+
+        if self.listObject is None:
             return None
 
         item = self.listObject.buffers[index.row()]
@@ -93,6 +103,7 @@ class PacketListModel(QAbstractItemModel):
         return self.createIndex(row, column)
 
     def rowCount(self, parent):
+        if self.listObject is None: return 0
         return len(self.listObject)
 
     def addColumn(self, colInfo, insertBefore=None):
@@ -138,6 +149,11 @@ class PacketListWidget(QWidget):
         self.packetlist.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
         self.packetlist.horizontalHeader().customContextMenuRequested.connect(self.onHeaderContextMenu)
         self.packetlist.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.packetlistmodel = PacketListModel()
+        self.packetlistmodel.rowsInserted.connect(lambda a,b,c: tabs.setTabText(0, "Raw Frames (%d)"%self.packetlistmodel.rowCount(QModelIndex())))
+        self.packetlist.setModel(self.packetlistmodel)
+        self.packetlist.selectionModel().selectionChanged.connect(self.onPacketlistSelectionChanged)
+        self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
         tabs.addTab(self.packetlist, "Raw Frames")
 
         self.iplist = QTableWidget()
@@ -151,21 +167,17 @@ class PacketListWidget(QWidget):
 
     def setContents(self, lstObj):
         self.listObject = lstObj
-        print("setContents", lstObj, len(lstObj))
+        print("PacketListWidget::setContents", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
         #for bbuf in lstObj.buffers:
         #    self.addPacketToList(bbuf)
-        self.packetlistmodel = PacketListModel(self.listObject)
-        self.packetlist.setModel(self.packetlistmodel)
-        self.packetlist.selectionModel().selectionChanged.connect(self.onPacketlistSelectionChanged)
-        self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
+        self.packetlistmodel.setList(self.listObject)
 
     def onPacketlistSelectionChanged(self, selected, deselected):
         pass
     def onPacketlistCurrentChanged(self, current, previous):
         if current.isValid():
             bbuf = self.listObject.buffers[current.row()]
-            print("currentChanged",bbuf)
             self.on_data_selected.emit(bbuf)
 
     def onPacketlistContextMenu(self, point):
@@ -281,13 +293,19 @@ class DynamicDataWidget(QWidget):
         super().__init__(*args)
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0,0,0,0)
+        self.metadataWidget = JsonView()
+        self.layout().addWidget(ExpandWidget("Metadata", self.metadataWidget, True), 33)
         self.childWidget = None
-        self.setErrMes("No data loaded")
+        self.setErrMes(title="No data loaded")
     def setContents(self, data):
         typ = type(data)
         if data is None:
             self.setErrMes("Data is 'None'")
         else:
+            if hasattr(data, "metadata"):
+                self.metadataWidget.setContents(data.metadata)
+            else:
+                self.metadataWidget.setContents(None)
             widgetTyp = DataWidgetTypes.find(handles=typ)
             if widgetTyp == None:
                 self.setErrMes("Unknown data type "+str(typ))
@@ -295,20 +313,22 @@ class DynamicDataWidget(QWidget):
                 self.loadChildType(widgetTyp)
                 self.childWidget.setContents(data)
 
-    def setErrMes(self, msg):
+    def setErrMes(self, msg="", title="Error"):
         self.loadChildType(QTextEdit)
-        self.childWidget.setHtml("<h4>Error</h4><pre>"+cgi.escape(msg)+"</pre>")
+        self.childWidget.setHtml("<h4>"+title+"</h4><pre>"+cgi.escape(msg)+"</pre>")
 
     def onDataSelected(self, data):
         self.on_data_selected.emit(data)
 
     def loadChildType(self, childType):
+        if isinstance(self.childWidget, childType): return
         if self.childWidget != None:
             self.layout().removeWidget(self.childWidget)
             self.childWidget.setParent(None)
+        self.childWidget = None  #neccessary, so if the next line throws, the error message will be shown
         self.childWidget = childType()
         try:
             self.childWidget.on_data_selected.connect(self.onDataSelected)
         except:
             print(str(childType)+" has no on_data_selected signal")
-        self.layout().addWidget(self.childWidget)
+        self.layout().addWidget(self.childWidget,66)

@@ -1,7 +1,9 @@
 
 import xdrlib
+from uuid import UUID
+
 XDRM_inlong = 0b000  # rest: value
-XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false
+XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false, 0x1005 = UUID
 XDRM_utf8   = 0b100  # rest: length in bytes
 XDRM_bytes  = 0b101  # rest: length in bytes
 XDRM_array  = 0b110  # rest: count
@@ -30,6 +32,8 @@ def unpack_xdrm(unpacker):
 		return True
 	elif type == XDRM_number and rest == 0x0013:
 		return False
+	elif type == XDRM_number and rest == 0x1005:
+		return UUID(bytes=unpacker.unpack_fopaque(0x10))
 	elif type == XDRM_utf8:
 		return unpacker.unpack_fstring(rest).decode("utf-8",'surrogateescape')
 	elif type == XDRM_bytes:
@@ -81,6 +85,9 @@ def pack_xdrm(packer, data):
 	elif typ is bytes:
 		packer.pack_uint(XDRM_bytes | (len(data) << 3))
 		packer.pack_fopaque(len(data), data)
+	elif typ is UUID:
+		packer.pack_uint(XDRM_number | (0x1005 << 3))
+		packer.pack_fopaque(0x10, data.bytes)
 	else:
 		#raise Exception("can't pack "+str(typ))
 		print("WARNING: packing "+str(typ)+" as str")

@@ -2,8 +2,10 @@ import struct
 from collections import namedtuple
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QProcess)
+
+import structinfo
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
-from structinfo import FixedStructInfo, FixedFieldInfo
+from structinfo import FixedFieldDesc, StructDesc, VariantStructDesc
 from typeregistry import TypeRegistry
 
 DataSourceTypes = TypeRegistry()
@@ -141,43 +143,49 @@ class LivePcapCaptureDataSource(DataSource):
 	def startFetch(self):
 		self.plist = ByteBufferList()
 		self.buf = bytes()
-		self.endianness = None
+		self.packetDesc = None
+		self.ctx = structinfo.ParseContext()
 		self.process = QProcess()
 		self.process.finished.connect(self.onProcessFinished)
 		self.process.readyReadStandardError.connect(self.onReadyReadStderr)
 		self.process.readyReadStandardOutput.connect(self.onReadyReadStdout)
 
 		self.process.start("/bin/sh", ["-c", self.params["shell_cmd"]])
+
 		return self.plist
+
+	def tryParseHeader(self):
+		for headerDesc, packetDesc in PcapVariants:
+			try:
+				header, self.buf = headerDesc.read_from_buffer(self.buf, self.ctx)
+				self.packetDesc = packetDesc
+				self.plist.metadata.update(header)
+				return
+			except structinfo.invalid as ex:
+				print(str(ex))
+				pass
+		raise structinfo.invalid(self.ctx, "no PcapVariant matched")
+
 
 	def onReadyReadStderr(self):
 		print("STD-ERR FROM Tshark:",self.process.readAllStandardError())
 	def onReadyReadStdout(self):
 		self.buf += self.process.readAllStandardOutput()
-		while True:
-			if self.endianness == None:
-				header, rest = PcapHeader.read_from_buffer(self.buf, "<")
-				if header == None: return
-				if header["magic_number"] == 0xa1b2c3d4:
-					print("File is little endian")
-					self.endianness = "<"
-				else:
-					header, rest = PcapHeader.read_from_buffer(self.buf, ">")
-					if header == None: return
-					if header["magic_number"] == 0xa1b2c3d4:
-						print("File is big endian")
-						self.endianness = ">"
-					else:
-						raise Exception("invalid magic_number")
-				self.buf = rest
-				self.pcap_header_done = True
-				self.plist.metadata.update(header)
-			else:
-				header, payload, self.buf = pcap_read_next_packet(self.buf, self.endianness)
-				if header == None: return
-				bbuf = ByteBuffer(payload)
-				bbuf.metadata.update(header)
+		try:
+			if self.packetDesc == None:
+				self.tryParseHeader()
+			while True:
+				packet, self.buf = self.packetDesc.read_from_buffer(self.buf, self.ctx)
+				bbuf = ByteBuffer(packet['payload'])
+				del packet['payload']
+				bbuf.metadata.update(packet)
 				self.plist.add(bbuf)
+		except structinfo.incomplete:
+			return
+		except structinfo.invalid as ex:
+			print("Invalid packet format - killing pcap")
+			print (str(ex))
+			self.cancelFetch()
 
 	def onProcessFinished(self, exitCode, exitStatus):
 		self.on_finished.emit()
@@ -186,22 +194,27 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 		pass
 
-PcapHeader = FixedStructDesc([
-	FixedFieldInfo("I", 	"magic_number",  "'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4),
-	FixedFieldInfo("H", 	"version_major", "major number of the file format"),
-	FixedFieldInfo("H", 	"version_minor", "minor number of the file format"),
-	FixedFieldInfo("i", 	"thiszone", 	 "correction time in seconds from UTC to local time (0)"),
-	FixedFieldInfo("I", 	"sigfigs", 		 "accuracy of time stamps in the capture (0)"),
-	FixedFieldInfo("I", 	"snaplen", 		 "max length of captured packed (65535)"),
-	FixedFieldInfo("I", 	"network", 		 "type of data link (1 = ethernet)"),
+PcapHeader = StructDesc(children=[
+	("magic_number",  FixedFieldDesc(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
+	("version_major", FixedFieldDesc(format="H", 	description="major number of the file format")),
+	("version_minor", FixedFieldDesc(format="H", 	description="minor number of the file format")),
+	("thiszone", 	  FixedFieldDesc(format="i", 	description="correction time in seconds from UTC to local time (0)")),
+	("sigfigs", 	  FixedFieldDesc(format="I", 	description="accuracy of time stamps in the capture (0)")),
+	("snaplen", 	  FixedFieldDesc(format="I", 	description="max length of captured packed (65535)")),
+	("network", 	  FixedFieldDesc(format="I", 	description="type of data link (1 = ethernet)")),
 ])
-PcapPacketHeader = FixedStructDesc([
-	FixedFieldInfo("I", "ts_sec", "timestamp seconds"),
-	FixedFieldInfo("I", "ts_usec", "timestamp microseconds"),
-	FixedFieldInfo("I", "incl_len", "number of octets of packet saved in file"),
-	FixedFieldInfo("I", "orig_len", "actual length of packet"),
+PcapPacketHeader = StructDesc(children=[
+	("ts_sec", 		FixedFieldDesc(format="I",  description="timestamp seconds")),
+	("ts_usec", 	FixedFieldDesc(format="I",  description="timestamp microseconds")),
+	("incl_len", 	FixedFieldDesc(format="I",  description="number of octets of packet saved in file")),
+	("orig_len", 	FixedFieldDesc(format="I",  description="actual length of packet")),
+	("payload", 	structinfo.VarByteFieldDesc(size_expr="incl_len")),
 ])
-print(PcapHeader.size, PcapPacketHeader.size)
+PcapVariants = [
+	(VariantStructDesc(variants=[PcapHeader], endianness="<"), VariantStructDesc(variants=[PcapPacketHeader], endianness="<")),
+	(VariantStructDesc(variants=[PcapHeader], endianness=">"), VariantStructDesc(variants=[PcapPacketHeader], endianness=">")),
+	]
+#print(PcapHeader.size, PcapPacketHeader.size)
 
 def pcap_read_next_packet(pcap_buf, endianness):
 	header, rest = PcapPacketHeader.read_from_buffer(pcap_buf, endianness)

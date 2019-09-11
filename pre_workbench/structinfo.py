@@ -26,6 +26,7 @@ class ParseContext:
 	def __init__(self):
 		self.stack = list()
 		self.id = ""
+		self.offset = 0
 
 	def get_param(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack)-1, -1, -1):
@@ -67,23 +68,39 @@ class ParseContext:
 	def get_path(self):
 		return ".".join(x[2] for x in self.stack)
 
+	def pack_value(self, value):
+		return value
+
+	def unpack_value(self, packed_value):
+		return packed_value
+
+class LoggingParseContext(ParseContext):
+	def pack_value(self, value):
+		print(self.get_path(), value)
+		return value
+
+class AnnotatingParseContext(ParseContext):
+	def pack_value(self, value):
+		print(self.get_path(), value)
+		return DescValue(value, self.stack[-1][0], self.stack[-1][2])
+
+	def unpack_value(self, packed_value):
+		return packed_value.value
+
+
 def splitdot(expr):
 	try:
 		i = expr.index(".")
 		return expr[:i], expr[i+1:]
 	except ValueError:
 		return expr, ""
-"""
+
 class DescValue:
-	def __init__(self, value, sourcedesc):
+	def __init__(self, value, source_desc, field_name):
 		self.value=value
-		self.sourcedesc=sourcedesc
-	def get_value(self, id):
-		if id == "": return self.value
-		myid, childid = splitdot(id)
-		if type(self.value) == dict:
-			return self.value[myid].get_value(childid)
-"""
+		self.source_desc=source_desc
+		self.field_name=field_name
+
 
 def traverse_object(el, id):
 	if id == "": return el
@@ -118,7 +135,7 @@ class FixedFieldDesc(AbstractDesc):
 			(value,), rest = struct.unpack_from(context.get_param("endianness") + self.pack_format, buf, 0), buf[self.size:]
 			if self.magic_value != None and value != self.magic_value:
 				raise invalid(context, "found magic_value %r doesn't match spec %r" % (value, self.magic_value))
-			return value, rest
+			return context.pack_value(value), rest
 		finally:
 			context.pop()
 
@@ -155,7 +172,7 @@ class StructDesc(AbstractDesc):
 			for name, child in self.children:
 				context.id = name
 				o[name], rest = child.read_from_buffer(rest, context)
-			return o, rest
+			return context.pack_value(o), rest
 		finally:
 			context.pop()
 
@@ -172,7 +189,8 @@ class VariantStructDesc(AbstractDesc):
 			for i, variant in enumerate(self.variants):
 				try:
 					context.id = str(i)
-					return variant.read_from_buffer(buf, context)
+					o, rest = variant.read_from_buffer(buf, context)
+					return context.pack_value(o), rest
 				#except (incomplete, invalid):
 				except invalid as ex:
 					#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
@@ -196,7 +214,6 @@ class RepeatStructDesc(AbstractDesc):
 			o = []
 			context.push(self, o)
 			rest = buf
-			n = context.eval(self.times)
 			if self.times == "*":
 				i = 0
 				while True:
@@ -208,11 +225,12 @@ class RepeatStructDesc(AbstractDesc):
 						break
 					i += 1
 			else:
+				n = context.eval(self.times)
 				for i in range(n):
 					context.id = str(i)
 					data, rest = self.child.read_from_buffer(rest, context)
 					o.append(data)
-			return o
+			return context.pack_value(o), rest
 		finally:
 			context.pop()
 

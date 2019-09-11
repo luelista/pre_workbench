@@ -1,6 +1,6 @@
 import cgi
 
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex)
+from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
     QTableWidgetItem, QMenu, \
     QAbstractItemView, QTableView
@@ -201,7 +201,13 @@ class PacketListWidget(QWidget):
             ctx.addAction("Edit", lambda: self.onEditColumn(index))
             ctx.addAction("Remove column", lambda: self.packetlistmodel.removeColumn(index))
             ctx.addSeparator()
-        ctx.addAction("Add column ...", lambda: self.onAddColumn(None if index == -1 else index))
+        addIdx = None if index == -1 else index
+        ctx.addAction("Add column ...", lambda: self.onAddColumn(addIdx))
+        for key in self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False):
+            ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo(key, src="meta"), addIdx))
+        ctx.addSeparator()
+        for key in self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True):
+            ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo(key, src="field"), addIdx))
 
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
 
@@ -297,6 +303,7 @@ class DynamicDataWidget(QWidget):
         self.layout().addWidget(ExpandWidget("Metadata", self.metadataWidget, True), 33)
         self.childWidget = None
         self.setErrMes(title="No data loaded")
+    @pyqtSlot(object)
     def setContents(self, data):
         typ = type(data)
         if data is None:

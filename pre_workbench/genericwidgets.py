@@ -1,14 +1,17 @@
 from PyQt5 import Qt
-from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
-	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog
+	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox
+
+from typeregistry import DataWidgetTypes
 
 
-def showSettingsDlg(definition, values=None):
+def showSettingsDlg(definition, values=None, title="Options"):
 	if values == None: values = {}
 	dlg = QDialog()
+	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	sg = SettingsGroup(definition, values)
 	dlg.layout().addWidget(sg)
@@ -37,6 +40,9 @@ class SettingsGroup(QFrame):
 			self.layout.itemAt(i).widget().deleteLater()
 		for fieldId, title, fieldtype, params in definition:
 			empty=""
+			if fieldtype == "-":
+				self.layout.addRow("  ",None)
+				continue
 			if fieldtype == "text":
 				field = QLineEdit()
 				field.textChanged.connect(self.textChanged)
@@ -52,7 +58,13 @@ class SettingsGroup(QFrame):
 			elif fieldtype == "check":
 				field = QCheckBox()
 				field.stateChanged.connect(self.checkChanged)
-				empty = "False"
+				empty = False
+			elif fieldtype == "number":
+				field = QSpinBox()
+				field.valueChanged.connect(self.spinChanged)
+				if 'min' in params: field.setMinimum(params['min'])
+				if 'max' in params: field.setMaximum(params['max'])
+				empty = 0
 			field.setObjectName(fieldId)
 			self.layout.addRow(title, field)
 			if fieldId in self.values:
@@ -68,31 +80,37 @@ class SettingsGroup(QFrame):
 		self.onFieldChanged(newText)
 
 	@pyqtSlot(int)
+	def spinChanged(self, newValue):
+		self.onFieldChanged(newValue)
+
+	@pyqtSlot(int)
 	def selectChanged(self, newIndex):
 		self.onFieldChanged(self.sender().itemData(newIndex))
 
 	@pyqtSlot(int)
 	def checkChanged(self, newState):
-		self.onFieldChanged("True" if newState == Qt.Checked else "False")
+		self.onFieldChanged(True if newState == Qt.Checked else False)
 
 	def onFieldChanged(self, value):
 		fieldId = self.sender().objectName()
 		self.values[fieldId] = value
-		self.item_changed.emit(fieldId, value)
+		self.item_changed.emit(fieldId, str(value))
 
 	def updateField(self, fieldId):
-		value = str(self.values[fieldId])
+		value = self.values[fieldId]
 		field = self.findChild(QWidget, fieldId)
 		if isinstance(field, QLineEdit):
 			field.setText(value)
+		elif isinstance(field, QSpinBox):
+			field.setValue(value)
 		elif isinstance(field, QComboBox):
 			idx = field.findData(value)
 			#if idx == -1: raise Exception("invalid select value: "+value)
 			field.setCurrentIndex(idx)
 		elif isinstance(field, QCheckBox):
-			if value == "True":
+			if value == True:
 				field.setState(Qt.Checked)
-			elif value == "False":
+			elif value == False:
 				field.setState(Qt.Unchecked)
 			else:
 				raise Exception("invalid check value: "+value)
@@ -175,6 +193,7 @@ class TextToTreeItem:
 		return titem_list
 
 
+@DataWidgetTypes.register(handles=[dict,list])
 class JsonView(QTreeWidget):
 	def __init__(self, jdata=None):
 		super(JsonView, self).__init__()
@@ -187,9 +206,13 @@ class JsonView(QTreeWidget):
 		self.found_idx = 0
 
 		self.setHeaderLabels(["Key", "Value"])
-		self.header().setSectionResizeMode(QHeaderView.Stretch)
+		self.setColumnWidth(0, 200)
+		self.setColumnWidth(1, 400)
 
 		self.setContents(jdata)
+
+	def sizeHint(self):
+		return QSize(620,600)
 
 	def setContents(self, jdata):
 		self.clear()

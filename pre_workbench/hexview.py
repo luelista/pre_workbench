@@ -5,16 +5,41 @@
 
 import sys
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy
-from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap
+from PyQt5.QtGui import QIcon, QPainter, QFont, QColor, QPixmap, QFontMetrics
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QSize)
 
+import configs
+from genericwidgets import showSettingsDlg
 from guihelper import setClipboardText
 from objects import ByteBuffer, Range
 from hexdump import hexdump
 from math import ceil, floor
 
 class HexView2(QWidget):
-	def __init__(self, byteBuffer=None):
+	SettingsDefinition = [
+		('addressFontFamily', 'addressFontFamily', 'text', {}),
+		('addressFontSize', 'addressFontSize', 'number', {'min':1, 'max':1024}),
+		('addressColor', 'addressColor', 'text', {}),
+		('addressFormat', 'addressFormat', 'text', {}),
+		('','','-',{}),
+		('hexFontFamily', 'hexFontFamily', 'text', {}),
+		('hexFontSize', 'hexFontSize', 'number', {'min':1, 'max':1024}),
+		('hexColor', 'hexColor', 'text', {}),
+		('hexSpaceAfter', 'hexSpaceAfter', 'number', {'min':1, 'max':1024}),
+		('hexSpaceWidth', 'hexSpaceWidth', 'number', {'min':1, 'max':1024}),
+		('','','-',{}),
+		('asciiFontFamily', 'asciiFontFamily', 'text', {}),
+		('asciiFontSize', 'asciiFontSize', 'number', {'min':1, 'max':1024}),
+		('asciiColor', 'asciiColor', 'text', {}),
+		('','','-',{}),
+		('sectionFontFamily', 'sectionFontFamily', 'text', {}),
+		('sectionFontSize', 'sectionFontSize', 'number', {'min':1, 'max':1024}),
+		('sectionColor', 'sectionColor', 'text', {}),
+		('','','-',{}),
+		('lineHeight', 'lineHeight', 'number', {'min':5, 'max':1024}),
+		('bytesPerLine', 'bytesPerLine', 'number', {'min':1, 'max':1024}),
+	]
+	def __init__(self, byteBuffer=None, params=dict(), paramConfigName="HexViewParams"):
 		super().__init__()
 		self.firstLine = 0
 		self.scrollY = 0
@@ -22,20 +47,23 @@ class HexView2(QWidget):
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
 
-		self.fontAddress = QFont('monospace', 10, QFont.Light)
-		self.xAddress = 5; self.fsAddress = QColor("#888888")
-		self.fontHex = QFont('monospace', 10, QFont.Light)
-		self.xHex = 80; 		self.fsHex = QColor("#ffffff");	 self.dxHex = 20;
-		self.fontAscii = QFont('monospace', 10, QFont.Light)
-		self.xAscii = 410; 	self.fsAscii = QColor("#bbffbb"); self.dxAscii = 8;
-		self.fsSel = QColor("#7fff9bff");  self.fsHover = QColor("#7f9b9bff");
-		self.fontSection = QFont('Serif', 8, QFont.Light)
-		self.fsSection = QColor("#aaaaaa");
-		self.dyLine = 18;
-		self.bytesPerLine = 16;
+		self.params = {
+			'addressFontFamily': 'monospace', 'addressFontSize': 10, 'addressColor': '#888888',
+			'hexFontFamily': 'monospace', 'hexFontSize': 10, 'hexColor': '#ffffff',
+			'asciiFontFamily': 'monospace', 'asciiFontSize': 10, 'asciiColor': '#bbffbb',
+			'sectionFontFamily': 'Serif', 'sectionFontSize': 8, 'sectionColor': '#aaaaaa',
+			'lineHeight': 18,
+			'addressFormat': '{:08x}',
+			'bytesPerLine': 16,
+			'hexSpaceAfter': 8, 'hexSpaceWidth': 8
+		}
+		self.paramConfigName = paramConfigName
+		if paramConfigName is not None:
+			self.restoreParams(configs.getValue(paramConfigName, {}))
+		self.restoreParams(params)
 
-		self.selStart = 0;
-		self.selEnd = 0;
+		self.selStart = 0
+		self.selEnd = 0
 		self.itemY = list()
 		self.lastHit = None
 		self.selecting = False
@@ -47,7 +75,42 @@ class HexView2(QWidget):
 			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-	
+
+	def restoreParams(self, params):
+		self.params.update(params)
+
+		self.dyLine = self.params['lineHeight']
+		self.bytesPerLine = self.params['bytesPerLine']
+		self.addressFormat = self.params['addressFormat']
+
+		self.xAddress = 5
+		self.fontAddress = QFont(self.params['addressFontFamily'], self.params['addressFontSize'], QFont.Light)
+		self.fsAddress = QColor(self.params['addressColor'])
+
+		self.xHex = QFontMetrics(self.fontAddress).width(self.addressFormat.format(0)) + 15
+		self.fontHex = QFont(self.params['hexFontFamily'], self.params['hexFontSize'], QFont.Light)
+		self.fsHex = QColor(self.params['hexColor']);	self.dxHex = QFontMetrics(self.fontHex).width("00")+4
+		self.hexSpaceAfter = self.params['hexSpaceAfter']; self.hexSpaceWidth = self.params['hexSpaceWidth']
+
+		self.xAscii = self.xHex + self.dxHex*self.bytesPerLine+(ceil(self.bytesPerLine/self.hexSpaceAfter)-1)*self.hexSpaceWidth+15
+		self.fontAscii = QFont(self.params['asciiFontFamily'], self.params['asciiFontSize'], QFont.Light)
+		self.fsAscii = QColor(self.params['asciiColor']); self.dxAscii = QFontMetrics(self.fontAscii).width("W")
+
+		self.fsSel = QColor("#7fff9bff");  self.fsHover = QColor("#7f9b9bff")
+		self.fontSection = QFont(self.params['sectionFontFamily'], self.params['sectionFontSize'], QFont.Light)
+		self.fsSection = QColor(self.params['sectionColor']);
+
+	def saveParams(self):
+		return self.params
+
+	def showParamDialog(self):
+		result = showSettingsDlg(HexView2.SettingsDefinition, self.params)
+		if result is not None:
+			self.restoreParams(result)
+			if self.paramConfigName is not None:
+				configs.setValue(self.paramConfigName, self.params)
+		self.redraw()
+
 	def onCustomContextMenuRequested(self, point):
 		hit = self.hitTest(point)
 		ctxMenu = None
@@ -77,6 +140,7 @@ class HexView2(QWidget):
 	def buildGeneralContextMenu(self):
 		ctx = QMenu("Context menu", self)
 		ctx.addAction("Select all", lambda: self.select(0, len(self.buffers[0])))
+		ctx.addAction("Options", self.showParamDialog)
 		return ctx
 
 
@@ -161,7 +225,9 @@ class HexView2(QWidget):
 			pos = floor((x - self.xAscii) / self.dxAscii);
 			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
 		elif (x >= self.xHex):
-			pos = floor((x - self.xHex) / self.dxHex);
+			xx = (x - self.xHex)
+			xx -= floor(xx / (self.dxHex*self.hexSpaceAfter + self.hexSpaceWidth)) * self.hexSpaceWidth # correction factor for hex grouping
+			pos = floor(xx / self.dxHex);
 			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
 		
 		#//console.log(x,y,linePos);
@@ -238,13 +304,13 @@ class HexView2(QWidget):
 				y += self.dyLine;
 				qpTxt.setFont(self.fontHex)
 				qpTxt.setPen(QColor("#555555"));
-				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, "%08x"%(i));
+				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(i));
 			
 			
 			if (ii == 0):  #//print address for first byte in line
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(self.fsAddress);
-				qpTxt.drawText(self.xAddress, y+TXT_DY, "%08x"%(offset));
+				qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(offset));
 			
 
 			#// if specified, draw background color from style attribute
@@ -259,7 +325,7 @@ class HexView2(QWidget):
 			#// print HEX and ASCII representation of this byte
 			qpTxt.setFont(self.fontHex)
 			qpTxt.setPen(self.fsHex)
-			qpTxt.drawText(self.xHex + ii * self.dxHex+2, y+TXT_DY, "%02x"%(theByte));
+			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+TXT_DY, "%02x"%(theByte));
 			qpTxt.setFont(self.fontAscii)
 			qpTxt.setPen(self.fsAscii)
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
@@ -268,11 +334,11 @@ class HexView2(QWidget):
 		return y + self.dyLine
 
 	def offsetToClientPos(self, offset):
-		pos = offset % self.bytesPerLine;
+		pos = offset % self.bytesPerLine
 		visibleIdx = offset - self.bytesPerLine*self.firstLine
 		if visibleIdx < 0 or visibleIdx >= len(self.itemY): return (0,0,0,0)
 		y = self.itemY[visibleIdx]
-		return (self.xHex + self.dxHex*pos, self.xAscii + self.dxAscii*pos,y,self.dyLine)
+		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
 	
 	def drawSelection(self, qp):
 		selMin = min(self.selStart, self.selEnd)

@@ -12,6 +12,7 @@ from typeregistry import WindowTypes
 @WindowTypes.register()
 class ObjectWindow(QWidget):
 	on_data_selected = pyqtSignal(QObject)
+	on_log = pyqtSignal(str)
 
 	def __init__(self, name="Untitled", dataSourceType="", collapseSettings=False, **kw):
 		super().__init__()
@@ -69,14 +70,15 @@ class ObjectWindow(QWidget):
 		#self.metaConfig.setValues(config)
 		self.sourceConfig.setValues(config)
 		self.params.update(config)
-		self.loadDataSource()
+		self.onDataSourceTypeSelected()
 
 	def onConfigChanged(self, key, value):
 		self.params[key] = value
+		self.setWindowTitle(self.params["name"] + " - " + self.params["dataSourceType"])
 		if key == "name":
-			self.setWindowTitle(value)
+			pass
 		elif key == "dataSourceType":
-			self.loadDataSource()
+			self.onDataSourceTypeSelected()
 		else:
 			pass
 			#if self.dataSource != None:
@@ -85,7 +87,7 @@ class ObjectWindow(QWidget):
 			#    except ReloadRequired as ex:
 			#        self.loadDataSource()
 
-	def loadDataSource(self):
+	def onDataSourceTypeSelected(self):
 		print("dst="+self.params["dataSourceType"])
 		confFields = []
 		if self.params["dataSourceType"]:
@@ -110,6 +112,7 @@ class ObjectWindow(QWidget):
 			clz = DataSourceTypes.find(name=self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
+			self.dataSource.on_log.connect(self.on_log.emit)
 			result = self.dataSource.startFetch()
 			self.dataDisplay.setContents(result)
 

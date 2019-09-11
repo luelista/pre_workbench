@@ -16,9 +16,9 @@ class ByteBuffer(QObject):
 	field = ()
 	"""
 	on_new_data = pyqtSignal()
-	def __init__(self, buf=None):
+	def __init__(self, buf=None, metadata=None):
 		super().__init__()
-		self.metadata = dict()
+		self.metadata = dict() if metadata is None else metadata
 		self.setContent(buf)
 		self.ranges = list()
 		self.fields = dict()

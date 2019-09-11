@@ -12,6 +12,7 @@ DataSourceTypes = TypeRegistry()
 
 class DataSource(QObject):
 	on_finished = pyqtSignal()
+	on_log = pyqtSignal(str)
 	def __init__(self, params):
 		super().__init__()
 		self.params = params
@@ -29,13 +30,9 @@ class FileDataSource(DataSource):
 		return [
 			("fileName", "File name", "text", {})
 		]
-	def __init__(self, params):
-		super().__init__()
-		self.fileName = params["fileName"]
-
 	def startFetch(self):
 		bbuf = ByteBuffer()
-		with open(self.fileName, "rb") as f:
+		with open(self.params['fileName'], "rb") as f:
 			bbuf.setContent(f.read())
 		self.on_finished.emit()
 		return bbuf
@@ -51,14 +48,16 @@ class PcapFileDataSource(DataSource):
 		return [
 			("fileName", "File name", "text", {})
 		]
-	def __init__(self, params):
-		super().__init__()
-		self.fileName = params["fileName"]
-
 	def startFetch(self):
-		# start reading file
+		with open(self.params['fileName'], "rb") as f:
+			pcapfile, rest = PcapFile.read_from_buffer(f.read(), structinfo.LoggingParseContext())
+			plist = ByteBufferList()
+			plist.metadata.update(pcapfile['file_header'])
+			for packet in pcapfile['packets']:
+				plist.add(ByteBuffer(packet['payload'], metadata=packet['header']))
+
 		self.on_finished.emit()
-		pass
+		return plist
 	def cancelFetch(self):
 		# cancel reading file
 		pass
@@ -80,7 +79,9 @@ class AbstractTsharkDataSource(DataSource):
 		return self.plist
 
 	def onReadyReadStderr(self):
-		print("STD-ERR FROM Tshark:",self.process.readAllStandardError())
+		s = "STD-ERR FROM Tshark:"+self.process.readAllStandardError().data().decode("utf-8", "replace")
+		print(s)
+		self.on_log.emit(s)
 	def onReadyReadStdout(self):
 		self.plist.beginUpdate()
 		self.target.feed(self.process.readAllStandardOutput())
@@ -90,6 +91,8 @@ class AbstractTsharkDataSource(DataSource):
 		self.on_finished.emit()
 
 	def cancelFetch(self):
+		self.process.terminate()
+		self.process.waitForFinished(500)
 		self.process.kill()
 		pass
 
@@ -162,13 +165,13 @@ class LivePcapCaptureDataSource(DataSource):
 				self.plist.metadata.update(header)
 				return
 			except structinfo.invalid as ex:
-				print(str(ex))
+				self.on_log.emit(str(ex))
 				pass
 		raise structinfo.invalid(self.ctx, "no PcapVariant matched")
 
 
 	def onReadyReadStderr(self):
-		print("STD-ERR FROM Tshark:",self.process.readAllStandardError())
+		self.on_log.emit("STD-ERR:"+self.process.readAllStandardError().data().decode("utf-8", "replace"))
 	def onReadyReadStdout(self):
 		self.buf += self.process.readAllStandardOutput()
 		try:
@@ -176,21 +179,20 @@ class LivePcapCaptureDataSource(DataSource):
 				self.tryParseHeader()
 			while True:
 				packet, self.buf = self.packetDesc.read_from_buffer(self.buf, self.ctx)
-				bbuf = ByteBuffer(packet['payload'])
-				del packet['payload']
-				bbuf.metadata.update(packet)
-				self.plist.add(bbuf)
+				self.plist.add(ByteBuffer(packet['payload'], metadata=packet['header']))
 		except structinfo.incomplete:
 			return
 		except structinfo.invalid as ex:
-			print("Invalid packet format - killing pcap")
-			print (str(ex))
+			self.on_log.emit("Invalid packet format - killing pcap")
+			self.on_log.emit (str(ex))
 			self.cancelFetch()
 
 	def onProcessFinished(self, exitCode, exitStatus):
 		self.on_finished.emit()
 
 	def cancelFetch(self):
+		self.process.terminate()
+		self.process.waitForFinished(500)
 		self.process.kill()
 		pass
 
@@ -203,25 +205,26 @@ PcapHeader = StructDesc(children=[
 	("snaplen", 	  FixedFieldDesc(format="I", 	description="max length of captured packed (65535)")),
 	("network", 	  FixedFieldDesc(format="I", 	description="type of data link (1 = ethernet)")),
 ])
-PcapPacketHeader = StructDesc(children=[
-	("ts_sec", 		FixedFieldDesc(format="I",  description="timestamp seconds")),
-	("ts_usec", 	FixedFieldDesc(format="I",  description="timestamp microseconds")),
-	("incl_len", 	FixedFieldDesc(format="I",  description="number of octets of packet saved in file")),
-	("orig_len", 	FixedFieldDesc(format="I",  description="actual length of packet")),
-	("payload", 	structinfo.VarByteFieldDesc(size_expr="incl_len")),
+PcapPacket = StructDesc(children=[
+	("header", StructDesc(children=[
+		("ts_sec", 		FixedFieldDesc(format="I",  description="timestamp seconds")),
+		("ts_usec", 	FixedFieldDesc(format="I",  description="timestamp microseconds")),
+		("incl_len", 	FixedFieldDesc(format="I",  description="number of octets of packet saved in file")),
+		("orig_len", 	FixedFieldDesc(format="I",  description="actual length of packet")),
+	])),
+	("payload", 	structinfo.VarByteFieldDesc(size_expr="header.incl_len")),
 ])
 PcapVariants = [
-	(VariantStructDesc(variants=[PcapHeader], endianness="<"), VariantStructDesc(variants=[PcapPacketHeader], endianness="<")),
-	(VariantStructDesc(variants=[PcapHeader], endianness=">"), VariantStructDesc(variants=[PcapPacketHeader], endianness=">")),
+	(VariantStructDesc(variants=[PcapHeader], endianness="<"), VariantStructDesc(variants=[PcapPacket], endianness="<")),
+	(VariantStructDesc(variants=[PcapHeader], endianness=">"), VariantStructDesc(variants=[PcapPacket], endianness=">")),
 	]
-#print(PcapHeader.size, PcapPacketHeader.size)
-
-def pcap_read_next_packet(pcap_buf, endianness):
-	header, rest = PcapPacketHeader.read_from_buffer(pcap_buf, endianness)
-	print(header, len(pcap_buf), len(rest))
-	if header == None or header['incl_len'] > len(rest): return None, None, pcap_buf
-	return header, rest[0:header['incl_len']], rest[header['incl_len']:]
-
+PcapFile = VariantStructDesc(variants=[
+	StructDesc(children=[
+		("file_header", headerDesc),
+		("packets", structinfo.RepeatStructDesc(child=packetDesc, times="*")),
+	])
+	for (headerDesc, packetDesc) in PcapVariants
+])
 
 """
 

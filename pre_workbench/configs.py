@@ -1,12 +1,10 @@
+import errno
+import os
+
+from appdirs import AppDirs
+
 import xdrm
 from PyQt5.QtCore import QByteArray
-
-configDict = dict()
-try:
-	with open("config.xdr", "rb") as f:
-		configDict = xdrm.loads(f.read())
-except:
-	pass
 
 def getValue(key, defaultValue=None):
 	return configDict.get(key,defaultValue)
@@ -27,6 +25,28 @@ def updateMru(key, value, max=5):
 	setValue(key, mru)
 
 def saveConfig():
-	with open("config.xdr", "wb") as f:
+	with open(configFilespec, "wb") as f:
 		f.write(xdrm.dumps(configDict))
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+dirs = AppDirs("PRE-Workbench", "Weller IT", roaming=True)
+mkdir_p(dirs.user_config_dir)
+configFilespec = os.path.join(dirs.user_config_dir, "config.xdr")
+
+configDict = dict()
+try:
+	with open(configFilespec, "rb") as f:
+		configDict = xdrm.loads(f.read())
+except:
+	pass
+
 

@@ -1,10 +1,10 @@
+from PyQt5 import Qt
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot
+from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
+	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
+	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog
 
-from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication, \
-	QFileDialog, QTabWidget, QFrame, QWidget, QToolBar, QVBoxLayout, \
-	QMdiArea, QFormLayout, QToolBox, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
-	QDialogButtonBox, QCompleter, QHBoxLayout, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog
-from PyQt5.QtGui import QIcon, QPalette, QKeyEvent
-from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QObject, QStringListModel)
 
 def showSettingsDlg(definition, values=None):
 	if values == None: values = {}

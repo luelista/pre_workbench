@@ -3,7 +3,7 @@ from collections import namedtuple
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QProcess)
 from objects import ByteBuffer, ByteBufferList, ReloadRequired
-from structinfo import StructInfo, FieldInfo
+from structinfo import FixedStructInfo, FixedFieldInfo
 from typeregistry import TypeRegistry
 
 DataSourceTypes = TypeRegistry()
@@ -186,20 +186,20 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 		pass
 
-PcapHeader = StructInfo([
-	FieldInfo("I", 	"magic_number",  "'A1B2C3D4' means the endianness is correct", magic),
-	FieldInfo("H", 	"version_major", "major number of the file format"),
-	FieldInfo("H", 	"version_minor", "minor number of the file format"),
-	FieldInfo("i", 	"thiszone", 	 "correction time in seconds from UTC to local time (0)"),
-	FieldInfo("I", 	"sigfigs", 		 "accuracy of time stamps in the capture (0)"),
-	FieldInfo("I", 	"snaplen", 		 "max length of captured packed (65535)"),
-	FieldInfo("I", 	"network", 		 "type of data link (1 = ethernet)"),
+PcapHeader = FixedStructDesc([
+	FixedFieldInfo("I", 	"magic_number",  "'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4),
+	FixedFieldInfo("H", 	"version_major", "major number of the file format"),
+	FixedFieldInfo("H", 	"version_minor", "minor number of the file format"),
+	FixedFieldInfo("i", 	"thiszone", 	 "correction time in seconds from UTC to local time (0)"),
+	FixedFieldInfo("I", 	"sigfigs", 		 "accuracy of time stamps in the capture (0)"),
+	FixedFieldInfo("I", 	"snaplen", 		 "max length of captured packed (65535)"),
+	FixedFieldInfo("I", 	"network", 		 "type of data link (1 = ethernet)"),
 ])
-PcapPacketHeader = StructInfo([
-	FieldInfo("I", "ts_sec", "timestamp seconds"),
-	FieldInfo("I", "ts_usec", "timestamp microseconds"),
-	FieldInfo("I", "incl_len", "number of octets of packet saved in file"),
-	FieldInfo("I", "orig_len", "actual length of packet"),
+PcapPacketHeader = FixedStructDesc([
+	FixedFieldInfo("I", "ts_sec", "timestamp seconds"),
+	FixedFieldInfo("I", "ts_usec", "timestamp microseconds"),
+	FixedFieldInfo("I", "incl_len", "number of octets of packet saved in file"),
+	FixedFieldInfo("I", "orig_len", "actual length of packet"),
 ])
 print(PcapHeader.size, PcapPacketHeader.size)
 

@@ -13,6 +13,7 @@ class TypeRegistry:
 			match = True
 			for key, value in checkForMeta.items():
 				if meta.get(key) != value:
+					if type(meta.get(key)) == list and meta.get(key).contains(value): continue
 					match = False
 					break
 			if match:

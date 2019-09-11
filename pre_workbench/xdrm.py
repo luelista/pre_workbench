@@ -1,4 +1,5 @@
-
+import json
+import sys
 import xdrlib
 from uuid import UUID
 
@@ -95,4 +96,11 @@ def pack_xdrm(packer, data):
 		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
 		packer.pack_fopaque(len(bin), bin)
 
-
+if __name__ == '__main__':
+	data = sys.stdin.buffer.read()
+	if data[0] == b'{':
+		o = json.loads(data)
+		sys.stdout.buffer.write(dumps(o))
+	else:
+		o = loads(data)
+		sys.stdout.write(json.dumps(o, indent=2))

@@ -31,7 +31,7 @@ from objectwindow import ObjectWindow
 from typeregistry import WindowTypes
 
 MRU_MAX = 5
-class ProtoFrontendMain(QMainWindow):
+class WorkbenchMain(QMainWindow):
 	def __init__(self):
 		super().__init__()
 		self.initUI()
@@ -168,6 +168,14 @@ class ProtoFrontendMain(QMainWindow):
 		configs.updateMru("MainFileMru", fileName, MRU_MAX)
 		self.updateMruActions()
 
+		root,ext=os.path.splitext(fileName)
+		winType = WindowTypes.find(fileExts=ext)
+		if winType != None:
+			wnd = winType(fileName=fileName)
+			self.showChild(wnd)
+			wnd.reload()
+			return
+
 		if fileName.endswith(".pcap") or fileName.endswith(".pcapng"):
 			meta = {
 				"name": fileName,
@@ -198,7 +206,7 @@ class ProtoFrontendMain(QMainWindow):
 
 
 
-@WindowTypes.register()
+@WindowTypes.register() #fileExts=['.pcapng','.pcap','.cap'])
 class PcapngFileWindow(QWidget):
 	def __init__(self, **params):
 		super().__init__()
@@ -220,7 +228,7 @@ class PcapngFileWindow(QWidget):
 if __name__ == '__main__':
 	
 	app = QApplication(sys.argv)
-	ex = ProtoFrontendMain()
+	ex = WorkbenchMain()
 	#os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
 	sys.exit(app.exec_())
 

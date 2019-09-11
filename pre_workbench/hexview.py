@@ -293,10 +293,9 @@ class HexView2(QWidget):
 
 
 if __name__ == '__main__':
-	
 	app = QApplication(sys.argv)
 	ex = HexView2()
 	ex.show()
-	ex.showHex(open("hexview.py", "rb").read())
+	ex.showHex(open(sys.argv[1], "rb").read())
 	sys.exit(app.exec_())
 

@@ -18,6 +18,18 @@ from guihelper import setClipboardText
 from objects import ByteBuffer, Range
 
 
+class BytebufferAnnotatingParseContext(structinfo.AnnotatingParseContext):
+	def __init__(self, bbuf):
+		super().__init__(bbuf.buffer)
+		self.bbuf = bbuf
+
+	def pack_value(self, value):
+		meta = { 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0] }
+		meta.update(self.stack[-1][0].extra_params())
+		self.bbuf.setBytes(self.top_offset(), self.top_length(), meta=meta, style=None)
+		return super().pack_value(value)
+
+
 class HexView2(QWidget):
 	SettingsDefinition = [
 		('addressFontFamily', 'addressFontFamily', 'text', {}),
@@ -78,6 +90,8 @@ class HexView2(QWidget):
 			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		self.formatInfo = None
+
 
 	def restoreParams(self, params):
 		self.params.update(params)
@@ -148,15 +162,16 @@ class HexView2(QWidget):
 		return ctx
 
 	def chooseAndApplyFormatInfo(self):
-		fileName, _ = QFileDialog.getOpenFileName(self,"Apply format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.prewbfi)")
+		fileName, _ = QFileDialog.getOpenFileName(self,"Apply format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.pfi)")
 		if fileName:
 			configs.setValue(self.paramConfigName+"_lastOpenFile", fileName)
 			with open(fileName, "rb") as f:
-				fi = structinfo.deserialize_fi(xdrm.loads(f.read()))
+				fi = structinfo.bin_deserialize_fi(f.read())
 				self.applyFormatInfo(fi)
 
 	def applyFormatInfo(self, info):
-		structinfo.annotate_byte_buffer(self.buffers[0], info)
+		self.formatInfo = info
+		self.buffers[0].parseTree = self.formatInfo.read_from_buffer(BytebufferAnnotatingParseContext(self.buffers[0]))
 
 	def wheelEvent(self, e):
 		if e.pixelDelta().isNull():

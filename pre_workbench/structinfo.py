@@ -28,6 +28,13 @@ class value_not_found(parse_exception):
 
 
 
+def splitdot(expr):
+	try:
+		i = expr.index(".")
+		return expr[:i], expr[i+1:]
+	except ValueError:
+		return expr, ""
+
 class ParseContext:
 	def __init__(self, buf=None):
 		self.stack = list()
@@ -52,11 +59,14 @@ class ParseContext:
 		else:
 			return default
 
+	"""
+	returns an unpacked value
+	"""
 	def get_value(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack), 0, -1):
 			try:
-				return traverse_object(self.stack[i][1], id)
-			except (KeyError, IndexError) as ex:
+				return self.traverse_object(self.stack[i][1], id)
+			except (KeyError, IndexError, ValueError) as ex:
 				print("get_value "+id+"/"+str(i)+" err: "+str(ex))
 				pass
 		if raise_if_missing:
@@ -114,41 +124,33 @@ class ParseContext:
 	def unpack_value(self, packed_value):
 		return packed_value
 
+	"""
+	expects an unpacked value in el, returns an unpacked value
+	"""
+	def traverse_object(self, el, id):
+		if id == "": return el
+		myid, childid = splitdot(id)
+		if type(el) == dict:
+			return self.traverse_object(self.unpack_value(el[myid]), childid)
+		elif type(el) == list:
+			return self.traverse_object(self.unpack_value(el[int(myid)]), childid)
+		else:
+			raise KeyError("can't access '%s' on %r"%(id, el))
+
+
 class LoggingParseContext(ParseContext):
 	def pack_value(self, value):
 		print(type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
 		return value
 
-class BytebufferAnnotatingParseContext(ParseContext):
-	def __init__(self, bbuf):
-		super().__init__(bbuf.buffer)
-		self.bbuf = bbuf
-
-	def pack_value(self, value):
-		print(type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
-		meta = { 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0] }
-		meta.update(self.stack[-1][0].extra_params())
-		self.bbuf.setBytes(self.top_offset(), self.top_length(), meta=meta, style=None)
-		return value
-
-def annotate_byte_buffer(bbuf, structDef):
-	return structDef.read_from_buffer(BytebufferAnnotatingParseContext(bbuf))
-
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
-		print(self.get_path(), value)
+		print("\t"*len(self.stack), type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
 		return FIValue(value, self.stack[-1][0], self.stack[-1][2], self.top_offset(), self.top_length())
 
 	def unpack_value(self, packed_value):
 		return packed_value.value
 
-
-def splitdot(expr):
-	try:
-		i = expr.index(".")
-		return expr[:i], expr[i+1:]
-	except ValueError:
-		return expr, ""
 
 class FIValue:
 	def __init__(self, value, source_desc, field_name, bytes_offset, bytes_size):
@@ -159,32 +161,25 @@ class FIValue:
 		self.bytes_size = bytes_size
 
 
-def traverse_object(el, id):
-	if id == "": return el
-	myid, childid = splitdot(id)
-	if type(el) == dict:
-		return traverse_object(el[myid], childid)
-	elif type(el) == list:
-		return traverse_object(el[int(myid)], childid)
-	else:
-		raise KeyError("can't descend into "+str(type(el)))
-
 FITypes = TypeRegistry()
 
 def deserialize_fi(data):
 	if type(data) == list and len(data) == 2:
 		tid, params = data
-		t, _ = FITypes.find(type_id=params['tid'])
+		t, _ = FITypes.find(type_id=tid)
 		return t(**params)
 	else:
 		return data
 
 
 def bin_serialize_fi(self):
-	return typeeditor.FILE_MAGIC + xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()])
+	return xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()], magic=typeeditor.FILE_MAGIC)
 
-def bin_deserialize_fi(self):
-	return typeeditor.FILE_MAGIC + xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()])
+def bin_deserialize_fi(bin):
+	iid, typename, data = xdrm.loads(bin, magic=typeeditor.FILE_MAGIC)
+	if iid != uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07") or typename != "FormatInfoFile":
+		raise Exception("Invalid file format (got iid=%r typename=%r)"%(iid,typename))
+	return deserialize_fi(data)
 
 class AbstractFI:
 	def __init__(self, **params):

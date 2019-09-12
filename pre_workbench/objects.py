@@ -1,5 +1,8 @@
 import binascii
 
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QTreeWidgetItem
+
 import hexdump, struct
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
 
@@ -22,6 +25,7 @@ class ByteBuffer(QObject):
 		self.setContent(buf)
 		self.ranges = list()
 		self.fields = dict()
+		self.fi_tree = None
 
 	def setContent(self, buf):
 		if buf is None:
@@ -35,7 +39,7 @@ class ByteBuffer(QObject):
 			self.buffer = self.buffer + (newLength - self.length) * b"\0"
 			self.length = len(self.buffer)
 
-	def setBytes(self, offset, newBytes, meta, style):
+	def setBytes(self, offset, newBytes):
 		if type(newBytes) == bytes:
 			n = len(newBytes)
 			self.ensureCapacity(offset + n)
@@ -47,13 +51,9 @@ class ByteBuffer(QObject):
 			self.ensureCapacity(offset + n)
 		else:
 			raise TypeError("newBytes must be of type 'bytes' or 'int'")
-		#print(offset,n,meta,style)
-		if meta != None or style != None:
-			r = Range(offset, offset+n-1)
-			if meta != None: r.metadata = meta
-			if style != None: r.style = style
-			self.ranges.append(r)
-			if "name" in meta: self.fields[meta["name"]] = r
+	def addRange(self, r):
+		self.ranges.append(r)
+		if "name" in r.metadata: self.fields[r.metadata["name"]] = r
 
 
 	def getByte(self, i):
@@ -110,20 +110,58 @@ class ByteBuffer(QObject):
 		return joiner.join(format % c for c in b)
 
 class Range:
-	def __init__(self, start, end):
+	RangeRole = QtCore.Qt.UserRole
+	BytesOffsetRole = QtCore.Qt.UserRole+1
+	BytesSizeRole = QtCore.Qt.UserRole+2
+	SourceDescRole = QtCore.Qt.UserRole+3
+	def __init__(self, start, end, value=None, source_desc=None, field_name=None):
+		self.value=value
+		self.source_desc=source_desc
+		self.field_name=field_name
 		self.start = start
 		self.end = end
+		self.bytes_size = end - start
 		self.metadata = dict()
 		self.style = dict()
+
+	def addToTree(self, parent):
+		me = QTreeWidgetItem(parent)
+		me.setData(0, Range.RangeRole, self)
+		me.setData(0, Range.BytesOffsetRole, self.start)
+		me.setData(0, Range.BytesSizeRole, self.bytes_size)
+		me.setData(0, Range.SourceDescRole, self.source_desc)
+		me.setText(0, self.field_name)
+		me.setText(1, str(self.start) + "+" + str(self.bytes_size))
+		me.setText(2, str(self.source_desc))
+		if type(self.value) == dict:
+			me.setExpanded(True)
+			for key,item in self.value.items():
+				item.addToTree(me)
+		elif type(self.value) == list:
+			me.setExpanded(True)
+			for item in self.value:
+				item.addToTree(me)
+		elif type(self.value) == Range:
+			me.setExpanded(True)
+			self.value.addToTree(me)
+		else:
+			me.setText(3, str(self.value))
+	def __str__(self):
+		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def length(self):
-		return self.end - self.start + 1
+		return self.bytes_size
+
 	def contains(self, i):
-		return i >= self.start and i <= self.end
+		return self.start <= i < self.end
+
+	def overlaps(self, other):
+		return self.contains(other.start) or self.contains(other.end-1) or other.contains(self.start) or other.contains(self.end-1)
+
 	def matches(self, start=None, end=None, contains=None, hasMetaKey=None, hasStyleKey=None, overlaps=None, **kw):
 		if start != None and start != self.start: return False
 		if end != None and end != self.end: return False
 		if contains != None and not self.contains(contains): return False
-		if overlaps != None and not (self.contains(overlaps.start) or self.contains(overlaps.end) or overlaps.contains(self.start) or overlaps.contains(self.end)): return False
+		if overlaps != None and not self.overlaps(overlaps): return False
 		if hasMetaKey != None and not hasMetaKey in self.metadata: return False
 		if hasStyleKey != None and not hasStyleKey in self.style: return False
 		for k,v in kw.items():

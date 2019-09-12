@@ -1,0 +1,82 @@
+
+start: field*
+
+params: ("(" [parampair ("," parampair)*] ")")?
+parampair: IDENTIFIER "=" value
+
+?anytype: variantfi
+    | structfi
+    | repeatfi
+    | switchfi
+    | explicitnamedfi
+    | namedfi
+
+variantfi: "variant" params "{" variantchildren "}"
+variantchildren: anytype+
+structfi: "struct" params "{" structfields "}"
+structfields: field*
+field: IDENTIFIER anytype ";"?
+
+switchfi: "switch" string params "{" switchcases "}"
+switchcases: switchcase*
+switchcase: "case" string ":" anytype
+repeatfi: "repeat" params anytype
+namedfi: IDENTIFIER params
+explicitnamedfi: "&" namedfi
+
+?value: dict
+      | list
+      | string
+      | SIGNED_NUMBER      -> number
+      | "true"             -> true
+      | "false"            -> false
+      | "null"             -> null
+      | explicitnamedfi
+//      | "(" string ")"
+
+list : "[" [value ("," value)*] "]"
+
+dict : "{" [pair ("," pair)*] "}"
+pair : string ":" value
+
+string : ESCAPED_STRING
+HEX_NUMBER: "0x" HEXDIGIT+
+number : SIGNED_NUMBER | HEX_NUMBER
+
+IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
+
+
+?expression: fun_expr
+            | param_expr
+            | "true"             -> true
+            | "false"            -> false
+            | "null"             -> null
+            | number
+            | anyfield_expr
+            | hierarchy_expr
+            | compare_expr
+            | expression PUNKT_OP expression -> math_expr
+            | expression STRICH_OP expression -> math_expr
+            | string
+            | array_expr
+            | "(" expression ")"
+
+compare_expr: expression COMP_OP expression
+param_expr: "$" IDENTIFIER
+fun_expr: IDENTIFIER "(" value ")"
+DOTS: "_"+
+hierarchy_expr: DOTS
+array_expr: (expression "." IDENTIFIER | expression "[" number "]")
+anyfield_expr: IDENTIFIER
+PUNKT_OP: "*" | "/"
+STRICH_OP: "+" | "-"
+COMP_OP: "==" | "!=" | "<" | ">" | "<=" | ">="
+
+
+%import common.ESCAPED_STRING
+%import common.SIGNED_NUMBER
+%import common.LETTER
+%import common.DIGIT
+%import common.HEXDIGIT
+%import common.WS
+%ignore WS

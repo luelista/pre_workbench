@@ -2,20 +2,25 @@ import re
 import subprocess
 from xml.etree.ElementTree import XMLParser
 import binascii, os, shutil
+
+import structinfo
 from objects import ByteBuffer
 
 class PdmlToPacketListParser:
-	def __init__(self, destPacketList):
+	def __init__(self, destPacketList, parse_context_type=structinfo.ParseContext):
 		#self.interface = interface
 		self.destination = destPacketList
 		self.cur_proto = None
+		self.parse_context_type = parse_context_type
+		self.parse_context = None
 		self.parser=XMLParser(target=self)
+
 
 	def feed(self, data):
 		self.parser.feed(data)
 		
 	def start(self,tag,attrib):
-		#print("start",tag,attrib)
+		if self.parse_context: self.parse_context.log("<%s>"%tag,attrib)
 		if tag == "pdml":
 			self.destination.metadata.update(attrib)
 			return
@@ -23,6 +28,10 @@ class PdmlToPacketListParser:
 		if tag == "packet":
 			self.next_packet = ByteBuffer()
 			self.cur_proto = None
+			self.parse_context = structinfo.BytebufferAnnotatingParseContext(self.next_packet)
+			self.parse_context.push(None, None, id="root")
+			self.parse_context.push(attrib, list(), id="packet")
+			return
 
 		if tag == "proto":
 			self.cur_proto = attrib["name"]
@@ -41,23 +50,54 @@ class PdmlToPacketListParser:
 		if 'pos' in attrib and "size" in attrib:
 			pos = int(attrib['pos'])
 			size = int(attrib['size'])
-			del attrib['pos']
-			del attrib['size']
+			self.parse_context.buf_offset = pos
+			self.parse_context.id = attrib["name"].split(".")[-1]
+			#del attrib['pos']
+			#del attrib['size']
+			v = list(  )
 			if "value" in attrib and len(attrib["value"]) == size * 2:
 				#try:
-					self.next_packet.setBytes(pos, binascii.unhexlify(attrib["value"]), None, None)
-					del attrib['value']
+					self.next_packet.setBytes(pos, binascii.unhexlify(attrib["value"]))
+
+					self.parse_context.push(attrib, v)
+					self.parse_context.buf_offset += size
+					v.append( self.parse_context.pack_value(attrib["value"]) )
+
 				#except:
 				#	pass
-			self.next_packet.setBytes(pos, size, attrib, None)
+			else:
+				self.parse_context.push(attrib, v)
+		else:
+			if "name" in attrib:
+				self.parse_context.id = attrib["name"].split(".")[-1]
+			else:
+				self.parse_context.id = ""
+			v = list(  )
+			self.parse_context.push(attrib, v)
+			#self.next_packet.setBytes(pos, size, attrib, None)
 
 
 
 
 	def end(self,tag):
-		if tag == "packet":
+		self.parse_context.log("</%s>"%tag,self.cur_proto)
+		if tag == "pdml":
+			self.parse_context.log("done")
+		elif tag == "packet":
+			self.next_packet.fi_tree = self.parse_context.pack_value(self.parse_context.pop())
+			assert(self.parse_context.pop() == None)
 			self.destination.add(self.next_packet)
 			self.next_packet = None
+		elif self.cur_proto == "geninfo" or self.cur_proto == "frame":
+			pass
+		else:
+			val = self.parse_context.top_value()
+			if len(val) == 1:
+				packed_val = val[0]
+			else:
+				packed_val = self.parse_context.pack_value(val)
+			self.parse_context.pop()
+			self.parse_context.top_value().append(packed_val)
 		
 
 	def data(self, data):

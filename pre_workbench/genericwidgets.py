@@ -178,10 +178,9 @@ class TextToTreeItem:
 		self.text_list = []
 		self.titem_list = []
 
-	def append(self, text_list, titem):
-		for text in text_list:
-			self.text_list.append(text)
-			self.titem_list.append(titem)
+	def append(self, text, titem):
+		self.text_list.append(text)
+		self.titem_list.append(titem)
 
 	# Return model indices that match string
 	def find(self, find_str):
@@ -206,9 +205,10 @@ class JsonView(QTreeWidget):
 		self.found_titem_list = []
 		self.found_idx = 0
 
-		self.setHeaderLabels(["Key", "Value"])
+		self.setHeaderLabels(["Key", "Type", "Value"])
 		self.setColumnWidth(0, 200)
-		self.setColumnWidth(1, 400)
+		self.setColumnWidth(1, 100)
+		self.setColumnWidth(2, 400)
 
 		self.setContents(jdata)
 
@@ -219,14 +219,34 @@ class JsonView(QTreeWidget):
 		self.clear()
 		self.contents = jdata
 		if jdata != None:
-			root_item = QTreeWidgetItem(["Root"])
-			self.recurse_jdata(jdata, root_item)
-			self.addTopLevelItem(root_item)
-			root_item.setExpanded(True)
+			self.tree_add_row("Root", jdata, self).setExpanded(True)
+			#self.addTopLevelItem(root_item)
+			#root_item.setExpanded(True)
 
+	def tree_add_row(self, key, val, parent):
+		me = QTreeWidgetItem(parent)
+		me.setData(0, QtCore.Qt.UserRole, key)
+		me.setText(0, key)
+		me.setData(1, QtCore.Qt.UserRole, type(val))
+		me.setText(1, type(val).__name__)
+		me.setData(2, QtCore.Qt.UserRole, val)
+
+		if isinstance(val, dict):
+			for key, cc in val.items():
+				self.tree_add_row(key, cc, me)
+		elif isinstance(val, list):
+			for i, cc in enumerate(val):
+				key = str(i)
+				self.tree_add_row(key, cc, me)
+		else:
+			me.setText(2, str(val))
+			self.text_to_titem.append(str(val), me)
+
+		self.text_to_titem.append(key, me)
+		return me
 
 	def keyPressEvent(self, event: QKeyEvent) -> None:
-		if event.key() == QtCore.Qt.Key_F and event.modifiers() == QtCore.Qt.CTRL:
+		if event.key() == QtCore.Qt.Key_F and event.modifiers() == QtCore.Qt.ControlModifier:
 			str = QInputDialog.getText(self, "Find", "Find string:", text=self.find_str)
 			if str is not None:
 				self.find_next(str)
@@ -252,31 +272,6 @@ class JsonView(QTreeWidget):
 		self.tree_widget.setCurrentItem(self.found_titem_list[self.found_idx])
 
 
-	def recurse_jdata(self, jdata, tree_widget):
-		if isinstance(jdata, dict):
-			for key, val in jdata.items():
-				self.tree_add_row(key, val, tree_widget)
-		elif isinstance(jdata, list):
-			for i, val in enumerate(jdata):
-				key = str(i)
-				self.tree_add_row(key, val, tree_widget)
-		else:
-			raise TypeError("jdata must be list or dict")
-
-	def tree_add_row(self, key, val, tree_widget):
-		text_list = []
-
-		if isinstance(val, dict) or isinstance(val, list):
-			text_list.append(key)
-			row_item = QTreeWidgetItem([key])
-			self.recurse_jdata(val, row_item)
-		else:
-			text_list.append(key)
-			text_list.append(str(val))
-			row_item = QTreeWidgetItem([key, str(val)])
-
-		tree_widget.addChild(row_item)
-		self.text_to_titem.append(text_list, row_item)
 
 
 class MdiFile:

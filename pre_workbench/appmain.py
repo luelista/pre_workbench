@@ -335,12 +335,12 @@ def excepthook(excType, excValue, tracebackobj):
 	versionInfo="0.0.1"
 	timeString = time.strftime("%Y-%m-%d, %H:%M:%S")
 
-	traceback.print_tb(tracebackobj)
 
 	tbinfo = traceback.format_tb(tracebackobj)
 	errmsg = '%s: \n%s' % (str(excType), str(excValue))
 	sections = [separator, timeString, separator, errmsg, separator]+ tbinfo
 	msg = '\n'.join(sections)
+	print(msg)
 	try:
 		f = open(logFile, "w")
 		f.write(msg)
@@ -349,10 +349,20 @@ def excepthook(excType, excValue, tracebackobj):
 	except IOError:
 		pass
 	errorbox = QMessageBox()
+	errorbox.setIcon(QMessageBox.Critical)
+	errorbox.setWindowTitle("Application Error")
 	errorbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Abort)
 	errorbox.setText(str(notice)+str(msg)+str(versionInfo))
-	if errorbox.exec_() == QMessageBox.Abort:
-		sys.exit(2)
+	try:
+		#TODO for some reason, the exec method fails with the following exception *after* closing the dialog
+		#TypeError: unable to convert a C++ 'QProcess::ExitStatus' instance to a Python object
+		res = errorbox.exec()
+		print("msgbox result",res)
+		if res == QMessageBox.Abort:
+			sys.exit(2)
+	except Exception as e:
+		traceback.print_exc()
+		print(str(e))
 
 sys.excepthook = excepthook
 

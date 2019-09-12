@@ -194,7 +194,7 @@ class StructuredTypeEditor(BaseTypeEditor):
 		pass
 
 	def keyReleaseEvent(self, e: QtGui.QKeyEvent) -> None:
-		if e.modifiers() == Qt.CTRL and e.key() == Qt.Key_V:
+		if e.modifiers() == Qt.ControlModifier and e.key() == Qt.Key_V:
 			self.paste()
 
 	def paste(self):

@@ -195,7 +195,7 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 		pass
 
-PcapHeader = StructFI(children=[
+PcapHeader = StructFI(def_name="pcap_header", children=[
 	("magic_number",  FixedFieldFI(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
 	("version_major", FixedFieldFI(format="H", 	description="major number of the file format")),
 	("version_minor", FixedFieldFI(format="H", 	description="minor number of the file format")),
@@ -204,7 +204,7 @@ PcapHeader = StructFI(children=[
 	("snaplen", 	  FixedFieldFI(format="I", 	description="max length of captured packed (65535)")),
 	("network", 	  FixedFieldFI(format="I", 	description="type of data link (1 = ethernet)")),
 ])
-PcapPacket = StructFI(children=[
+PcapPacket = StructFI(def_name="pcap_packet", children=[
 	("header", StructFI(children=[
 		("ts_sec", 		FixedFieldFI(format="I",  description="timestamp seconds")),
 		("ts_usec", 	FixedFieldFI(format="I",  description="timestamp microseconds")),
@@ -217,10 +217,10 @@ PcapVariants = [
 	(VariantStructFI(children=[PcapHeader], endianness="<"), VariantStructFI(children=[PcapPacket], endianness="<")),
 	(VariantStructFI(children=[PcapHeader], endianness=">"), VariantStructFI(children=[PcapPacket], endianness=">")),
 	]
-PcapFile = VariantStructFI(children=[
+PcapFile = VariantStructFI(def_name="pcap_file", children=[
 	StructFI(children=[
 		("file_header", PcapHeader),
-		("packets", structinfo.RepeatStructFI(children=PcapPacket, times="*")),
+		("packets", structinfo.RepeatStructFI(children=PcapPacket)),
 	], endianness=en)
 	for en in ["<",">"]
 ])
@@ -272,4 +272,5 @@ PcapFile = VariantStructFI(children=[
 if __name__=="__main__":
 	with open("PcapFile.pfi", "wb") as f:
 		f.write(structinfo.bin_serialize_fi(PcapFile))
-	print(PcapFile.to_text())
+	with open("PcapFile.txt", "w") as f:
+		f.write(PcapFile.to_text())

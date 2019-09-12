@@ -214,15 +214,15 @@ PcapPacket = StructFI(children=[
 	("payload", 	structinfo.VarByteFieldFI(size_expr="header.incl_len")),
 ])
 PcapVariants = [
-	(VariantStructFI(variants=[PcapHeader], endianness="<"), VariantStructFI(variants=[PcapPacket], endianness="<")),
-	(VariantStructFI(variants=[PcapHeader], endianness=">"), VariantStructFI(variants=[PcapPacket], endianness=">")),
+	(VariantStructFI(children=[PcapHeader], endianness="<"), VariantStructFI(children=[PcapPacket], endianness="<")),
+	(VariantStructFI(children=[PcapHeader], endianness=">"), VariantStructFI(children=[PcapPacket], endianness=">")),
 	]
-PcapFile = VariantStructFI(variants=[
+PcapFile = VariantStructFI(children=[
 	StructFI(children=[
-		("file_header", headerFI),
-		("packets", structinfo.RepeatStructFI(child=packetFI, times="*")),
-	])
-	for (headerFI, packetFI) in PcapVariants
+		("file_header", PcapHeader),
+		("packets", structinfo.RepeatStructFI(children=PcapPacket, times="*")),
+	], endianness=en)
+	for en in ["<",">"]
 ])
 
 """
@@ -268,3 +268,8 @@ PcapFile = VariantStructFI(variants=[
 
 		return [result.returncode, convertedstdout, stderr]
 """
+
+if __name__=="__main__":
+	with open("PcapFile.pfi", "wb") as f:
+		f.write(PcapFile.serialize_bin())
+	print(PcapFile.to_text())

@@ -4,9 +4,10 @@ class TypeRegistry:
 		self.types = list()
 	def register(self, **meta):
 		def wrapper(typ):
+			for k,v in meta.items():
+				setattr(typ, k, v)
 			meta["name"] = typ.__name__
 			self.types.append([typ, meta])
-			typ._type_registry_meta = meta
 			return typ
 		return wrapper
 	def find(self, **checkForMeta):
@@ -18,8 +19,8 @@ class TypeRegistry:
 					match = False
 					break
 			if match:
-				return typ
-		return None
+				return typ, meta
+		return None, None
 	def getSelectList(self, displayMeta):
 		return [("", "")] + [(typ.__name__, meta[displayMeta]) for typ, meta in self.types]
 

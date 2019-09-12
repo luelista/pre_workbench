@@ -316,7 +316,7 @@ class DynamicDataWidget(QWidget):
                 self.metadataWidget.setContents(data.metadata)
             else:
                 self.metadataWidget.setContents(None)
-            widgetTyp = DataWidgetTypes.find(handles=typ)
+            widgetTyp, _ = DataWidgetTypes.find(handles=typ)
             if widgetTyp == None:
                 self.setErrMes("Unknown data type "+str(typ))
             else:

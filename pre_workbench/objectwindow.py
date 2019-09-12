@@ -91,7 +91,7 @@ class ObjectWindow(QWidget):
 		print("dst="+self.params["dataSourceType"])
 		confFields = []
 		if self.params["dataSourceType"]:
-			clz = DataSourceTypes.find(name=self.params["dataSourceType"])
+			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
 			if self.dataSourceType != self.params["dataSourceType"]:
 				confFields = clz.getConfigFields()
 				self.dataSourceType = self.params["dataSourceType"]
@@ -109,7 +109,7 @@ class ObjectWindow(QWidget):
 	def reload(self):
 		try:
 			self.cancelAction.setEnabled(True)
-			clz = DataSourceTypes.find(name=self.params["dataSourceType"])
+			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
 			self.dataSource.on_log.connect(self.on_log.emit)

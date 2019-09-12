@@ -30,6 +30,7 @@ from dockwindows import FileBrowserWidget
 from genericwidgets import JsonView
 from objectwindow import ObjectWindow
 from typeregistry import WindowTypes
+import typeeditor
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -40,7 +41,7 @@ class WorkbenchMain(QMainWindow):
 
 	def restoreChildren(self):
 		for wndInfo in configs.getValue("ChildrenInfo", []):
-			clz = WindowTypes.find(name=wndInfo["clz"])
+			clz, _ = WindowTypes.find(name=wndInfo["clz"])
 			try:
 				wnd = clz(**wndInfo["par"])
 				self.showChild(wnd)
@@ -93,6 +94,15 @@ class WorkbenchMain(QMainWindow):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
 		self.newAct = QAction('New window', self, shortcut='Ctrl+N', statusTip='New window', triggered=self.onFileNewWindowAction)
 		self.openAct = QAction('Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
+		self.saveAct = QAction("&Save", self,
+				shortcut=QKeySequence.Save,
+				statusTip="Save the document to disk", triggered=self.onFileSaveAction)
+
+		self.saveAsAct = QAction("Save &As...", self,
+				shortcut=QKeySequence.SaveAs,
+				statusTip="Save the document under a new name",
+				triggered=self.onFileSaveAsAction)
+
 		self.closeAct = QAction("Cl&ose", self,
 				statusTip="Close the active window",
 				triggered=self.mdiArea.closeActiveSubWindow)
@@ -131,6 +141,8 @@ class WorkbenchMain(QMainWindow):
 		fileMenu = menubar.addMenu('&File')
 		fileMenu.addAction(self.newAct)
 		fileMenu.addAction(self.openAct)
+		fileMenu.addAction(self.saveAct)
+		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addSeparator()
 		self.mruActions = list()
 		for i in range(MRU_MAX):
@@ -212,6 +224,14 @@ class WorkbenchMain(QMainWindow):
 			self.mdiArea.setActiveSubWindow(window)
 
 
+	def onFileSaveAction(self):
+		if self.activeMdiChild() and self.activeMdiChild().save():
+			self.statusBar().showMessage("File saved", 2000)
+
+	def onFileSaveAsAction(self):
+		if self.activeMdiChild() and self.activeMdiChild().saveAs():
+			self.statusBar().showMessage("File saved", 2000)
+
 
 	def onFileNewWindowAction(self):
 		ow = ObjectWindow()
@@ -221,7 +241,7 @@ class WorkbenchMain(QMainWindow):
 
 	def onFileOpenAction(self):
 		options = QFileDialog.Options()
-		options |= QFileDialog.DontUseNativeDialog
+		#options |= QFileDialog.DontUseNativeDialog
 		fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", configs.getValue("lastOpenFile",""),"All Files (*);;Python Files (*.py)", options=options)
 		if fileName:
 			configs.setValue("lastOpenFile", fileName)
@@ -233,11 +253,15 @@ class WorkbenchMain(QMainWindow):
 		self.updateMruActions()
 
 		root,ext=os.path.splitext(fileName)
-		winType = WindowTypes.find(fileExts=ext)
+		winType, _ = WindowTypes.find(fileExts=ext)
 		if winType != None:
-			wnd = winType(fileName=fileName)
-			self.showChild(wnd)
-			wnd.reload()
+			try:
+				wnd = winType(fileName=fileName)
+				self.showChild(wnd)
+			except Exception as ex:
+				msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
+				msg.setDetailedText(traceback.format_exc())
+				msg.exec()
 			return
 
 		if fileName.endswith(".pcap") or fileName.endswith(".pcapng"):
@@ -311,6 +335,8 @@ def excepthook(excType, excValue, tracebackobj):
 	versionInfo="0.0.1"
 	timeString = time.strftime("%Y-%m-%d, %H:%M:%S")
 
+	traceback.print_tb(tracebackobj)
+
 	tbinfo = traceback.format_tb(tracebackobj)
 	errmsg = '%s: \n%s' % (str(excType), str(excValue))
 	sections = [separator, timeString, separator, errmsg, separator]+ tbinfo
@@ -323,8 +349,10 @@ def excepthook(excType, excValue, tracebackobj):
 	except IOError:
 		pass
 	errorbox = QMessageBox()
+	errorbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Abort)
 	errorbox.setText(str(notice)+str(msg)+str(versionInfo))
-	errorbox.exec_()
+	if errorbox.exec_() == QMessageBox.Abort:
+		sys.exit(2)
 
 sys.excepthook = excepthook
 

@@ -10,13 +10,16 @@ XDRM_bytes  = 0b101  # rest: length in bytes
 XDRM_array  = 0b110  # rest: count
 XDRM_map    = 0b111  # rest: pair-count
 
-def loads(data):
+def loads(data, magic=bytes()):
+	if data[0:len(magic)] != magic:
+		raise Exception("Invalid file format (magic number expected=%r, got=%r)" % (magic, data[0:len(magic)]))
+	data = data[len(magic):]
 	unpacker = xdrlib.Unpacker(data)
 	return unpack_xdrm(unpacker)
-def dumps(data):
+def dumps(data, magic=bytes()):
 	packer = xdrlib.Packer()
 	pack_xdrm(packer, data)
-	return packer.get_buffer()
+	return magic + packer.get_buffer()
 
 def unpack_xdrm(unpacker):
 	typecode = unpacker.unpack_uint()
@@ -90,6 +93,10 @@ def pack_xdrm(packer, data):
 		packer.pack_uint(XDRM_number | (0x1005 << 3))
 		packer.pack_fopaque(0x10, data.bytes)
 	else:
+		if hasattr(data, "serialize"):
+			print("WARNING: calling serialize on "+str(typ)+" ")
+			pack_xdrm(packer, data.serialize())
+			return
 		#raise Exception("can't pack "+str(typ))
 		print("WARNING: packing "+str(typ)+" as str")
 		bin = str(data).encode("utf-8",'surrogateescape')
@@ -102,5 +109,6 @@ if __name__ == '__main__':
 		o = json.loads(data)
 		sys.stdout.buffer.write(dumps(o))
 	else:
-		o = loads(data)
-		sys.stdout.write(json.dumps(o, indent=2))
+		o = loads(data)#, magic=b"\xde\xca\xf9\x30")
+		#sys.stdout.write(json.dumps(o, indent=2))
+		print(o)

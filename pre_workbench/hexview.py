@@ -156,7 +156,7 @@ class HexView2(QWidget):
 				self.applyFormatInfo(fi)
 
 	def applyFormatInfo(self, info):
-		structinfo.annotate_byte_buffer(self, info)
+		structinfo.annotate_byte_buffer(self.buffers[0], info)
 
 	def wheelEvent(self, e):
 		if e.pixelDelta().isNull():

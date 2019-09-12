@@ -1,10 +1,15 @@
-from PyQt5 import QtGui
+import uuid
+
+from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
 	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea
 import xdrm
+from genericwidgets import MdiFile
 from typeregistry import WindowTypes
+
+FILE_MAGIC = b"\xde\xca\xf9\x30"
 
 Type_Struct=0; Type_Choice=1; Type_List=2; Type_Named=3; Type_Primitive=4
 PrimitiveTags_BOOLEAN = 1
@@ -18,10 +23,20 @@ PrimitiveTags_UTF8String = 12
 Field_UiFlags_advanced = 1
 Field_UiFlags_autoIncrement = 2
 Type_UiFlags_flags = 1
+StructSerialization_Dictionary = 0
+StructSerialization_Tuple = 1
 
 class TypeEditorSchema:
 	def __init__(self, schema):
+		if type(schema) == bytes:
+			iid, typeName, data = xdrm.loads(schema, magic=FILE_MAGIC)
+			if iid != uuid.UUID("97fc3615-349c-476e-9007-6570e5239332"):
+				raise TypeError("Invalid file format, invalid interface ID (got=%r, expected=97fc3615-349c-476e-9007-6570e5239332)" % (iid,))
+			if typeName != "Interface":
+				raise TypeError("Invalid file format, invalid typeName (got=%r, expected=Interface)" % (iid,))
+			schema = data
 		self.typeDefs = dict((el['name'], el) for el in schema['typeDefs'])
+		self.iid = uuid.UUID(schema['iid'])
 
 	def generateTypeEditor(self, parent, definition):
 		typeKind, typeContent = definition
@@ -46,7 +61,9 @@ class TypeEditorSchema:
 			return TextTypeEditor(parent, self, typeContent)
 
 	def generateTypeEditorByName(self, parent, typeName):
-		return self.generateTypeEditor(parent, self.typeDefs[typeName]['def'])
+		te = self.generateTypeEditor(parent, self.typeDefs[typeName]['def'])
+		te.typeName = typeName
+		return te
 
 
 
@@ -56,20 +73,25 @@ class TypeEditorSetOptions:
 		self.raise_on_unknown_key = raise_on_unknown_key
 		self.raise_on_invalid_choice = raise_on_invalid_choice
 
-
-
 class BaseTypeEditor(QFrame):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema : TypeEditorSchema, rootTypeContent : dict):
 		super().__init__(parent)
 		self.schema = schema
 		self.rootTypeContent = rootTypeContent
 		self.initUI()
-
+		self.typeName = ""
+	def serialize(self):
+		return xdrm.dumps([self.schema.iid, self.typeName, self.get()], magic=FILE_MAGIC)
+	def deserialize(self, buf):
+		iid, typeName, data = xdrm.loads(buf, magic=FILE_MAGIC)
+		if iid != self.schema.iid: raise Exception("Invalid file format, invalid interface ID (got=%r, expected=%r)" % (iid, self.schema.iid))
+		# TODO check typeName ??
+		self.set(data)
 
 class PrimitiveTypeEditor(BaseTypeEditor):
 	pass
-
+"""
 class NumericTypeEditor(QSpinBox):
 	updated = pyqtSignal(str)
 	def __init__(self, parent, schema, rootTypeContent):
@@ -82,7 +104,19 @@ class NumericTypeEditor(QSpinBox):
 		return self.value()
 	def clear(self):
 		self.setValue(0)
-
+"""
+class NumericTypeEditor(QLineEdit):
+	updated = pyqtSignal(str)
+	def __init__(self, parent, schema, rootTypeContent):
+		super().__init__(parent)
+	def changeEvent(self, e: QEvent) -> None:
+		self.updated.emit("")
+	def set(self, value, opts=None):
+		self.setText(str(value))
+	def get(self):
+		return int(self.text())
+	def clear(self):
+		self.setText("0")
 class TextTypeEditor(QLineEdit):
 	updated = pyqtSignal(str)
 	def __init__(self, parent, schema, rootTypeContent):
@@ -152,8 +186,8 @@ class FlagsTypeEditor(QListWidget):
 
 
 class error_while_assigning(Exception):
-	def __init__(self, key):
-		super().__init__("error while assigning "+key)
+	def __init__(self, key, msg=""):
+		super().__init__("error while assigning "+key+": "+msg)
 
 class StructuredTypeEditor(BaseTypeEditor):
 	def mouseReleaseEvent(self, e: QtGui.QMouseEvent) -> None:
@@ -209,24 +243,33 @@ class StructTypeEditor(StructuredTypeEditor):
 
 	def set(self, dictionary, opts=TypeEditorSetOptions()):
 		self.clear(False)
-		for key, el in dictionary.items():
-			if not key in self.elements:
-				if opts.raise_on_unknown_key:
-					raise LookupError("failed to set unknown struct member "+key)
-				else:
-					continue
-			if hasattr(self.elements[key], "_struct_opt"): self.setOpt(key, True)
-			try:
-				self.elements[key].set(dictionary[key], opts)
-			except Exception as e:
-				raise error_while_assigning(key) from e
+		if self.rootTypeContent.get('serialization') == StructSerialization_Tuple:
+			for newValue, (key, el) in zip(dictionary, self.elements.items()):
+				el.set(newValue)
+		else:
+			for key, el in dictionary.items():
+				if not key in self.elements:
+					if opts.raise_on_unknown_key:
+						raise LookupError("failed to set unknown struct member "+key)
+					else:
+						continue
+				if hasattr(self.elements[key], "_struct_opt"): self.setOpt(key, True)
+				try:
+					self.elements[key].set(dictionary[key], opts)
+				except Exception as e:
+					raise error_while_assigning(key, str(e)) from e
 
 	def get(self):
+		if self.rootTypeContent.get('serialization') == 'tuple':
+			return [None if hasattr(el, "_struct_opt") and el._struct_opt.checkState() != Qt.Checked
+					else el.get()
+					for key, el in self.elements.items()]
 		o = {}
 		for key, el in self.elements.items():
 			if hasattr(el, "_struct_opt") and el._struct_opt.checkState() != Qt.Checked:
 				continue
 			o[key] = el.get()
+		return o
 
 	def getFieldValue(self, fieldName):
 		if hasattr(self.elements[fieldName], "_struct_opt") and self.elements[fieldName]._struct_opt.checkState() != Qt.Checked:
@@ -312,7 +355,7 @@ class ListTypeEditor(StructuredTypeEditor):
 			el = self.findChild(ListTypeEditorItem)
 			if el == None: break
 			self.layout().removeWidget(el)
-			el.deleteLater()
+			el.setParent(None)
 		self.updated.emit("")
 
 	def delete(self, index):
@@ -321,7 +364,7 @@ class ListTypeEditor(StructuredTypeEditor):
 		widget.deleteLater()
 
 	def get(self):
-		return [child.body.get() for child in self.findChildren(ListTypeEditorItem)]
+		return [child.body.get() for child in self.findChildren(ListTypeEditorItem, options=QtCore.Qt.FindDirectChildrenOnly)]
 
 	def set(self, lst, opts=TypeEditorSetOptions()):
 		self.clear()
@@ -351,27 +394,41 @@ class ListTypeEditorItem(QWidget):
 		self.deleteLater()
 
 
-@WindowTypes.register(fileExts='.tes')
-class TypeEditorSchemaFileWindow(QScrollArea):
+class TypeEditorSchemaFileWindow(QScrollArea, MdiFile):
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.reload()
+		self.initMdiFile(params["fileName"], type(self).patterns, "untitled%d" + type(self).fileExts[0])
 	def saveParams(self):
 		return self.params
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):
 		self.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
-		self.metaSchema = TypeEditorSchema(xdrm.loads(open('meta_schema.tes','rb').read()))
-		self.editor = self.metaSchema.generateTypeEditorByName(self, 'Interface')
+		self.metaSchema = TypeEditorSchema(open(type(self).schema,'rb').read())
+		self.editor = self.metaSchema.generateTypeEditorByName(self, type(self).typeName)
 		self.setWidget(self.editor)
 		self.setWidgetResizable(True)
-	def reload(self):
-		schema = xdrm.loads(open(self.params['filename'],'rb').read())
-		self.editor.set(schema)
+	def loadFile(self, fileName):
+		self.editor.deserialize(open(fileName,'rb').read())
+		self.setCurrentFile(fileName)
+		self.editor.updated.connect(self.documentWasModified)
+	def saveFile(self, fileName):
+		with open(fileName, "wb") as f:
+			f.write(self.editor.serialize())
+		self.setCurrentFile(fileName)
+		return True
 
+
+
+@WindowTypes.register(fileExts=['.tes'], schema='meta_schema.tes', typeName='Interface', description='Type Editor Schema', patterns='Type Editor Schema (*.pfi)')
+class TypeEditorSchemaFileWindow(TypeEditorSchemaFileWindow):
+	pass
+
+@WindowTypes.register(fileExts=['.pfi'], schema='format_info.tes', typeName='FormatInfoFile', description='Protocol Format Info Specification')
+class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
+	pass
 
 
 
@@ -381,7 +438,7 @@ if __name__ == '__main__':
 	import sys
 	from PyQt5.QtWidgets import QMainWindow, QApplication, QScrollArea
 	app = QApplication(sys.argv)
-	schema = TypeEditorSchema(xdrm.loads(open(sys.argv[1],'rb').read()))
+	schema = TypeEditorSchema(open(sys.argv[1],'rb').read())
 	wnd = QMainWindow()
 	scroll = QScrollArea(wnd)
 	scroll.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
@@ -390,7 +447,9 @@ if __name__ == '__main__':
 	scroll.setWidgetResizable(True)
 	wnd.setCentralWidget(scroll)
 	wnd.show()
-	editor.set(xdrm.loads(open(sys.argv[1],'rb').read()))
+	editor.set(xdrm.loads(open(sys.argv[3],'rb').read()))
+	with open(sys.argv[4],"wb") as f:
+		f.write(editor.serialize())
 	sys.exit(app.exec_())
 
 

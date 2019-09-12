@@ -1,6 +1,10 @@
+import json
 import struct
+import uuid
 from collections import namedtuple
 
+import typeeditor
+import xdrm
 from typeregistry import TypeRegistry
 
 
@@ -123,7 +127,7 @@ class BytebufferAnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
 		print(type(self.stack[-1][0]).__name__, self.stack[-1][2], self.top_offset(), self.top_length(), value)
 		meta = { 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0] }
-		meta.update(self.stack[-1][0].params)
+		meta.update(self.stack[-1][0].extra_params())
 		self.bbuf.setBytes(self.top_offset(), self.top_length(), meta=meta, style=None)
 		return value
 
@@ -167,27 +171,62 @@ def traverse_object(el, id):
 
 FITypes = TypeRegistry()
 
-def deserialize_fi(params):
-	if type(params) == dict:
-		t = FITypes.find(id=params['tid'])
+def deserialize_fi(data):
+	if type(data) == list and len(data) == 2:
+		tid, params = data
+		t, _ = FITypes.find(type_id=params['tid'])
 		return t(**params)
 	else:
-		return params
+		return data
+
+
+def bin_serialize_fi(self):
+	return typeeditor.FILE_MAGIC + xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()])
+
+def bin_deserialize_fi(self):
+	return typeeditor.FILE_MAGIC + xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()])
 
 class AbstractFI:
 	def __init__(self, **params):
 		self.params = params
 		self.init(**params)
+	def to_text(self, indent = 0):
+		pass
 	def serialize(self):
-		self.params['tid'] = type(self)._type_registry_meta['id']
-		return self.params
+		return [type(self).type_id, self.params]
+	def extra_params(self, removewhat=['children']):
+		return {i:self.params[i] for i in self.params if not i in removewhat}
 
-@FITypes.register(id=0)
+struct_format_alias={
+	"c": "char",
+	"b": "int8",
+	"B": "uint8",
+	"?": "bool",
+	"h": "int16",
+	"H": "uint16",
+	"i": "int32",
+	"I": "uint32",
+	"l": "int32",
+	"L": "uint32",
+	"q": "int64",
+	"Q": "uint64",
+	"f": "float",
+	"d": "double",
+	"s": "char[]",
+}
+
+@FITypes.register(type_id=0)
 class FixedFieldFI(AbstractFI):
 	def init(self, format, magic=None, **kw):
 		self.pack_format=format
 		self.magic_value=magic
 		self.size = struct.calcsize(format)
+
+	def to_text(self, indent = 0):
+		if self.pack_format in struct_format_alias:
+			return params_to_text(self.extra_params(["pack_format"])) + struct_format_alias[self.pack_format]
+		else:
+			return params_to_text(self.extra_params(["pack_format"])) + "(pack "+repr(self.pack_format)+")"
 
 	def read_from_buffer(self, context):
 		try:
@@ -205,18 +244,20 @@ class FixedFieldFI(AbstractFI):
 			context.pop()
 
 
-@FITypes.register(id=1)
+@FITypes.register(type_id=1)
 class VarByteFieldFI(AbstractFI):
 	def init(self, size_expr="", **kw):
-		self.pack_format=format
 		self.size_expr=size_expr
+
+	def to_text(self, indent = 0):
+		return params_to_text(self.extra_params()) + "bytes"
 
 	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
 			n = context.eval(self.size_expr)
 			context.require_bytes(n)
-			return context.read_bytes(n)
+			return context.pack_value(context.read_bytes(n))
 		except:
 			context.restore_offset()
 			raise
@@ -224,7 +265,7 @@ class VarByteFieldFI(AbstractFI):
 			context.pop()
 
 
-@FITypes.register(id=2)
+@FITypes.register(type_id=2)
 class StructFI(AbstractFI):
 	def init(self, children, **kw):
 		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
@@ -232,6 +273,12 @@ class StructFI(AbstractFI):
 			self.size = sum(c.size for (name, c) in self.children)
 		except:
 			self.size = None
+
+	def to_text(self, indent = 0):
+		x = params_to_text(self.extra_params())+"struct {"+"\n"
+		for (name, c) in self.children:
+			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1) + "\n"
+		return x + "\t"*indent+"}"
 
 	def read_from_buffer(self, context):
 		try:
@@ -248,17 +295,23 @@ class StructFI(AbstractFI):
 			context.pop()
 
 
-@FITypes.register(id=3)
+@FITypes.register(type_id=3)
 class VariantStructFI(AbstractFI):
-	def init(self, variants, **kw):
-		self.variants = [deserialize_fi(c) for c in variants]
+	def init(self, children, **kw):
+		self.children = [deserialize_fi(c) for c in children]
 		self.size = None
-
+	def to_text(self, indent = 0):
+		if len(self.children) == 1:
+			return params_to_text(self.extra_params()) + self.children[0].to_text(indent)
+		x = params_to_text(self.extra_params())+"variant {\n"
+		for c in self.children:
+			x += "\t"*(1+indent) + c.to_text(indent+1) + "\n"
+		return x + "\t"*indent+"}"
 
 	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
-			for i, variant in enumerate(self.variants):
+			for i, variant in enumerate(self.children):
 				try:
 					context.id = str(i)
 					return context.pack_value(variant.read_from_buffer(context))
@@ -277,12 +330,16 @@ class VariantStructFI(AbstractFI):
 
 
 
-@FITypes.register(id=4)
+@FITypes.register(type_id=4)
 class RepeatStructFI(AbstractFI):
-	def init(self, child, times=-1, **kw):
-		self.child = deserialize_fi(child)
+	def init(self, children, times=-1, **kw):
+		self.children = deserialize_fi(children)
 		self.times = times
 		self.size = None
+
+	def to_text(self, indent = 0):
+		return params_to_text(self.extra_params(["children","times"]))+"repeat("+json.dumps(self.times)+"){"+"\n"+ "\t"*(1+indent) + self.children.to_text(indent+1) + "\n}"
+
 
 	def read_from_buffer(self, context):
 		try:
@@ -293,7 +350,7 @@ class RepeatStructFI(AbstractFI):
 				while True:
 					try:
 						context.id = str(i)
-						o.append(self.child.read_from_buffer(context))
+						o.append(self.children.read_from_buffer(context))
 					except incomplete:
 						break
 					i += 1
@@ -301,7 +358,7 @@ class RepeatStructFI(AbstractFI):
 				n = context.eval(self.times)
 				for i in range(n):
 					context.id = str(i)
-					o.append(self.child.read_from_buffer(context))
+					o.append(self.children.read_from_buffer(context))
 			return context.pack_value(o)
 		except:
 			context.restore_offset()
@@ -309,7 +366,10 @@ class RepeatStructFI(AbstractFI):
 		finally:
 			context.pop()
 
-
+def params_to_text(params):
+	x=["%s=%s"%(k,json.dumps(v)) for k,v in params.items()]
+	if len(x) == 0: return ""
+	return "["+", ".join(x)+"] "
 
 """
 class FixedStructFI(AbstractFI):

@@ -1,9 +1,10 @@
-from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
-	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox
+	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
+	QMessageBox
 
 from typeregistry import DataWidgetTypes
 
@@ -276,4 +277,63 @@ class JsonView(QTreeWidget):
 
 		tree_widget.addChild(row_item)
 		self.text_to_titem.append(text_list, row_item)
+
+
+class MdiFile:
+	sequenceNumber = 1
+	def initMdiFile(self, fileName=None, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
+		#self.setAttribute(QtWidgets.Qt.WA_DeleteOnClose)
+		self.isUntitled = True
+		self.filePatterns = patterns
+		self.fileDefaultNamePattern = defaultNamePattern
+		if fileName == None:
+			self.newFile()
+		else:
+			self.loadFile(fileName)
+
+	def newFile(self):
+		self.isUntitled = True
+		self.curFile = self.fileDefaultNamePattern % MdiFile.sequenceNumber
+		MdiFile.sequenceNumber += 1
+		self.setWindowTitle(self.curFile + '[*]')
+
+		#self.document().contentsChanged.connect(self.documentWasModified)
+
+	def setCurrentFile(self, fileName):
+		self.curFile = QFileInfo(fileName).canonicalFilePath()
+		self.isUntitled = False
+		#self.document().setModified(False)
+		self.setWindowModified(False)
+		self.setWindowTitle(QFileInfo(self.curFile).fileName() + "[*]")
+
+	def documentWasModified(self, dummy=None):
+		self.setWindowModified(True)
+
+	def save(self):
+		if self.isUntitled:
+			return self.saveAs()
+		else:
+			return self.saveFile(self.curFile)
+
+	def saveAs(self):
+		fileName, _ = QFileDialog.getSaveFileName(self, "Save As", self.curFile, self.filePatterns)
+		if not fileName:
+			return False
+
+		return self.saveFile(fileName)
+
+	def maybeSave(self):
+		if self.isWindowModified():
+			ret = QMessageBox.warning(self, self.curFile,
+					"'%s' has been modified.\nDo you want to save your "
+					"changes?" % QFileInfo(self.curFile).fileName(),
+					QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+
+			if ret == QMessageBox.Save:
+				return self.save()
+
+			if ret == QMessageBox.Cancel:
+				return False
+
+		return True
 

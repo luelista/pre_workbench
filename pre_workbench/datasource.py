@@ -271,5 +271,5 @@ PcapFile = VariantStructFI(children=[
 
 if __name__=="__main__":
 	with open("PcapFile.pfi", "wb") as f:
-		f.write(PcapFile.serialize_bin())
+		f.write(structinfo.bin_serialize_fi(PcapFile))
 	print(PcapFile.to_text())

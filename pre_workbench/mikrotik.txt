@@ -1,0 +1,5 @@
+DEFAULT struct (endianness="<"){
+	length uint8
+	type uint8
+	value bytes(size_expr="length")
+}

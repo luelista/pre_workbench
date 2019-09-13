@@ -48,12 +48,15 @@ def highlightMatch(editor, qp, matchrange, desc, color):
 
 def selectionLengthMatcher(editor, qp, bbuf, sel):
 	(start, end) = sel
-	sellen = end - start
+	sellen = end - start + 1
 	print (start,end,sellen,[rangeBefore(bbuf, sel), sel])
-	if sellen == -1: return
-	match, desc = findInRange(bbuf, [rangeBefore(bbuf, sel), sel], intToVarious(sellen+1, sellen+2, sellen+4, sellen-1))
+	if sellen == 0: return
+	match, desc = findInRange(bbuf, [rangeBefore(bbuf, sel), sel], intToVarious(sellen))
 	if match != None:
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
+	match, desc = findInRange(bbuf, [rangeBefore(bbuf, sel), sel], intToVarious(sellen+1, sellen+2, sellen+4))
+	if match != None:
+		highlightMatch(editor, qp, match,desc,QColor("#993399"))
 
 
 

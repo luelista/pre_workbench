@@ -401,6 +401,7 @@ class TypeEditorSchemaFileWindow(QScrollArea, MdiFile):
 		self.initUI()
 		self.initMdiFile(params["fileName"], type(self).patterns, "untitled%d" + type(self).fileExts[0])
 	def saveParams(self):
+		self.params["fileName"] = self.curFile
 		return self.params
 	def sizeHint(self):
 		return QSize(600,400)
@@ -434,7 +435,6 @@ class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
 
 
 def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options"):
-	if values == None: values = {}
 	dlg = QDialog()
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())

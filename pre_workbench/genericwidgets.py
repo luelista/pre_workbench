@@ -4,7 +4,7 @@ from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
 	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
-	QMessageBox
+	QMessageBox, QAction
 
 from typeregistry import DataWidgetTypes
 
@@ -49,7 +49,10 @@ class SettingsGroup(QFrame):
 				field.textChanged.connect(self.textChanged)
 				if "autocomplete" in params:
 					field.setCompleter(QCompleter(QStringListModel(list(params["autocomplete"]), field), field))
-
+				if "fileselect" in params:
+					act = QAction("...")
+					act.triggered.connect(lambda field=field: self.selectFile(field, params.get("fileselect"), params.get("caption","Select file"), params.get("filter","All files (*.*)")))
+					field.addAction(act, QLineEdit.TrailingPosition)
 			elif fieldtype == "select":
 				field = QComboBox()
 				for value, text in params["options"]:
@@ -75,6 +78,14 @@ class SettingsGroup(QFrame):
 				self.updateField(fieldId)
 			else:
 				self.values[fieldId] = empty
+
+	def selectFile(self, field, mode, caption, filter):
+		if mode == "open":
+			QFileDialog.getOpenFileName(self, caption, field.text(), filter)
+		if mode == "save":
+			QFileDialog.getSaveFileName(self, caption, field.text(), filter)
+		if mode == "dir":
+			QFileDialog.getExistingDirectory(self, caption, field.text())
 
 	@pyqtSlot(str)
 	def textChanged(self, newText):
@@ -300,6 +311,7 @@ class MdiFile:
 		#self.document().setModified(False)
 		self.setWindowModified(False)
 		self.setWindowTitle(QFileInfo(self.curFile).fileName() + "[*]")
+
 
 	def documentWasModified(self, dummy=None):
 		self.setWindowModified(True)

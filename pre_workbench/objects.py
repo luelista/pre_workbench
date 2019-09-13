@@ -1,10 +1,14 @@
 import binascii
+import re
 
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidgetItem
 
 import hexdump, struct
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
+
+from guihelper import getClipboardText
+
 
 class ReloadRequired(Exception):
 	pass
@@ -54,7 +58,14 @@ class ByteBuffer(QObject):
 	def addRange(self, r):
 		self.ranges.append(r)
 		if "name" in r.metadata: self.fields[r.metadata["name"]] = r
+		return r
 
+	def appendBytes(self, newBytes, meta=None):
+		start = len(self)
+		self.setBytes(len(self), newBytes)
+		end = len(self)
+		if meta:
+			return self.addRange(Range(start, end, meta=meta))
 
 	def getByte(self, i):
 		return self.buffer[i]
@@ -109,12 +120,20 @@ class ByteBuffer(QObject):
 			b=self.buffer[offset:offset+length]
 		return joiner.join(format % c for c in b)
 
+
+	def parse_from_hexdump(dmp):
+		bbuf = ByteBuffer()
+		for line in dmp.split("\n"):
+			if line.strip()=="": continue
+			bbuf.appendBytes(binascii.unhexlify(re.match("^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ","")))
+		return bbuf
+
 class Range:
 	RangeRole = QtCore.Qt.UserRole
 	BytesOffsetRole = QtCore.Qt.UserRole+1
 	BytesSizeRole = QtCore.Qt.UserRole+2
 	SourceDescRole = QtCore.Qt.UserRole+3
-	def __init__(self, start, end, value=None, source_desc=None, field_name=None):
+	def __init__(self, start, end, value=None, source_desc=None, field_name=None, meta=None):
 		self.value=value
 		self.source_desc=source_desc
 		self.field_name=field_name
@@ -122,6 +141,7 @@ class Range:
 		self.end = end
 		self.bytes_size = end - start
 		self.metadata = dict()
+		if meta: self.metadata.update(meta)
 		self.style = dict()
 
 	def addToTree(self, parent):
@@ -203,20 +223,85 @@ class ByteBufferList(QObject):
 			if metadataKeys: s.update(bbuf.metadata.keys())
 			if fieldKeys: s.update(bbuf.fields.keys())
 		return s
-	
+
 
 
 
 class BidiByteBuffer:
-	def __init__(self, up, down):
-		self.up = up
-		self.down = down
+	UP = 0
+	DOWN = 1
+	def __init__(self, up=None, down=None):
+		self.up = ByteBuffer() if up is None else up
+		self.down = ByteBuffer() if down is None else down
+		self.buffers = (self.up, self.down)
+		self.merge_ranges = list()
+
 	def merged(self):
 		buf = ByteBuffer()
 		# pseudo-code:
 		# for range in sorted(self.up.split_by_tag_value("timestamp") + self.down.split_by_tag_value("timestamp"))
 		#   buf.append_buffer(range)
 		return buf
+
+	def parse_from_hexdump(dmp):
+		out = BidiByteBuffer()
+		buf = bytes(); bufdir = None; buflinum = None
+		for linum, line in enumerate(dmp.split("\n")):
+			if line.strip()=="": continue
+			dir = BidiByteBuffer.DOWN if line.startswith(" ") or line.startswith("\t") else BidiByteBuffer.UP
+			if bufdir != dir:
+				if bufdir != None:
+					out.appendBytes(buf, bufdir, {"linum":buflinum})
+				bufdir = dir
+				buflinum = linum
+				buf = bytes()
+			buf += binascii.unhexlify(re.match("^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ",""))
+
+		if bufdir != None:
+				out.appendBytes(buf, bufdir, {"linum":buflinum})
+
+		return out
+
+	def parse_from_c_arrays(dmp):
+		out = BidiByteBuffer()
+		buf = bytes(); bufheader = None
+		for linum, line in enumerate(dmp.split("\n")):
+			if line.strip()=="": continue
+			header = re.match(r"char peer(\d+)_(\d+)\[\] = { /\* Packet (\d+) \*/", line)
+			if header:
+				if bufheader != None:
+					out.appendBytes(buf, int(bufheader.group(1)), {"pktnum":int(bufheader.group(3))})
+				bufheader = header
+				buf = bytes()
+			else:
+				cleaned_line = line.replace("0x","").replace(", ","").replace(" };","")
+				print(cleaned_line)
+				buf += binascii.unhexlify(cleaned_line)
+
+		if bufheader != None:
+			out.appendBytes(buf, int(bufheader.group(1)), {"pktnum":int(bufheader.group(3))})
+
+		return out
+
+	def appendBytes(self, newBytes, direction, meta):
+		bbuf = self.buffers[direction]
+
+		meta["direction"] = "up" if direction == BidiByteBuffer.UP else "down"
+		meta["section"] = str(meta)
+		bbuf.appendBytes(newBytes, meta)
+
+def parseHexFromClipboard():
+	txt = getClipboardText()
+	if re.match("char \S+\[\]", txt):
+		return BidiByteBuffer.parse_from_c_arrays(txt)
+	elif re.search("^\s+[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2} ?)+)", txt, re.MULTILINE):
+		return BidiByteBuffer.parse_from_hexdump(txt)
+	elif re.match("^[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2})+)", txt):
+		return ByteBuffer.parse_from_hexdump(txt)
+	elif re.match("^[a-fA-F0-9\t\s ]+$", txt):
+		return ByteBuffer(binascii.unhexlify(re.sub("\s","",txt)))
+	else:
+		return ByteBuffer(txt.encode("utf-8"))
 
 
 #load_pcap_file(file) / parse_pcap(byteBuffer)

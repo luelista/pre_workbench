@@ -1,0 +1,23 @@
+
+
+warum das ganze
+
+
+ausgangssituation
+    man hat ein smartes gerät gekauft, und dieses gerät kommuniziert. daten werden als elektrische signale oder em-wellen übermittelt. jetzt möchte man gern wissen, was da genau übertragen wird. z.b. um zu überprüfen, ob das gerät private daten irgendwo hin sendet, oder ob es "sicher" ist, oder um selbst auf evtl vom hersteller nicht vorgesehene weise mit dem gerät zu interagieren
+    
+    wie diese signale in digitale daten übersetzt werden, ist manchmal unbekannt z.b. bei proprietären funkprotokollen, da möchte ich aber in diesem vortrag nicht näher drauf eingehen [referenz URH ?]
+    
+    oft ist es aber bekannt (z.b. wenn das gerät wlan, bluetooth oder USB, ethernet, etc verwendet). es ist dann z.b. im wlan-standard festgelegt, wie man aus den funkwellen bits macht, und wie diese in pakete unterteilt sind, und wie diese pakete grob aufgebaut sind. man kann ein fertiges tool einsetzen, was einem frei haus byte-pakete mit metadaten liefert
+
+
+
+was gibt es
+    
+    standard-tools
+        sniffer+dissector (passiv): wireshark
+        proxy (aktiv/mitm): mitmproxy, burp, etc
+        
+        
+
+

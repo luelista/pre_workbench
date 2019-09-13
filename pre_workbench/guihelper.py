@@ -5,5 +5,10 @@ def setClipboardText(txt):
     cb.clear(mode=cb.Clipboard )
     cb.setText(txt, mode=cb.Clipboard)
 
+def getClipboardText():
+    cb = QApplication.clipboard()
+    return cb.text(mode=cb.Clipboard)
+
+
 def qApp():
     return QApplication.instance()

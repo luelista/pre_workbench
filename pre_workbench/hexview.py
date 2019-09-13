@@ -17,7 +17,7 @@ from genericwidgets import showSettingsDlg
 from guihelper import setClipboardText
 from hexdump import hexdump
 from hexview_selheur import selectionHelpers
-from objects import ByteBuffer, Range
+from objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
 from typeeditor import showTypeEditorDlg
 
 
@@ -30,6 +30,9 @@ class RangeTreeWidget(QTreeWidget):
 		self.setColumnWidth(3, 200)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+		self.formatInfo = None
+		self.formatInfoFileName = None
+		self.paramConfigName="RangeTree"
 
 	def updateTree(self, bbuf):
 		self.clear()
@@ -52,15 +55,22 @@ class RangeTreeWidget(QTreeWidget):
 			iterator += 1
 
 	def onCustomContextMenuRequested(self, point):
+		ctx = QMenu("Context menu", self)
 		item = self.itemAt(point)
-		if item == None: return
+		if item != None:
+			source = item.data(0, Range.SourceDescRole)
+			parentSource = item.parent().data(0, Range.SourceDescRole)
+			if isinstance(source, structinfo.AbstractFI):
+				if isinstance(source, structinfo.StructFI):
+					ctx.addAction("Add field ...", lambda: self.addField(source))
+					ctx.addSeparator()
+				ctx.addAction("Edit ...", lambda: self.editField(source))
+				#ctx.addAction("Repeat ...", lambda: self.repeatField(source, parentSource))
 
-		source = item.data(0, Range.SourceDescRole)
-		if isinstance(source, structinfo.AbstractFI):
-			ctx = QMenu("Context menu", self)
-			if isinstance(source, structinfo.StructFI):
-				ctx.addAction("Add field ...", lambda: self.addField(source))
-			ctx.exec(self.mapToGlobal(point))
+		ctx.addAction("New format info ...", self.newFormatInfo)
+		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
+		ctx.addAction("Save format info ...", self.fileOpenFormatInfo)
+		ctx.exec(self.mapToGlobal(point))
 
 	def addField(self, parent):
 		params = showTypeEditorDlg("format_info.tes", "StructField")
@@ -68,8 +78,45 @@ class RangeTreeWidget(QTreeWidget):
 		print(parent.children+[params])
 		parent.updateParams(children=parent.children+[params])
 		self.parent().applyFormatInfo()
-		self.parent().saveFormatInfo(self.parent().formatInfoFileName)
+		self.saveFormatInfo(self.formatInfoFileName)
 
+	#TODO - Datenstruktur gibt es zur Zeit nicht her, ein FI zu ersetzen / zu wrappen
+	# es fehlt ein wrapper-element mit einer replace / setType funktion
+	# evtl auf composition statt inheritance umstellen (AnyFI statt AbstractFI)
+	"""
+	def repeatField(self, item, parent):
+		params = showTypeEditorDlg("format_info.tes", "RepeatFI")
+		if params is None: return
+		print(parent.children+[params])
+		parent.updateParams(children=parent.children+[params])
+		self.parent().applyFormatInfo()
+		self.saveFormatInfo(self.formatInfoFileName)
+		"""
+
+	def newFormatInfo(self):
+		params = showTypeEditorDlg("format_info.tes", "AnyFI")
+		if params is None: return
+		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
+		if not fileName: return
+		self.formatInfo = structinfo.deserialize_fi(params)
+		self.formatInfoFileName = fileName
+		self.parent().applyFormatInfo()
+		self.saveFormatInfo(self.formatInfoFileName)
+
+	def fileOpenFormatInfo(self):
+		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
+		if fileName:
+			configs.setValue(self.paramConfigName+"_lastOpenFile", fileName)
+			self.loadFormatInfo(fileName)
+
+	def loadFormatInfo(self, fileName):
+		self.formatInfo = structinfo.load_file(fileName)
+		self.formatInfoFileName = fileName
+		self.parent().applyFormatInfo()
+
+
+	def saveFormatInfo(self, fileName):
+		structinfo.write_file(fileName, self.formatInfo)
 
 
 
@@ -132,13 +179,11 @@ class HexView2(QWidget):
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
 		if byteBuffer == None:
-			self.showHex(bytes())
+			self.setBytes(bytes())
 		else:
 			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-		self.formatInfo = None
-		self.formatInfoFileName = None
 
 
 
@@ -215,7 +260,7 @@ class HexView2(QWidget):
 		ctx = QMenu("Context menu", self)
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addAction("Options ...", self.showParamDialog)
-		ctx.addAction("Apply format info ...", self.chooseAndApplyFormatInfo)
+		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		return ctx
 
 	def getRangeString(self, range, style=(" ","%02X")):
@@ -231,17 +276,10 @@ class HexView2(QWidget):
 
 	################# FI Tree ####################################################
 
-	def chooseAndApplyFormatInfo(self):
-		fileName, _ = QFileDialog.getOpenFileName(self,"Apply format info", configs.getValue(self.paramConfigName+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
-		if fileName:
-			configs.setValue(self.paramConfigName+"_lastOpenFile", fileName)
-			self.applyFormatInfo(structinfo.load_file(fileName))
-
-	def applyFormatInfo(self, info=None):
-		if info != None:
-			self.formatInfo = info
-		if self.formatInfo != None:
-			self.buffers[0].fi_tree = self.formatInfo.read_from_buffer(structinfo.BytebufferAnnotatingParseContext(self.buffers[0]))
+	def applyFormatInfo(self):
+		if self.fiTreeWidget.formatInfo != None:
+			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
+			self.buffers[0].fi_tree = self.fiTreeWidget.formatInfo.read_from_buffer(structinfo.BytebufferAnnotatingParseContext(self.buffers[0]))
 			self.fiTreeWidget.updateTree(self.buffers[0])
 
 	def fiTreeItemSelected(self, item, previous):
@@ -253,8 +291,6 @@ class HexView2(QWidget):
 		#if isinstance(source, structinfo.AbstractFI):
 			#self.on_data_selected.emit(source)
 
-	def saveFormatInfo(self, fileName):
-		structinfo.write_file(fileName, self.formatInfo)
 
 
 	#############  SCROLLING  ###########################################
@@ -378,7 +414,7 @@ class HexView2(QWidget):
 			elif e.key() == QtCore.Qt.Key_C:
 				self.copySelection()
 			elif e.key() == QtCore.Qt.Key_I:
-				self.applyFormatInfo(structinfo.load_file(configs.getValue(self.paramConfigName+"_lastOpenFile","")))
+				self.fiTreeWidget.loadFormatInfo(configs.getValue(self.paramConfigName+"_lastOpenFile",""))
 			elif e.key() == QtCore.Qt.Key_F5:
 				self.applyFormatInfo()
 
@@ -386,11 +422,11 @@ class HexView2(QWidget):
 			if e.key() == QtCore.Qt.Key_C:
 				self.copySelection("hexdump")
 			elif e.key() == QtCore.Qt.Key_I:
-				self.chooseAndApplyFormatInfo()
+				self.fiTreeWidget.fileOpenFormatInfo()
 
 
 	#################  data setters   ##########################################
-	def showHex(self, buf : bytes):
+	def setBytes(self, buf : bytes):
 		#abuf = ByteBuffer();
 		#abuf.setBytes(0, buf, undefined, undefined);
 		abuf = ByteBuffer(buf)
@@ -399,19 +435,16 @@ class HexView2(QWidget):
 		self.redraw();
 	
 	def setBuffer(self, bbuf):
-		self.buffers = [ bbuf ];
+		if isinstance(bbuf, BidiByteBuffer):
+			self.buffers = bbuf.buffers
+		elif isinstance(bbuf, ByteBuffer):
+			self.buffers = [ bbuf ];
+		else:
+			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
 		self.firstLine = 0;
 		self.redraw()
 		self.fiTreeWidget.updateTree(self.buffers[0])
 		if self.buffers[0].fi_tree == None: self.applyFormatInfo()
-	
-	def showPacketHex(self, packet):
-		print("showPacketHex",packet)
-		self.buffers = [ preparePacketHex(packet) ];
-		print("prepared:",self.buffers)
-		self.firstLine = 0;
-		self.redraw();
-
 
 	############ RENDERING ############################################################
 
@@ -551,6 +584,6 @@ if __name__ == '__main__':
 	app = QApplication(sys.argv)
 	ex = HexView2()
 	ex.show()
-	ex.showHex(open(sys.argv[1], "rb").read())
+	ex.setBytes(open(sys.argv[1], "rb").read())
 	sys.exit(app.exec_())
 

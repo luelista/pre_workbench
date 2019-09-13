@@ -27,7 +27,8 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 import configs
 from datawidgets import DynamicDataWidget, PacketListWidget
 from dockwindows import FileBrowserWidget
-from genericwidgets import JsonView
+from genericwidgets import JsonView, MdiFile
+from hexview import HexView2
 from objectwindow import ObjectWindow
 from typeregistry import WindowTypes
 import typeeditor
@@ -92,7 +93,6 @@ class WorkbenchMain(QMainWindow):
 
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
-		self.newAct = QAction('New window', self, shortcut='Ctrl+N', statusTip='New window', triggered=self.onFileNewWindowAction)
 		self.openAct = QAction('Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
 		self.saveAct = QAction("&Save", self,
 				shortcut=QKeySequence.Save,
@@ -139,7 +139,11 @@ class WorkbenchMain(QMainWindow):
 
 		menubar = self.menuBar()
 		fileMenu = menubar.addMenu('&File')
-		fileMenu.addAction(self.newAct)
+		for wndTyp, meta in WindowTypes.types:
+			text = 'New '+meta.get('displayName', meta.get('name'))
+			fileMenu.addAction(QAction(text, self, shortcut='Ctrl+N', statusTip=text,
+									   triggered=lambda dummy, wndTyp=wndTyp: self.onFileNewWindowAction(wndTyp)))
+		#fileMenu.addAction(self.newAct)
 		fileMenu.addAction(self.openAct)
 		fileMenu.addAction(self.saveAct)
 		fileMenu.addAction(self.saveAsAct)
@@ -166,7 +170,7 @@ class WorkbenchMain(QMainWindow):
 		self.windowMenu.aboutToShow.connect(self.updateWindowMenu)
 
 		toolbar = self.addToolBar('Main')
-		toolbar.addAction(self.newAct)
+		#toolbar.addAction(self.newAct)
 		toolbar.addAction(self.openAct)
 		toolbar.addAction(self.exitAct)
 		
@@ -233,9 +237,8 @@ class WorkbenchMain(QMainWindow):
 			self.statusBar().showMessage("File saved", 2000)
 
 
-	def onFileNewWindowAction(self):
-		ow = ObjectWindow()
-		ow.setConfig({})
+	def onFileNewWindowAction(self, typ):
+		ow = typ()
 		self.showChild(ow)
 
 
@@ -315,6 +318,32 @@ class PcapngFileWindow(QWidget):
 		self.dataDisplay = PacketListWidget()
 		self.layout().addWidget(self.dataDisplay)
 
+
+@WindowTypes.register() #fileExts=['.pcapng','.pcap','.cap'])
+class HexFileWindow(QWidget, MdiFile):
+	def __init__(self, **params):
+		super().__init__()
+		self.params = params
+		self.initUI()
+		self.initMdiFile(params.get("fileName"), "All files (*.*)", "untitled%d.bin")
+	def saveParams(self):
+		self.params["fileName"] = self.curFile
+		return self.params
+	def sizeHint(self):
+		return QSize(600,400)
+	def initUI(self):
+		self.setLayout(QVBoxLayout())
+		self.dataDisplay = HexView2()
+		self.layout().addWidget(self.dataDisplay)
+	def loadFile(self, fileName):
+		self.dataDisplay.setBytes(open(fileName,'rb').read())
+		self.setCurrentFile(fileName)
+	def saveFile(self, fileName):
+		bin = self.dataDisplay.buffers[0].buffer
+		with open(fileName, "wb") as f:
+			f.write(bin)
+		self.setCurrentFile(fileName)
+		return True
 
 
 def excepthook(excType, excValue, tracebackobj):

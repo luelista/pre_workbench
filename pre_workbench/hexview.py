@@ -1,13 +1,11 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
-
-
+import struct
 import sys
 from math import ceil, floor
 
 from PyQt5 import QtCore
-from PyQt5.QtCore import (Qt, QSize)
+from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator
@@ -18,11 +16,66 @@ import xdrm
 from genericwidgets import showSettingsDlg
 from guihelper import setClipboardText
 from hexdump import hexdump
+from hexview_selheur import selectionHelpers
 from objects import ByteBuffer, Range
+from typeeditor import showTypeEditorDlg
+
+
+class RangeTreeWidget(QTreeWidget):
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.itemActivated.connect(self.fiTreeItemActivated)
+		self.setColumnCount(5)
+		self.setColumnWidth(0, 400)
+		self.setColumnWidth(3, 200)
+		self.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+
+	def updateTree(self, bbuf):
+		self.clear()
+		if bbuf.fi_tree is not None:
+			root = QTreeWidgetItem(self)
+			root.setExpanded(True)
+			root.setText(0, "FormatInfo tree")
+			bbuf.fi_tree.addToTree(root)
+
+	def fiTreeItemActivated(self, item, column):
+		pass
+
+	def hilightFormatInfoTree(self, range):
+		iterator = QTreeWidgetItemIterator(self)
+		while iterator.value():
+			item = iterator.value()
+			itemRange = item.data(0, Range.RangeRole)
+			#item.setBackground(0, QColor("#dddddd") if range is not None and selRange.contains(range.start) else QColor("#ffffff"))
+			item.setBackground(0, QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff"))
+			iterator += 1
+
+	def onCustomContextMenuRequested(self, point):
+		item = self.itemAt(point)
+		if item == None: return
+
+		source = item.data(0, Range.SourceDescRole)
+		if isinstance(source, structinfo.AbstractFI):
+			ctx = QMenu("Context menu", self)
+			if isinstance(source, structinfo.StructFI):
+				ctx.addAction("Add field ...", lambda: self.addField(source))
+			ctx.exec(self.mapToGlobal(point))
+
+	def addField(self, parent):
+		params = showTypeEditorDlg("format_info.tes", "StructField")
+		if params is None: return
+		print(parent.children+[params])
+		parent.updateParams(children=parent.children+[params])
+		self.parent().applyFormatInfo()
+		self.parent().saveFormatInfo(self.parent().formatInfoFileName)
+
+
 
 
 
 class HexView2(QWidget):
+	on_data_selected = pyqtSignal(QObject)
 	SettingsDefinition = [
 		('addressFontFamily', 'addressFontFamily', 'text', {}),
 		('addressFontSize', 'addressFontSize', 'number', {'min':1, 'max':1024}),
@@ -51,12 +104,8 @@ class HexView2(QWidget):
 		self.firstLine = 0
 		self.scrollY = 0
 		self.setFocusPolicy(QtCore.Qt.StrongFocus)
-		self.fiTreeWidget = QTreeWidget(self)
-		self.fiTreeWidget.itemActivated.connect(self.fiTreeItemActivated)
+		self.fiTreeWidget = RangeTreeWidget(self)
 		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
-		self.fiTreeWidget.setColumnCount(5)
-		self.fiTreeWidget.setColumnWidth(0, 200)
-		self.fiTreeWidget.setColumnWidth(3, 200)
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
 
@@ -89,6 +138,7 @@ class HexView2(QWidget):
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		self.formatInfo = None
+		self.formatInfoFileName = None
 
 
 
@@ -152,7 +202,8 @@ class HexView2(QWidget):
 		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
 		ctx.addAction("Copy selection hexdump", lambda: self.copySelection("hexdump"))
 		ctx.addSeparator()
-		ctx.addAction("Selection %d-%d"%(self.selStart,self.selEnd))
+		ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
+		ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		ctx.addSeparator()
 		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
 			ctx.addAction("Range %d-%d (%s): %s" % (d.start, d.end, d.metadata.get("name"), d.metadata.get("showname")), lambda d=d: self.selectRange(d))
@@ -191,33 +242,22 @@ class HexView2(QWidget):
 			self.formatInfo = info
 		if self.formatInfo != None:
 			self.buffers[0].fi_tree = self.formatInfo.read_from_buffer(structinfo.BytebufferAnnotatingParseContext(self.buffers[0]))
-			self.updateFormatInfoTree()
+			self.fiTreeWidget.updateTree(self.buffers[0])
 
-	def updateFormatInfoTree(self):
-		self.fiTreeWidget.clear()
-		if self.buffers[0].fi_tree is not None:
-			root = QTreeWidgetItem(self.fiTreeWidget)
-			root.setExpanded(True)
-			root.setText(0, "FormatInfo tree")
-			self.buffers[0].fi_tree.addToTree(root)
-
-	def fiTreeItemActivated(self, item, column):
-		pass
 	def fiTreeItemSelected(self, item, previous):
 		if item == None: return
 		range = item.data(0, Range.RangeRole)
 		if range != None:
 			self.selectRange(range, scrollIntoView=True)
+		#source = item.data(0, Range.SourceDescRole)
+		#if isinstance(source, structinfo.AbstractFI):
+			#self.on_data_selected.emit(source)
 
-	def hilightFormatInfoTree(self):
-		selRange = self.selRange()
-		iterator = QTreeWidgetItemIterator(self.fiTreeWidget)
-		while iterator.value():
-			item = iterator.value()
-			range = item.data(0, Range.RangeRole)
-			#item.setBackground(0, QColor("#dddddd") if range is not None and selRange.contains(range.start) else QColor("#ffffff"))
-			item.setBackground(0, QColor("#dddddd") if range is not None and selRange.overlaps(range) else QColor("#ffffff"))
-			iterator += 1
+	def saveFormatInfo(self, fileName):
+		structinfo.write_file(fileName, self.formatInfo)
+
+
+	#############  SCROLLING  ###########################################
 
 	def wheelEvent(self, e):
 		if e.pixelDelta().isNull():
@@ -241,6 +281,8 @@ class HexView2(QWidget):
 		self.scrollY = self.firstLine * self.dyLine
 		self.redraw()
 
+	############## MOUSE EVENTS - SELECTION  ############################
+
 	def mouseMoveEvent(self, e):
 		hit = self.hitTest(e.pos())
 		if (hit == self.lastHit): return
@@ -262,6 +304,56 @@ class HexView2(QWidget):
 		self.selecting = False
 		self.select(self.selStart, self.selEnd)
 		print("selection changed",self.selStart, self.selEnd, self.lastHit)
+
+	def hitTest(self, point):
+		x, y = point.x(), point.y()
+		linePos = None
+		if (x >= self.xAscii):
+			pos = floor((x - self.xAscii) / self.dxAscii);
+			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+		elif (x >= self.xHex):
+			xx = (x - self.xHex)
+			xx -= floor(xx / (self.dxHex*self.hexSpaceAfter + self.hexSpaceWidth)) * self.hexSpaceWidth # correction factor for hex grouping
+			pos = floor(xx / self.dxHex);
+			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+
+		#//console.log(x,y,linePos);
+		if (linePos is None): return None
+
+		for i in range(linePos, len(self.itemY), self.bytesPerLine):
+			#//console.log(i,self.itemY[i],y,self.itemY[i] <= y , y <= self.itemY[i]+self.dyLine)
+			if (self.itemY[i] <= y and y <= self.itemY[i]+self.dyLine):
+				return self.lineNumberToByteOffset(self.firstLine) + i;
+
+		return None
+
+
+	def selFirst(self):
+		return min(self.selStart, self.selEnd)
+	def selLength(self):
+		return max(self.selStart, self.selEnd) - self.selFirst() + 1
+	def selRange(self):
+		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd)+1)
+
+	def select(self, start:int, end:int, scrollIntoView=False):
+		self.selStart = start; self.selEnd = end;
+		if scrollIntoView:
+			self.scrollIntoView(self.selEnd)
+			self.scrollIntoView(self.selStart)
+
+		self.redrawSelection()
+		print("selection changed",self.selStart, self.selEnd, self.lastHit)
+		self.fiTreeWidget.hilightFormatInfoTree(self.selRange())
+
+	def selectRange(self, rangeObj, scrollIntoView=False):
+		self.select(rangeObj.start, rangeObj.end-1, scrollIntoView)
+
+	def selectAll(self):
+		self.select(0, len(self.buffers[0]))
+
+
+
+	######## KEYBOARD EVENTS ###########################################
 
 	def keyPressEvent(self, e: QKeyEvent) -> None:
 		arrow = None
@@ -287,6 +379,8 @@ class HexView2(QWidget):
 				self.copySelection()
 			elif e.key() == QtCore.Qt.Key_I:
 				self.applyFormatInfo(structinfo.load_file(configs.getValue(self.paramConfigName+"_lastOpenFile","")))
+			elif e.key() == QtCore.Qt.Key_F5:
+				self.applyFormatInfo()
 
 		if e.modifiers() == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
 			if e.key() == QtCore.Qt.Key_C:
@@ -295,29 +389,7 @@ class HexView2(QWidget):
 				self.chooseAndApplyFormatInfo()
 
 
-	def selFirst(self):
-		return min(self.selStart, self.selEnd)
-	def selLength(self):
-		return max(self.selStart, self.selEnd) - self.selFirst() + 1
-	def selRange(self):
-		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd)+1)
-
-	def select(self, start:int, end:int, scrollIntoView=False):
-		self.selStart = start; self.selEnd = end;
-		if scrollIntoView:
-			self.scrollIntoView(self.selEnd)
-			self.scrollIntoView(self.selStart)
-
-		self.redrawSelection()
-		print("selection changed",self.selStart, self.selEnd, self.lastHit)
-		self.hilightFormatInfoTree()
-
-	def selectRange(self, rangeObj, scrollIntoView=False):
-		self.select(rangeObj.start, rangeObj.end-1, scrollIntoView)
-
-	def selectAll(self):
-		self.select(0, len(self.buffers[0]))
-
+	#################  data setters   ##########################################
 	def showHex(self, buf : bytes):
 		#abuf = ByteBuffer();
 		#abuf.setBytes(0, buf, undefined, undefined);
@@ -330,7 +402,7 @@ class HexView2(QWidget):
 		self.buffers = [ bbuf ];
 		self.firstLine = 0;
 		self.redraw()
-		self.updateFormatInfoTree()
+		self.fiTreeWidget.updateTree(self.buffers[0])
 		if self.buffers[0].fi_tree == None: self.applyFormatInfo()
 	
 	def showPacketHex(self, packet):
@@ -339,41 +411,13 @@ class HexView2(QWidget):
 		print("prepared:",self.buffers)
 		self.firstLine = 0;
 		self.redraw();
-	
-	def lineNumberToByteOffset(self, lineNumber:int):
-		return lineNumber * self.bytesPerLine;
-	
-	def maxLine(self):
-		return ceil(len(self.buffers[0]) / self.bytesPerLine);
 
-	def maxVisibleLine(self):
-		return self.firstLine + ceil(len(self.itemY)/self.bytesPerLine)
+
+	############ RENDERING ############################################################
 
 	def resizeEvent(self, e):
 		self.redraw();
 		self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-20)
-	
-	def hitTest(self, point):
-		x, y = point.x(), point.y()
-		linePos = None
-		if (x >= self.xAscii):
-			pos = floor((x - self.xAscii) / self.dxAscii);
-			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
-		elif (x >= self.xHex):
-			xx = (x - self.xHex)
-			xx -= floor(xx / (self.dxHex*self.hexSpaceAfter + self.hexSpaceWidth)) * self.hexSpaceWidth # correction factor for hex grouping
-			pos = floor(xx / self.dxHex);
-			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
-		
-		#//console.log(x,y,linePos);
-		if (linePos is None): return None
-
-		for i in range(linePos, len(self.itemY), self.bytesPerLine):
-			#//console.log(i,self.itemY[i],y,self.itemY[i] <= y , y <= self.itemY[i]+self.dyLine)
-			if (self.itemY[i] <= y and y <= self.itemY[i]+self.dyLine):
-				return self.lineNumberToByteOffset(self.firstLine) + i;
-		
-		return None
 
 	def sizeHint(self):
 		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)
@@ -468,13 +512,6 @@ class HexView2(QWidget):
 			ii += 1
 		return y + self.dyLine
 
-	def offsetToClientPos(self, offset):
-		pos = offset % self.bytesPerLine
-		visibleIdx = offset - self.bytesPerLine*self.firstLine
-		if visibleIdx < 0 or visibleIdx >= len(self.itemY): return (0,0,0,0)
-		y = self.itemY[visibleIdx]
-		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
-	
 	def drawSelection(self, qp):
 		selMin = min(self.selStart, self.selEnd)
 		selMax = max(self.selStart, self.selEnd)
@@ -483,14 +520,31 @@ class HexView2(QWidget):
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)
 			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsSel)
 
+		for selHelper in selectionHelpers:
+			selHelper(self, qp, self.buffers[0], (selMin, selMax))
+
 	def drawHover(self, qp):
 		if (self.lastHit != None):
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.lastHit)
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
 			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
-		
 
+	########### CALCULATION    #########################
+	def lineNumberToByteOffset(self, lineNumber:int):
+		return lineNumber * self.bytesPerLine;
 
+	def maxLine(self):
+		return ceil(len(self.buffers[0]) / self.bytesPerLine);
+
+	def maxVisibleLine(self):
+		return self.firstLine + ceil(len(self.itemY)/self.bytesPerLine)
+
+	def offsetToClientPos(self, offset):
+		pos = offset % self.bytesPerLine
+		visibleIdx = offset - self.bytesPerLine*self.firstLine
+		if visibleIdx < 0 or visibleIdx >= len(self.itemY): return (0,0,0,0)
+		y = self.itemY[visibleIdx]
+		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
 
 
 if __name__ == '__main__':

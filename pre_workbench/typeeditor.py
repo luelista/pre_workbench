@@ -4,7 +4,7 @@ from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
-	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea
+	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDialogButtonBox
 import xdrm
 from genericwidgets import MdiFile
 from typeregistry import WindowTypes
@@ -260,7 +260,7 @@ class StructTypeEditor(StructuredTypeEditor):
 					raise error_while_assigning(key, str(e)) from e
 
 	def get(self):
-		if self.rootTypeContent.get('serialization') == 'tuple':
+		if self.rootTypeContent.get('serialization') == StructSerialization_Tuple:
 			return [None if hasattr(el, "_struct_opt") and el._struct_opt.checkState() != Qt.Checked
 					else el.get()
 					for key, el in self.elements.items()]
@@ -431,6 +431,25 @@ class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
 	pass
 
 
+
+
+def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options"):
+	if values == None: values = {}
+	dlg = QDialog()
+	dlg.setWindowTitle(title)
+	dlg.setLayout(QVBoxLayout())
+	dlg.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
+	metaSchema = TypeEditorSchema(open(schemaFile,'rb').read())
+	editor = metaSchema.generateTypeEditorByName(dlg, typeName)
+	if values != None: editor.set(values)
+	dlg.layout().addWidget(editor)
+	btn = QDialogButtonBox()
+	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+	btn.clicked.connect(dlg.accept)
+	btn.rejected.connect(dlg.reject)
+	dlg.layout().addWidget(btn)
+	if dlg.exec() == QDialog.Rejected: return None
+	return editor.get()
 
 
 

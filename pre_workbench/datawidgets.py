@@ -274,6 +274,7 @@ class ByteBufferWidget(QWidget):
         self.setLayout(layout)
 
         self.textbox = HexView2()
+        self.textbox.on_data_selected.connect(self.on_data_selected.emit)
         layout.addWidget(self.textbox)
         layout.addWidget(toolbar)
 

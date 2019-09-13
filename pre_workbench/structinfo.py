@@ -144,7 +144,9 @@ class AnnotatingParseContext(ParseContext):
 		return Range(self.top_offset(), self.top_offset() + self.top_length(), value, self.stack[-1][0], self.stack[-1][2])
 
 	def unpack_value(self, packed_value):
-		return packed_value.value
+		while isinstance(packed_value, Range):
+			packed_value = packed_value.value
+		return packed_value
 
 class BytebufferAnnotatingParseContext(AnnotatingParseContext):
 	def __init__(self, bbuf):
@@ -251,6 +253,9 @@ class AbstractFI:
 	def __init__(self, **params):
 		self.params = params
 		self.init(**params)
+	def updateParams(self, **params):
+		self.params.update(params)
+		self.init(**params)
 	def to_text(self, indent = 0, refs=None):
 		if refs == None:
 			refs = dict()
@@ -265,7 +270,7 @@ class AbstractFI:
 	def extra_params(self, removewhat=['children','def_name']):
 		return {i:self.params[i] for i in self.params if not i in removewhat}
 	def __repr__(self):
-		return type(self).__name__+"("+repr(self.params)+")"
+		return self.params.get("def_name","")+" "+type(self).__name__+ "("+repr(self.params)+")"
 
 @FITypes.register(type_id=0)
 class FixedFieldFI(AbstractFI):
@@ -390,7 +395,7 @@ class VariantStructFI(AbstractFI):
 			context.push(self, None)
 			for i, variant in enumerate(self.children):
 				try:
-					context.id = str(i)
+					context.id = "var-%d"%i
 					return context.pack_value(variant.read_from_buffer(context))
 				#except (incomplete, invalid):
 				except invalid as ex:
@@ -428,9 +433,9 @@ class RepeatStructFI(AbstractFI):
 			context.push(self, o)
 			if self.times_expr is None:
 				i = 0
-				while not self.until_expr.evaluate(context):
+				while True:
 					try:
-						context.id = str(i)
+						context.id = "[%d]"%i
 						o.append(self.children.read_from_buffer(context))
 					except incomplete:
 						break
@@ -439,10 +444,11 @@ class RepeatStructFI(AbstractFI):
 							break
 						else:
 							raise
+					if self.until_expr.evaluate(context): break
 					i += 1
 			else:
 				for i in range(self.times_expr.evaluate(context)):
-					context.id = str(i)
+					context.id = "[%d]"%i
 					o.append(self.children.read_from_buffer(context))
 			return context.pack_value(o)
 		except:
@@ -484,7 +490,7 @@ class SwitchFI(AbstractFI):
 class NamedFI(AbstractFI):
 	def init(self, def_name, **kw):
 		self.ref = None
-		self.def_name = def_name
+		self.def_name = def_name   ##TODO eigentlich ist das hier kein def_name, sondern ein REF_name...
 		self.size = None
 
 	def _to_text(self, indent, refs):
@@ -529,3 +535,15 @@ def load_file(fileName:str):
 	else:
 		with open(fileName, "rb") as f:
 			return bin_deserialize_fi(f.read())
+
+def write_file(fileName, fi):
+	if fileName.endswith(".txt"):
+		txt = fi.to_text()
+		with open(fileName, "w") as f:
+			f.write(txt)
+	elif fileName.endswith(".pfi"):
+		ser = bin_serialize_fi(fi)
+		with open(fileName, "wb") as f:
+			f.write(ser)
+	else:
+		raise Exception("unsupported file type")

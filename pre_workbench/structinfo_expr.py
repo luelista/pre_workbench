@@ -46,12 +46,11 @@ class Evaluator(Transformer):
 			return node[0] <= node[2]
 
 	def hierarchy_expr(self, node):
+		print("hierarchy_expr", node, self.parse_context.stack[-len(node[0])][1])
 		return self.parse_context.stack[-len(node[0])][1]
 
-	def field_expr(self, node):
-		return self.parse_context.unpack_value(node[0][node[1]])
-
 	def array_expr(self, node):
+		print("array_expr", node)
 		return self.parse_context.unpack_value(node[0][node[1]])
 
 	def anyfield_expr(self, node):

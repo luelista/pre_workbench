@@ -38,10 +38,10 @@ nl_protos switch "eheader.ethertype" {
     case "0x0806": arp
 }
 
-mac_addr repeat(times="6") uint8
+mac_addr bytes(size_expr="6")
 
-ip struct {}
-arp struct {}
+ip struct {  }
+arp struct {  }
 
 ether struct {
     eheader ether_header
@@ -61,18 +61,17 @@ llzp_header struct {
     version uint8
     type uint8
     encap_proto uint16
-    fields llzp_tagged_fields
-}
-llzp_tagged_fields variant {
-    struct {
-        end uint8(magic=1)
+    fields repeat(until="_[-1].tag == 1") variant {
+        struct {
+            tag uint8(magic=0)
+        }
+        struct {
+            tag uint8(magic=1)
+        }
+        struct {
+            tag uint8
+            length uint8
+            body bytes(size_expr="length")
+        }
     }
-    struct {
-        tag uint8
-        length uint8
-        body bytes(size_expr="length")
-        next &llzp_tagged_fields
-    }
 }
-
-rest repeat() byte

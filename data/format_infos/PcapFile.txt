@@ -1,16 +1,15 @@
-
-
 pcap_file variant {
-	struct (endianness="<"){
+	struct (endianness="<", section="pcap file, little endian"){
 		header pcap_header
-		packets repeat() pcap_packet
+		packets repeat pcap_packet
 	}
 	struct (endianness=">"){
 		header pcap_header
-		packets repeat() pcap_packet
+		packets repeat pcap_packet
 	}
 }
-pcap_header struct {
+
+pcap_header struct (section="pcap file header"){
 	magic_number uint32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)
 	version_major uint16(description="major number of the file format")
 	version_minor uint16(description="minor number of the file format")
@@ -21,60 +20,104 @@ pcap_header struct {
 }
 
 pcap_packet struct {
-	pheader struct {
+	pheader struct (section="pcap packet header"){
 		ts_sec uint32(description="timestamp seconds")
 		ts_usec uint32(description="timestamp microseconds")
 		incl_len uint32(description="number of octets of packet saved in file")
 		orig_len uint32(description="actual length of packet")
 	}
-	payload bytes(size_expr="pheader.incl_len", parse_with=&ll_protos)
+	payload bytes(size_expr=(pheader.incl_len), parse_with=ll_protos)
 }
 
-ll_protos switch "header.encap_proto" (endianness=">") {
-    case "1": ether
-    case "128": llzp
+ll_protos switch header.encap_proto (endianness=">"){
+	case 1: ether
+	case 128: llzp
 }
-nl_protos switch "eheader.ethertype" {
-    case "0x0800": ip
-    case "0x0806": arp
+
+nl_protos switch eheader.ethertype {
+	case 0x0800: ip4_packet
+	case 0x0806: arp
 }
 
 mac_addr bytes(size_expr="6")
 
-ip struct {  }
-arp struct {  }
+ip4_addr bytes(size_expr="4")
+
+ip4_packet struct {
+	ipheader struct (section="IPv4 header"){
+		version_hlen uint8
+		tos uint8
+		total_length uint16
+		identification uint16
+		flags_fragoffset uint16
+		ttl uint8
+		protocol uint8
+		cksum uint16
+		src_ip ip4_addr
+		dst_ip ip4_addr
+	}
+	payload ip_payload
+}
+
+ip_payload switch ipheader.protocol {
+	case 6: tcp_segment
+	case 17: udp_segment
+}
+
+tcp_segment struct {
+	tcpheader struct (section="TCP Header"){
+		src_port uint16
+		dst_port uint16
+		seq_num uint32
+		ack_num uint32
+		flags uint16
+		window_size uint16
+		cksum uint16
+		urg_ptr uint16
+		options bytes(size_expr=((((flags & 0xf000) >> 12) * 4) - 20))
+	}
+	tcp_payload bytes(section="TCP Payload")
+}
+
+udp_segment struct {
+}
+
+arp struct {
+}
 
 ether struct {
-    eheader ether_header
-    payload nl_protos
+	eheader ether_header
+	payload nl_protos
 }
-ether_header struct {
-    dst_addr mac_addr
-    src_addr mac_addr
-    ethertype uint16
+
+ether_header struct (section="ethernet header"){
+	dst_addr mac_addr
+	src_addr mac_addr
+	ethertype uint16
 }
 
 llzp struct {
-    header llzp_header
-    payload ll_protos
+	header llzp_header
+	payload ll_protos
 }
+
 llzp_header struct {
-    version uint8
-    type uint8
-    encap_proto uint16
-    fields repeat(until="_[-1].tag == 1") variant {
-        struct {
-            tag uint8(magic=0)
-        }
-        struct {
-            tag uint8(magic=1)
-        }
-        struct {
-            tag uint8
-            length uint8
-            body bytes(size_expr="length")
-        }
-    }
+	version uint8
+	type uint8
+	encap_proto uint16
+	fields repeat(until=(_[-1].tag == 1)) variant {
+			struct {
+				tag uint8(magic=0)
+			}
+			struct {
+				tag uint8(magic=1)
+			}
+			struct {
+				tag uint8
+				length uint8
+				body bytes(size_expr="length")
+			}
+		}
 }
 
 char fixed(format="c")
@@ -100,4 +143,3 @@ uint64 fixed(format="Q")
 float fixed(format="f")
 
 double fixed(format="d")
-

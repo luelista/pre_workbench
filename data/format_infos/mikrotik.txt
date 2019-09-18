@@ -1,5 +1,5 @@
 winbox_stream repeat() struct (endianness="<", section="winbox_chunk"){
-	length uint8
-	type uint8
+	length fixed(format="B")
+	type fixed(format="B")
 	value bytes(size_expr="length")
 }

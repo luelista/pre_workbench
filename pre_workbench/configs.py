@@ -29,13 +29,13 @@ def saveConfig():
 		f.write(xdrm.dumps(configDict))
 
 def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+	try:
+		os.makedirs(path)
+	except OSError as exc:  # Python >2.5
+		if exc.errno == errno.EEXIST and os.path.isdir(path):
+			pass
+		else:
+			raise
 
 
 dirs = AppDirs("PRE-Workbench", "Weller IT", roaming=True)

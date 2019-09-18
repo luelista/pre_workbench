@@ -28,7 +28,7 @@ def intToFmts(value, fmts):
 	for fmt in fmts:
 		try:
 			yield struct.pack(fmt, value), fmt
-		except:
+		except struct.error:
 			pass
 
 def findInRange(bbuf, ranges, values):

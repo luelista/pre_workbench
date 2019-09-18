@@ -86,11 +86,11 @@ class SettingsGroup(QFrame):
 
 	def selectFile(self, field, mode, caption, filter):
 		if mode == "open":
-			r=QFileDialog.getOpenFileName(self, caption, field.text(), filter)
+			r, _ = QFileDialog.getOpenFileName(self, caption, field.text(), filter)
 		elif mode == "save":
-			r=QFileDialog.getSaveFileName(self, caption, field.text(), filter)
+			r, _ = QFileDialog.getSaveFileName(self, caption, field.text(), filter)
 		elif mode == "dir":
-			r=QFileDialog.getExistingDirectory(self, caption, field.text())
+			r, _ = QFileDialog.getExistingDirectory(self, caption, field.text())
 		else:
 			raise Exception("Invalid fileselect mode "+mode)
 		if r:

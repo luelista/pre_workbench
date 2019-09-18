@@ -115,7 +115,7 @@ class ParseContext:
 			if id in self.stack[i][0].params:
 				return self.stack[i][0].params[id]
 		if raise_if_missing:
-			raise Exception("Missing parameter "+id)
+			raise value_not_found(self, "Missing parameter "+id)
 		else:
 			return default
 
@@ -123,10 +123,10 @@ class ParseContext:
 		print("\t"*len(self.stack) + self.get_path(), end=": ")
 		print(*dat)
 
-	def push(self, desc, value, id=None):
+	def push(self, desc, value=None, id=None):
 		if id != None: self.id = id
-		self.log("push",desc,value)
-		self.stack.append((desc, value, self.id, self.buf_offset, self.buf_limit_end))
+		self.log("push",desc)
+		self.stack.append([desc, value, self.id, self.buf_offset, self.buf_limit_end])
 		self.id=""
 
 	def restore_offset(self):
@@ -178,6 +178,15 @@ class ParseContext:
 	def top_value(self):
 		return self.stack[-1][1]
 
+	def top_id(self):
+		for i in reversed(range(len(self.stack))):
+			id = self.stack[i][2]
+			if id: return id
+		return None
+
+	def set_top_value(self, value):
+		self.stack[-1][1] = value
+
 	def pack_value(self, value):
 		return value
 
@@ -193,7 +202,7 @@ class LoggingParseContext(ParseContext):
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
 		self.log(type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length(), value)
-		return Range(self.top_offset(), self.top_offset() + self.top_length(), value, self.stack[-1][0], self.stack[-1][2])
+		return Range(self.top_offset(), self.top_offset() + self.top_length(), value, source_desc=self.stack[-1][0], field_name=self.top_id())
 
 	def unpack_value(self, packed_value):
 		while isinstance(packed_value, Range):
@@ -317,40 +326,45 @@ class FormatInfo:
 
 	def to_text(self, indent = 0, refs=None):
 		return self.fi._to_text(indent, refs, self.params)
+
 	def serialize(self):
 		return [type(self.fi).type_id, self.params]
+
 	def extra_params(self, removewhat=['children','def_name']):
 		return {i:self.params[i] for i in self.params if not i in removewhat}
+
 	def read_from_buffer(self, context):
-		return self.fi.read_from_buffer(context)
+		try:
+			context.push(self, None)
+			return self.fi._parse(context)
+		except:
+			context.restore_offset()
+			raise
+		finally:
+			context.pop()
+
 	def __repr__(self):
-		return self.params.get("def_name","")+" "+type(self).__name__+ "("+repr(self.params)+")"
+		return type(self.fi).__name__+ params_to_text(0, None, self.params)
 
 @FITypes.register(type_id=0)
 class FixedFieldFI:
 
 	def init(self, format, magic=None, **kw):
 		self.pack_format=format
-		self.magic_value=magic
+		#self.magic_value=magic
 		self.size = struct.calcsize(format)
 
 	def _to_text(self, indent, refs, all_params):
 		return  "fixed"+params_to_text(indent, refs, all_params, )
 
-	def read_from_buffer(self, context):
-		try:
-			context.push(self, None)
-			context.require_bytes(self.size)
-			(value,) = context.peek_structformat(context.get_param("endianness") + self.pack_format)
-			if self.magic_value != None and value != self.magic_value:
-				raise invalid(context, "found magic_value %r doesn't match spec %r" % (value, self.magic_value))
-			context.consume_bytes(self.size)
-			return context.pack_value(value)
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		context.require_bytes(self.size)
+		(value,) = context.peek_structformat(context.get_param("endianness") + self.pack_format)
+		magic = context.get_param("magic", raise_if_missing=False)
+		if magic != None and value != magic:
+			raise invalid(context, "found magic value %r doesn't match spec %r" % (value, magic))
+		context.consume_bytes(self.size)
+		return context.pack_value(value)
 
 
 @FITypes.register(type_id=1)
@@ -365,25 +379,18 @@ class VarByteFieldFI:
 	def _to_text(self, indent, refs, all_params):
 		return  "bytes"+params_to_text(indent, refs, all_params, )
 
-	def read_from_buffer(self, context):
-		try:
-			context.push(self, None)
-			if self.size_expr:
-				n = self.size_expr.evaluate(context)
-			else:
-				n = context.remaining_bytes()
-			if self.parse_with == None:
-				return context.pack_value(context.read_bytes(n))
-			else:
-				context.set_child_limit(n)
-				val = self.parse_with.read_from_buffer(context)
-				context.consume_bytes(context.remaining_bytes())
-				return context.pack_value(val)
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		if self.size_expr:
+			n = self.size_expr.evaluate(context)
+		else:
+			n = context.remaining_bytes()
+		if self.parse_with == None:
+			return context.pack_value(context.read_bytes(n))
+		else:
+			context.set_child_limit(n)
+			val = self.parse_with.read_from_buffer(context)
+			context.consume_bytes(context.remaining_bytes())
+			return context.pack_value(val)
 
 
 @FITypes.register(type_id=2)
@@ -401,19 +408,13 @@ class StructFI:
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
-	def read_from_buffer(self, context):
-		try:
-			o = {}
-			context.push(self, o)
-			for name, child in self.children:
-				context.id = name
-				o[name] = child.read_from_buffer(context)
-			return context.pack_value(o)
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		o = {}
+		context.set_top_value(o)
+		for name, child in self.children:
+			context.id = name
+			o[name] = child.read_from_buffer(context)
+		return context.pack_value(o)
 
 
 @FITypes.register(type_id=3)
@@ -429,31 +430,24 @@ class VariantStructFI:
 			x += "\t"*(1+indent) + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
-	def read_from_buffer(self, context):
-		try:
-			context.push(self, None)
-			for i, variant in enumerate(self.children):
-				try:
-					context.id = "var-%d"%i
-					return context.pack_value(variant.read_from_buffer(context))
-				#except (incomplete, invalid):
-				except invalid as ex:
-					#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
-					# aktuell: invalid ist es nur, wenn alle invalid sind - incomplete schon, sobald das erste incomplete ist
-					print("variant %d no match: %r"%(i, ex))
-					pass
-			raise invalid(context, "no variant matched")
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		for i, variant in enumerate(self.children):
+			try:
+				context.id = "var-%d"%i
+				return context.pack_value(variant.read_from_buffer(context))
+			#except (incomplete, invalid):
+			except invalid as ex:
+				#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
+				# aktuell: invalid ist es nur, wenn alle invalid sind - incomplete schon, sobald das erste incomplete ist
+				print("variant %d no match: %r"%(i, ex))
+				pass
+		raise invalid(context, "no variant matched")
 
 
 
 @FITypes.register(type_id=4)
 class RepeatStructFI:
-	def init(self, children, times=None, until="false", **kw):
+	def init(self, children, times=None, until="false", until_invalid=False, **kw):
 		self.children = deserialize_fi(children)
 		if times is not None:
 			self.times_expr = Expression(times)
@@ -461,43 +455,38 @@ class RepeatStructFI:
 		else:
 			self.until_expr = Expression(until)
 			self.times_expr = None
+		self.until_invalid = until_invalid
 		self.size = None
 
 	def _to_text(self, indent, refs, all_params):
 		return "repeat"+params_to_text(indent, refs, all_params, ) +" "+ self.children.to_text(indent+1, refs)
 
-	def read_from_buffer(self, context : ParseContext):
-		try:
-			o = []
-			context.push(self, o)
-			if self.times_expr is None:
-				i = 0
-				while True:
-					pos = context.offset()
-					try:
-						context.id = "[%d]"%i
-						o.append(self.children.read_from_buffer(context))
-					except incomplete:
-						break
-					except invalid:
-						if self.params.get("until_invalid"):
-							break
-						else:
-							raise
-					if pos == context.offset():
-						raise parse_exception(context, "infinite loop prevented - repeat child consumed zero bytes")
-					if self.until_expr.evaluate(context): break
-					i += 1
-			else:
-				for i in range(self.times_expr.evaluate(context)):
+	def _parse(self, context : ParseContext):
+		o = []
+		context.set_top_value(o)
+		if self.times_expr is None:
+			i = 0
+			while True:
+				pos = context.offset()
+				try:
 					context.id = "[%d]"%i
 					o.append(self.children.read_from_buffer(context))
-			return context.pack_value(o)
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+				except incomplete:
+					break
+				except invalid:
+					if self.until_invalid:
+						break
+					else:
+						raise
+				if pos == context.offset():
+					raise parse_exception(context, "infinite loop prevented - repeat child consumed zero bytes")
+				if self.until_expr.evaluate(context): break
+				i += 1
+		else:
+			for i in range(self.times_expr.evaluate(context)):
+				context.id = "[%d]"%i
+				o.append(self.children.read_from_buffer(context))
+		return context.pack_value(o)
 
 
 @FITypes.register(type_id=5)
@@ -513,19 +502,12 @@ class SwitchFI:
 			x += "\t"*(1+indent) + "case "+json.dumps(expr.expr_str) + ": " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
-	def read_from_buffer(self, context):
-		try:
-			context.push(self, None)
-			checkFor = self.expr.evaluate(context)
-			for expr, child in self.children:
-				if expr.evaluate(context) == checkFor:
-					return context.pack_value(child.read_from_buffer(context))
-			raise invalid(context, "no switch case matched")
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		checkFor = self.expr.evaluate(context)
+		for expr, child in self.children:
+			if expr.evaluate(context) == checkFor:
+				return context.pack_value(child.read_from_buffer(context))
+		raise invalid(context, "no switch case matched")
 
 
 @FITypes.register(type_id=6)
@@ -537,17 +519,12 @@ class NamedFI:
 	def _to_text(self, indent, refs, all_params):
 		return self.ref_name + params_to_text(indent, refs, all_params, ignore=["ref_name"])
 
-	def read_from_buffer(self, context):
-		try:
-			context.push(self, None)
-			if self.ref is None:
-				self.ref = context.get_fi_by_def_name(self.ref_name)
-			return self.ref.read_from_buffer(context)
-		except:
-			context.restore_offset()
-			raise
-		finally:
-			context.pop()
+	def _parse(self, context):
+		if self.ref is None:
+			self.ref = context.get_fi_by_def_name(self.ref_name)
+		print(context.id, self.ref_name)
+		context.id = self.ref_name
+		return context.pack_value(self.ref.read_from_buffer(context))
 
 
 

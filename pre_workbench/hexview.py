@@ -62,12 +62,12 @@ class RangeTreeWidget(QTreeWidget):
 			source = item.data(0, Range.SourceDescRole)
 			if item.parent() != None:
 				parentSource = item.parent().data(0, Range.SourceDescRole)
-			if isinstance(source, structinfo.AbstractFI):
-				if isinstance(source, structinfo.StructFI):
+			if isinstance(source, structinfo.FormatInfo):
+				if isinstance(source.fi, structinfo.StructFI):
 					ctx.addAction("Add field ...", lambda: self.addField(source))
 					ctx.addSeparator()
 				ctx.addAction("Edit ...", lambda: self.editField(source))
-				#ctx.addAction("Repeat ...", lambda: self.repeatField(source, parentSource))
+				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
 
 		ctx.addAction("New format info ...", self.newFormatInfo)
 		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
@@ -82,18 +82,20 @@ class RangeTreeWidget(QTreeWidget):
 		self.parent().applyFormatInfo()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
-	#TODO - Datenstruktur gibt es zur Zeit nicht her, ein FI zu ersetzen / zu wrappen
-	# es fehlt ein wrapper-element mit einer replace / setType funktion
-	# evtl auf composition statt inheritance umstellen (AnyFI statt AbstractFI)
-	"""
-	def repeatField(self, item, parent):
-		params = showTypeEditorDlg("format_info.tes", "RepeatFI")
+	def editField(self, element: structinfo.FormatInfo):
+		params = showTypeEditorDlg("format_info.tes", "AnyFI", element.serialize())
 		if params is None: return
-		print(parent.children+[params])
-		parent.updateParams(children=parent.children+[params])
+		element.deserialize(params)
 		self.parent().applyFormatInfo()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
-		"""
+
+	def repeatField(self, element: structinfo.FormatInfo):
+		params = showTypeEditorDlg("format_info.tes", "RepeatFI", { "children": element.serialize() })
+		if params is None: return
+		element.setContents(structinfo.RepeatStructFI, params)
+		self.parent().applyFormatInfo()
+		self.saveFormatInfo(self.formatInfoContainerFileName)
+
 
 	def newFormatInfo(self):
 		params = showTypeEditorDlg("format_info.tes", "AnyFI")

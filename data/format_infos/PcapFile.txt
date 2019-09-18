@@ -1,4 +1,5 @@
 
+
 pcap_file variant {
 	struct (endianness="<"){
 		header pcap_header
@@ -75,3 +76,28 @@ llzp_header struct {
         }
     }
 }
+
+char fixed(format="c")
+
+int8 fixed(format="b")
+
+uint8 fixed(format="B")
+
+bool fixed(format="?")
+
+int16 fixed(format="h")
+
+uint16 fixed(format="H")
+
+int32 fixed(format="i")
+
+uint32 fixed(format="I")
+
+int64 fixed(format="q")
+
+uint64 fixed(format="Q")
+
+float fixed(format="f")
+
+double fixed(format="d")
+

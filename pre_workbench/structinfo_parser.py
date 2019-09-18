@@ -6,12 +6,14 @@ from structinfo import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, 
 fi_parser = Lark(open("format_info.lark"))
 
 
+builtinTypes = {"fixed": FixedFieldFI, "bytes": VarByteFieldFI}
 def make_builtin(name, params):
-	if name == "fixed":
-		return FixedFieldFI(**params)
-	if name == "bytes":
-		return VarByteFieldFI(**params)
-	return None
+	try:
+		t = builtinTypes[name]
+	except KeyError:
+		return None
+	return FormatInfo(typeRef=t, params=params)
+
 
 class MainTrans(Transformer):
 	def __init__(self, container):
@@ -76,7 +78,7 @@ class MainTrans(Transformer):
 	def switchfi(self, node):
 		expr, params, cases = node
 		params['expr'] = expr
-		params['cases'] = cases
+		params['children'] = cases
 		return FormatInfo(typeRef=SwitchFI, params=params)
 
 

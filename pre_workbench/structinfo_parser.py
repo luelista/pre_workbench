@@ -1,51 +1,29 @@
 from lark import Lark, Transformer
 
-from structinfo import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI
+from structinfo import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
+	FormatInfoContainer, FormatInfo
 
 fi_parser = Lark(open("format_info.lark"))
 
-def parse_fi(txt):
-	ast = fi_parser.parse(txt)
-	print(ast.pretty())
 
-	trans = MainTrans()
-	trans.load_definitions(ast)
-
-	fi = trans.inflate(trans.main_name)
-	return fi
-
-builtin_fixedfields = {v: k for k, v in FixedFieldFI.struct_format_alias.items()}
 def make_builtin(name, params):
-	if name in builtin_fixedfields:
-		return FixedFieldFI(format=builtin_fixedfields[name], **params)
+	if name == "fixed":
+		return FixedFieldFI(**params)
 	if name == "bytes":
 		return VarByteFieldFI(**params)
 	return None
 
 class MainTrans(Transformer):
-	def __init__(self):
+	def __init__(self, container):
 		super().__init__()
-		self.definitions = {}
-		self.instances = {}
-		self.named_fi_to_fill = list()
+		self.container = container
 
 	def load_definitions(self, ast):
 		for definition in ast.children:
-			self.definitions[definition.children[0]] = definition.children[1]
-		self.main_name = ast.children[0].children[0]
+			self.container.definitions[definition.children[0]] = self.transform(definition.children[1])
+		self.container.main_name = ast.children[0].children[0]
 
-	def inflate(self, name):
-		item = self._inflate_internal(name)
-		for nfi in self.named_fi_to_fill:
-			nfi.ref = self._inflate_internal(nfi.def_name)
-		self.named_fi_to_fill = list()
-		return item
-
-	def _inflate_internal(self, name):
-		if not name in self.instances:
-			self.instances[name] = self.transform(self.definitions[name])
-			self.instances[name].params['def_name'] = name
-		return self.instances[name]
+	start = dict
 
 
 	def string(self, s):
@@ -76,32 +54,30 @@ class MainTrans(Transformer):
 		name, params = node
 		item = make_builtin(name, params)
 		if item: return item
-		item = NamedFI(def_name=name, **params)
-		self.named_fi_to_fill.append(item)
+		params['ref_name'] = name
+		item = FormatInfo(typeRef=NamedFI, params=params)
 		return item
 
 	def structfi(self, node):
 		params, children = node
-		return StructFI(children=children, **params)
+		params['children'] = children
+		return FormatInfo(typeRef=StructFI, params=params)
 
 	def variantfi(self, node):
 		params, children = node
-		return VariantStructFI(children=children, **params)
+		params['children'] = children
+		return FormatInfo(typeRef=VariantStructFI, params=params)
 
 	def repeatfi(self, node):
 		params, child = node
-		return RepeatStructFI(children=child, **params)
+		params['children'] = child
+		return FormatInfo(typeRef=RepeatStructFI, params=params)
 
 	def switchfi(self, node):
 		expr, params, cases = node
-		return SwitchFI(expr=expr, children=cases, **params)
+		params['expr'] = expr
+		params['cases'] = cases
+		return FormatInfo(typeRef=SwitchFI, params=params)
 
 
-
-if __name__ == "__main__":
-	import sys
-	txt = open(sys.argv[1], "r").read()
-	fi = parse_fi(txt)
-	print(fi)
-	print(fi.to_text())
 

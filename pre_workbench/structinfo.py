@@ -37,9 +37,52 @@ class value_not_found(parse_exception):
 
 #def parse_stack_tostr(stack):
 
+class FormatInfoContainer:
+	def __init__(self, definitions=None, load_from_file=None):
+		self.definitions = {} if definitions is None else definitions
+		self.main_name = None
+		if load_from_file is not None: self.load_from_file(load_from_file)
+
+	def to_text(self, indent = 0):
+		return "\n\n".join(name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
+
+	def load_from_file(self, fileName):
+		if fileName.endswith(".txt"):
+			with open(fileName, "r") as f:
+				self.load_from_string(f.read())
+		else:
+			with open(fileName, "rb") as f:
+				#return bin_deserialize_fi(f.read())
+				#TODO
+				raise NotImplemented
+
+	def load_from_string(self, txt):
+		from structinfo_parser import fi_parser, MainTrans
+		ast = fi_parser.parse(txt)
+		print(ast.pretty())
+
+		trans = MainTrans(self)
+		trans.load_definitions(ast)
+
+	def write_file(self, fileName):
+		if fileName.endswith(".txt"):
+			txt = self.to_text()
+			with open(fileName, "w") as f:
+				f.write(txt)
+		elif fileName.endswith(".pfi"):
+			#ser = bin_serialize_fi(fi)
+			#with open(fileName, "wb") as f:
+			#	f.write(ser)
+			raise NotImplemented
+		else:
+			raise Exception("unsupported file type")
+
+
+
 
 class ParseContext:
-	def __init__(self, buf=None):
+	def __init__(self, format_infos: FormatInfoContainer, buf: bytes = None):
+		self.format_infos = format_infos
 		self.stack = list()
 		self.id = ""
 		self.buf_offset = 0
@@ -49,6 +92,12 @@ class ParseContext:
 		if buf != None:
 			self.feed_bytes(buf)
 
+	def get_fi_by_def_name(self, def_name):
+		try:
+			return self.format_infos.definitions[def_name]
+		except KeyError:
+			raise parse_exception(self, "reference to undefined formatinfo name: "+def_name)
+
 	def feed_bytes(self, data):
 		remove_bytes = self.buf_offset if len(self.stack) == 0 else 0
 		self.buf = self.buf[remove_bytes:] + data
@@ -56,6 +105,10 @@ class ParseContext:
 		self.buf_offset -= remove_bytes
 		if self.buf_limit_end != None:
 			self.buf_limit_end -= remove_bytes
+
+	def parse(self, by_name=None):
+		if by_name is None: by_name = self.format_infos.main_name
+		return self.get_fi_by_def_name(by_name).read_from_buffer(self)
 
 	def get_param(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack)-1, -1, -1):
@@ -148,15 +201,15 @@ class AnnotatingParseContext(ParseContext):
 		return packed_value
 
 class BytebufferAnnotatingParseContext(AnnotatingParseContext):
-	def __init__(self, bbuf):
-		super().__init__(bbuf.buffer)
+	def __init__(self, format_infos: FormatInfoContainer, bbuf):
+		super().__init__(format_infos, bbuf.buffer)
 		self.bbuf = bbuf
 
 	def pack_value(self, value):
 		range = super().pack_value(value)
 		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0], 'show': str(value) })
 		fi = self.stack[-1][0]
-		if isinstance(fi, AbstractFI):
+		if isinstance(fi, FormatInfo):
 			range.metadata.update(fi.extra_params())
 		elif isinstance(fi, dict):
 			range.metadata.update(fi)
@@ -232,9 +285,7 @@ FITypes = TypeRegistry()
 
 def deserialize_fi(data):
 	if type(data) == list and len(data) == 2:
-		tid, params = data
-		t, _ = FITypes.find(type_id=tid)
-		return t(**params)
+		return FormatInfo(data)
 	else:
 		return data
 
@@ -248,60 +299,43 @@ def bin_deserialize_fi(bin):
 		raise Exception("Invalid file format (got iid=%r typename=%r)"%(iid,typename))
 	return deserialize_fi(data)
 
-class AbstractFI:
-	def __init__(self, **params):
+
+
+class FormatInfo:
+	def __init__(self, info=None, typeRef=None, params=None):
+		if info is not None: self.deserialize(info)
+		if typeRef is not None: self.setContents(typeRef, params)
+	def deserialize(self, info):
+		type_id, params = info
+		t, _ = FITypes.find(type_id=type_id)
+		self.setContents(t, params)
+
+	def setContents(self, typeRef, params):
+		self.fi = typeRef()
+		self.fi.init(**params)
 		self.params = params
-		self.init(**params)
-	def updateParams(self, **params):
-		self.params.update(params)
-		self.init(**params)
+
 	def to_text(self, indent = 0, refs=None):
-		if refs == None:
-			refs = dict()
-			name = self.params.get("def_name","DEFAULT")
-			refs[name] = ""
-			refs[name] = self._to_text(indent, refs)
-			return "\n\n".join(name+" "+value for name,value in refs.items())
-		else:
-			return self._to_text(indent, refs)
+		return self.fi._to_text(indent, refs, self.params)
 	def serialize(self):
-		return [type(self).type_id, self.params]
+		return [type(self.fi).type_id, self.params]
 	def extra_params(self, removewhat=['children','def_name']):
 		return {i:self.params[i] for i in self.params if not i in removewhat}
+	def read_from_buffer(self, context):
+		return self.fi.read_from_buffer(context)
 	def __repr__(self):
 		return self.params.get("def_name","")+" "+type(self).__name__+ "("+repr(self.params)+")"
 
 @FITypes.register(type_id=0)
-class FixedFieldFI(AbstractFI):
-
-	struct_format_alias={
-		"c": "char",
-		"b": "int8",
-		"B": "uint8",
-		"?": "bool",
-		"h": "int16",
-		"H": "uint16",
-		"i": "int32",
-		"I": "uint32",
-		#"l": "int32",
-		#"L": "uint32",
-		"q": "int64",
-		"Q": "uint64",
-		"f": "float",
-		"d": "double",
-		"s": "char[]",
-	}
+class FixedFieldFI:
 
 	def init(self, format, magic=None, **kw):
 		self.pack_format=format
 		self.magic_value=magic
 		self.size = struct.calcsize(format)
 
-	def _to_text(self, indent, refs):
-		if self.pack_format in FixedFieldFI.struct_format_alias:
-			return FixedFieldFI.struct_format_alias[self.pack_format]+params_to_text(indent, refs, self.extra_params(["format"]))
-		else:
-			return "pack("+repr(self.pack_format)+params_to_text(indent, refs, self.extra_params(["format"]),",","")+")"
+	def _to_text(self, indent, refs, all_params):
+		return  "fixed"+params_to_text(indent, refs, all_params, )
 
 	def read_from_buffer(self, context):
 		try:
@@ -320,7 +354,7 @@ class FixedFieldFI(AbstractFI):
 
 
 @FITypes.register(type_id=1)
-class VarByteFieldFI(AbstractFI):
+class VarByteFieldFI:
 	def init(self, size_expr="", parse_with=None, **kw):
 		if size_expr:
 			self.size_expr = Expression(size_expr)
@@ -328,8 +362,8 @@ class VarByteFieldFI(AbstractFI):
 			self.size_expr = None
 		self.parse_with=parse_with
 
-	def _to_text(self, indent, refs):
-		return  "bytes"+params_to_text(indent, refs, self.extra_params())
+	def _to_text(self, indent, refs, all_params):
+		return  "bytes"+params_to_text(indent, refs, all_params, )
 
 	def read_from_buffer(self, context):
 		try:
@@ -353,7 +387,7 @@ class VarByteFieldFI(AbstractFI):
 
 
 @FITypes.register(type_id=2)
-class StructFI(AbstractFI):
+class StructFI:
 	def init(self, children, **kw):
 		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
 		try:
@@ -361,8 +395,8 @@ class StructFI(AbstractFI):
 		except:
 			self.size = None
 
-	def _to_text(self, indent, refs):
-		x = "struct "+params_to_text(indent, refs, self.extra_params())+"{"+"\n"
+	def _to_text(self, indent, refs, all_params):
+		x = "struct "+params_to_text(indent, refs, all_params, )+"{"+"\n"
 		for (name, c) in self.children:
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
@@ -383,14 +417,14 @@ class StructFI(AbstractFI):
 
 
 @FITypes.register(type_id=3)
-class VariantStructFI(AbstractFI):
+class VariantStructFI:
 	def init(self, children, **kw):
 		self.children = [deserialize_fi(c) for c in children]
 		self.size = None
-	def _to_text(self, indent, refs):
+	def _to_text(self, indent, refs, all_params):
 		if len(self.children) == 1:
-			return params_to_text(indent, refs, self.extra_params()) + self.children[0].to_text(indent, refs)
-		x = "variant "+params_to_text(indent, refs, self.extra_params())+"{\n"
+			return params_to_text(indent, refs, all_params, ) + self.children[0].to_text(indent, refs)
+		x = "variant "+params_to_text(indent, refs, all_params, )+"{\n"
 		for c in self.children:
 			x += "\t"*(1+indent) + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
@@ -418,7 +452,7 @@ class VariantStructFI(AbstractFI):
 
 
 @FITypes.register(type_id=4)
-class RepeatStructFI(AbstractFI):
+class RepeatStructFI:
 	def init(self, children, times=None, until="false", **kw):
 		self.children = deserialize_fi(children)
 		if times is not None:
@@ -429,8 +463,8 @@ class RepeatStructFI(AbstractFI):
 			self.times_expr = None
 		self.size = None
 
-	def _to_text(self, indent, refs):
-		return "repeat"+params_to_text(indent, refs, self.extra_params()) +" "+ self.children.to_text(indent+1, refs)
+	def _to_text(self, indent, refs, all_params):
+		return "repeat"+params_to_text(indent, refs, all_params, ) +" "+ self.children.to_text(indent+1, refs)
 
 	def read_from_buffer(self, context : ParseContext):
 		try:
@@ -467,14 +501,14 @@ class RepeatStructFI(AbstractFI):
 
 
 @FITypes.register(type_id=5)
-class SwitchFI(AbstractFI):
+class SwitchFI:
 	def init(self, expr, children, **kw):
 		self.children = [(Expression(expr), deserialize_fi(c)) for (expr, c) in children]
 		self.expr = Expression(expr)
 		self.size = None
 
-	def _to_text(self, indent, refs):
-		x = "switch "+json.dumps(self.expr.expr_str)+" "+ params_to_text(indent, refs, self.extra_params(["children","expr"]))+"{"+"\n"
+	def _to_text(self, indent, refs, all_params):
+		x = "switch "+json.dumps(self.expr.expr_str)+" "+ params_to_text(indent, refs, all_params, ignore=["children","expr"])+"{"+"\n"
 		for (expr, c) in self.children:
 			x += "\t"*(1+indent) + "case "+json.dumps(expr.expr_str) + ": " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
@@ -495,29 +529,35 @@ class SwitchFI(AbstractFI):
 
 
 @FITypes.register(type_id=6)
-class NamedFI(AbstractFI):
-	def init(self, def_name, **kw):
+class NamedFI:
+	def init(self, ref_name, **kw):
+		self.ref_name = ref_name
 		self.ref = None
-		self.def_name = def_name   ##TODO eigentlich ist das hier kein def_name, sondern ein REF_name...
-		self.size = None
 
-	def _to_text(self, indent, refs):
-		if self.def_name not in refs:
-			refs[self.def_name] = ""
-			refs[self.def_name] = self.ref._to_text(0, refs)
-		return "&" + self.def_name
+	def _to_text(self, indent, refs, all_params):
+		return self.ref_name + params_to_text(indent, refs, all_params, ignore=["ref_name"])
 
 	def read_from_buffer(self, context):
-		return self.ref.read_from_buffer(context)
+		try:
+			context.push(self, None)
+			if self.ref is None:
+				self.ref = context.get_fi_by_def_name(self.ref_name)
+			return self.ref.read_from_buffer(context)
+		except:
+			context.restore_offset()
+			raise
+		finally:
+			context.pop()
 
 
-def params_to_text(indent, refs, params, before="(", after=")"):
-	x=["%s=%s"%(k,v.to_text(indent,refs) if hasattr(v, "to_text") else json.dumps(v)) for k,v in params.items()]
+
+def params_to_text(indent, refs, params, ignore=['children','def_name'], before="(", after=")"):
+	x=["%s=%s"%(k,v.to_text(indent,refs) if hasattr(v, "to_text") else json.dumps(v)) for k,v in params.items() if k not in ignore]
 	if len(x) == 0: return ""
 	return before+", ".join(x)+after
 
 """
-class FixedStructFI(AbstractFI):
+class FixedStructFI:
 	def init(self, fields, default_endianness="!", **kw):
 		self.fields = fields
 		self.default_endianness = default_endianness
@@ -534,24 +574,3 @@ class FixedStructFI(AbstractFI):
 		return dict(zip(self.field_names, struct.unpack_from(endianness + self.pack_format, buf, 0))), buf[self.size:]
 """
 
-
-def load_file(fileName:str):
-	import structinfo_parser
-	if fileName.endswith(".txt"):
-		with open(fileName, "r") as f:
-			return structinfo_parser.parse_fi(f.read())
-	else:
-		with open(fileName, "rb") as f:
-			return bin_deserialize_fi(f.read())
-
-def write_file(fileName, fi):
-	if fileName.endswith(".txt"):
-		txt = fi.to_text()
-		with open(fileName, "w") as f:
-			f.write(txt)
-	elif fileName.endswith(".pfi"):
-		ser = bin_serialize_fi(fi)
-		with open(fileName, "wb") as f:
-			f.write(ser)
-	else:
-		raise Exception("unsupported file type")

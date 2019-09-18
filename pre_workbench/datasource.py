@@ -194,7 +194,7 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.waitForFinished(500)
 		self.process.kill()
 		pass
-
+"""
 PcapHeader = StructFI(def_name="pcap_header", children=[
 	("magic_number",  FixedFieldFI(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
 	("version_major", FixedFieldFI(format="H", 	description="major number of the file format")),
@@ -224,6 +224,7 @@ PcapFile = VariantStructFI(def_name="pcap_file", children=[
 	], endianness=en)
 	for en in ["<",">"]
 ])
+"""
 
 """
 

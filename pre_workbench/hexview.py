@@ -31,8 +31,8 @@ class RangeTreeWidget(QTreeWidget):
 		self.setColumnWidth(3, 200)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
-		self.formatInfo = None
-		self.formatInfoFileName = None
+		self.formatInfoContainer = None
+		self.formatInfoContainerFileName = None
 		self.optionsConfigKey="RangeTree"
 
 	def updateTree(self, bbuf):
@@ -80,7 +80,7 @@ class RangeTreeWidget(QTreeWidget):
 		print(parent.children+[params])
 		parent.updateParams(children=parent.children+[params])
 		self.parent().applyFormatInfo()
-		self.saveFormatInfo(self.formatInfoFileName)
+		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	#TODO - Datenstruktur gibt es zur Zeit nicht her, ein FI zu ersetzen / zu wrappen
 	# es fehlt ein wrapper-element mit einer replace / setType funktion
@@ -92,7 +92,7 @@ class RangeTreeWidget(QTreeWidget):
 		print(parent.children+[params])
 		parent.updateParams(children=parent.children+[params])
 		self.parent().applyFormatInfo()
-		self.saveFormatInfo(self.formatInfoFileName)
+		self.saveFormatInfo(self.formatInfoContainerFileName)
 		"""
 
 	def newFormatInfo(self):
@@ -100,10 +100,12 @@ class RangeTreeWidget(QTreeWidget):
 		if params is None: return
 		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
 		if not fileName: return
-		self.formatInfo = structinfo.deserialize_fi(params)
-		self.formatInfoFileName = fileName
+		self.formatInfoContainer = structinfo.FormatInfoContainer()
+		self.formatInfoContainer.main_name = "DEFAULT"
+		self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
+		self.formatInfoContainerFileName = fileName
 		self.parent().applyFormatInfo()
-		self.saveFormatInfo(self.formatInfoFileName)
+		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	def fileOpenFormatInfo(self):
 		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
@@ -113,17 +115,17 @@ class RangeTreeWidget(QTreeWidget):
 
 	def loadFormatInfo(self, fileName):
 		try:
-			self.formatInfo = structinfo.load_file(fileName)
+			self.formatInfoContainer = structinfo.FormatInfoContainer(load_from_file=fileName)
 		except Exception as ex:
 			traceback.print_exc()
 			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
 			return
-		self.formatInfoFileName = fileName
+		self.formatInfoContainerFileName = fileName
 		self.parent().applyFormatInfo()
 
 
 	def saveFormatInfo(self, fileName):
-		structinfo.write_file(fileName, self.formatInfo)
+		self.formatInfoContainer.write_file(fileName)
 
 
 
@@ -282,10 +284,10 @@ class HexView2(QWidget):
 	################# FI Tree ####################################################
 
 	def applyFormatInfo(self):
-		if self.fiTreeWidget.formatInfo != None:
+		if self.fiTreeWidget.formatInfoContainer != None:
 			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
 			try:
-				self.buffers[0].fi_tree = self.fiTreeWidget.formatInfo.read_from_buffer(structinfo.BytebufferAnnotatingParseContext(self.buffers[0]))
+				self.buffers[0].fi_tree = structinfo.BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0]).parse()
 				self.fiTreeWidget.updateTree(self.buffers[0])
 				self.redraw()
 			except structinfo.parse_exception as ex:

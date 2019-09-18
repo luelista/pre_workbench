@@ -17,6 +17,8 @@ from typeregistry import TypeRegistry
 class parse_exception(Exception):
 	def __init__(self, context, msg):
 		super().__init__(context.get_path() + ": " + msg)
+		self.parse_stack = context.stack
+		self.offset = context.offset()
 
 class incomplete(parse_exception):
 	def __init__(self, context, need, got):
@@ -33,14 +35,8 @@ class value_not_found(parse_exception):
 		super().__init__(context, msg)
 
 
+#def parse_stack_tostr(stack):
 
-
-def splitdot(expr):
-	try:
-		i = expr.index(".")
-		return expr[:i], expr[i+1:]
-	except ValueError:
-		return expr, ""
 
 class ParseContext:
 	def __init__(self, buf=None):
@@ -116,6 +112,9 @@ class ParseContext:
 		self.require_bytes(count)
 		self.buf_offset += count
 		return self.buf[self.buf_offset - count:self.buf_offset]
+
+	def offset(self):
+		return self.buf_offset + self.display_offset_delta
 
 	def top_offset(self):
 		return self.stack[-1][3] + self.display_offset_delta
@@ -323,7 +322,10 @@ class FixedFieldFI(AbstractFI):
 @FITypes.register(type_id=1)
 class VarByteFieldFI(AbstractFI):
 	def init(self, size_expr="", parse_with=None, **kw):
-		self.size_expr = Expression(size_expr)
+		if size_expr:
+			self.size_expr = Expression(size_expr)
+		else:
+			self.size_expr = None
 		self.parse_with=parse_with
 
 	def _to_text(self, indent, refs):
@@ -332,7 +334,10 @@ class VarByteFieldFI(AbstractFI):
 	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
-			n = self.size_expr.evaluate(context)
+			if self.size_expr:
+				n = self.size_expr.evaluate(context)
+			else:
+				n = context.remaining_bytes()
 			if self.parse_with == None:
 				return context.pack_value(context.read_bytes(n))
 			else:
@@ -427,13 +432,14 @@ class RepeatStructFI(AbstractFI):
 	def _to_text(self, indent, refs):
 		return "repeat"+params_to_text(indent, refs, self.extra_params()) +" "+ self.children.to_text(indent+1, refs)
 
-	def read_from_buffer(self, context):
+	def read_from_buffer(self, context : ParseContext):
 		try:
 			o = []
 			context.push(self, o)
 			if self.times_expr is None:
 				i = 0
 				while True:
+					pos = context.offset()
 					try:
 						context.id = "[%d]"%i
 						o.append(self.children.read_from_buffer(context))
@@ -444,6 +450,8 @@ class RepeatStructFI(AbstractFI):
 							break
 						else:
 							raise
+					if pos == context.offset():
+						raise parse_exception(context, "infinite loop prevented - repeat child consumed zero bytes")
 					if self.until_expr.evaluate(context): break
 					i += 1
 			else:
@@ -466,7 +474,7 @@ class SwitchFI(AbstractFI):
 		self.size = None
 
 	def _to_text(self, indent, refs):
-		x = "switch "+json.dumps(self.expr)+" "+ params_to_text(indent, refs, self.extra_params(["children","expr"]))+"{"+"\n"
+		x = "switch "+json.dumps(self.expr.expr_str)+" "+ params_to_text(indent, refs, self.extra_params(["children","expr"]))+"{"+"\n"
 		for (expr, c) in self.children:
 			x += "\t"*(1+indent) + "case "+json.dumps(expr.expr_str) + ": " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"

@@ -55,6 +55,7 @@ IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
             | anyfield_expr
             | hierarchy_expr
             | compare_expr
+            | expression BINARY_OP expression -> math_expr
             | expression PUNKT_OP expression -> math_expr
             | expression STRICH_OP expression -> math_expr
             | string
@@ -68,6 +69,7 @@ DOTS: "_"+
 hierarchy_expr: DOTS
 array_expr: (expression "." IDENTIFIER | expression "[" number "]")
 anyfield_expr: IDENTIFIER
+BINARY_OP: "&" | "|" | "^" | "<<" | ">>"
 PUNKT_OP: "*" | "/"
 STRICH_OP: "+" | "-"
 COMP_OP: "==" | "!=" | "<" | ">" | "<=" | ">="

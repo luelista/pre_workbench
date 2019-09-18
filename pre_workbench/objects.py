@@ -73,7 +73,8 @@ class ByteBuffer(QObject):
 		return self.buffer[offset:offset+length]
 	def getDecoded(self,offset, structUnpackFormat):
 		return struct.unpack_from(structUnpackFormat, self.buffer, offset)
-
+	def getInt(self, offset, end, endianness='>',signed=False):
+		return int.from_bytes(self.buffer[offset:end], byteorder='big' if endianness == '>' else 'little', signed=signed)
 
 	def getAnnotationValues(self, contains=None, start=None, annotationProperty=None):
 		# TODO check whether a more efficient algorithm needs to be used
@@ -133,7 +134,7 @@ class Range:
 	BytesOffsetRole = QtCore.Qt.UserRole+1
 	BytesSizeRole = QtCore.Qt.UserRole+2
 	SourceDescRole = QtCore.Qt.UserRole+3
-	def __init__(self, start, end, value=None, source_desc=None, field_name=None, meta=None):
+	def __init__(self, start, end, value=None, source_desc=None, field_name=None, meta=None, buffer_idx=0):
 		self.value=value
 		self.source_desc=source_desc
 		self.field_name=field_name
@@ -141,6 +142,7 @@ class Range:
 		self.end = end
 		self.bytes_size = end - start
 		self.metadata = dict()
+		self.buffer_idx = buffer_idx
 		if meta: self.metadata.update(meta)
 		self.style = dict()
 

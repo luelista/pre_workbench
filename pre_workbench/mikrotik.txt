@@ -1,4 +1,4 @@
-DEFAULT struct (endianness="<"){
+winbox_stream repeat() struct (endianness="<", section="winbox_chunk"){
 	length uint8
 	type uint8
 	value bytes(size_expr="length")

@@ -27,6 +27,16 @@ class Evaluator(Transformer):
 			return node[0] - node[2]
 		elif node[1] == "*":
 			return node[0] * node[2]
+		elif node[1] == "&":
+			return node[0] & node[2]
+		elif node[1] == "|":
+			return node[0] | node[2]
+		elif node[1] == "^":
+			return node[0] ^ node[2]
+		elif node[1] == "<<":
+			return node[0] << node[2]
+		elif node[1] == ">>":
+			return node[0] >> node[2]
 		elif node[1] == "/":
 			if isinstance(node[0], dict): return node[0][node[1]]
 			return node[0] / node[2]

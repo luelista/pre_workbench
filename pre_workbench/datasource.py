@@ -28,7 +28,7 @@ class FileDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			("fileName", "File name", "text", {})
+			("fileName", "File name", "text", {"fileselect":"open"})
 		]
 	def startFetch(self):
 		bbuf = ByteBuffer()
@@ -46,7 +46,7 @@ class PcapFileDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			("fileName", "File name", "text", {})
+			("fileName", "File name", "text", {"fileselect":"open"})
 		]
 	def startFetch(self):
 		with open(self.params['fileName'], "rb") as f:
@@ -102,7 +102,7 @@ class TsharkPcapFileDataSource(AbstractTsharkDataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			("fileName", "File name", "text", {}),
+			("fileName", "File name", "text", {"fileselect":"open"}),
 			("displayFilter", "Display filter", "text", {}),
 			("decodeAs", "Decode as", "text", {})
 		]
@@ -141,7 +141,7 @@ class LivePcapCaptureDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			("shell_cmd", "Shell command line", "text", {"default":"tcpdump -w -"})
+			("shell_cmd", "Shell command line", "text", {"default":"sudo tcpdump -w -"})
 		]
 	def startFetch(self):
 		self.plist = ByteBufferList()

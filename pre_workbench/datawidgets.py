@@ -307,6 +307,7 @@ class DynamicDataWidget(QWidget):
         self.layout().addWidget(ExpandWidget("Metadata", self.metadataWidget, True), 33)
         self.childWidget = None
         self.setErrMes(title="No data loaded")
+
     @pyqtSlot(object)
     def setContents(self, data):
         typ = type(data)

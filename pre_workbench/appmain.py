@@ -31,7 +31,9 @@ from genericwidgets import JsonView, MdiFile
 from hexview import HexView2
 from objectwindow import ObjectWindow
 from typeregistry import WindowTypes
+
 import typeeditor
+import textfile
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -334,6 +336,7 @@ class HexFileWindow(QWidget, MdiFile):
 	def initUI(self):
 		self.setLayout(QVBoxLayout())
 		self.dataDisplay = HexView2()
+		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())
@@ -399,6 +402,7 @@ sys.excepthook = excepthook
 if __name__ == '__main__':
 	
 	app = QApplication(sys.argv)
+	app.setStyle("fusion")
 	ex = WorkbenchMain()
 	#os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
 	sys.exit(app.exec_())

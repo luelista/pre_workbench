@@ -1,0 +1,58 @@
+ether_frame struct (endianness=">"){
+	eheader &ether_header
+	payload &nl_protos
+}
+
+ether_header struct(section="Ethernet header") {
+	dst_addr &mac_addr
+	src_addr &mac_addr
+	ethertype uint16
+}
+
+mac_addr bytes(size_expr="6")
+
+nl_protos switch "eheader.ethertype" (def_name="nl_protos"){
+	case "0x0800": &ip4_packet
+	case "0x0806": &arp_packet
+}
+
+ip4_packet struct {
+    ipheader &ip4_header
+    payload &ip_payload
+}
+ip4_header struct(section="IPv4 header") {
+	version_hlen uint8
+	tos uint8
+	total_length uint16
+	identification uint16
+	flags_fragoffset uint16
+	ttl uint8
+	protocol uint8
+	cksum uint8
+	src_ip ip4_addr
+	dst_ip ip4_addr
+}
+ip4_addr bytes(size_expr="4")
+
+ip_payload switch "ipheader.protocol" {
+    case "6": &tcp_segment
+    case "17": &udp_segment
+}
+
+tcp_segment struct(section="TCP Header") {
+    src_port uint16
+    dst_port uint16
+    seq_num uint32
+    ack_num uint32
+    flags uint16
+    window_size uint16
+    cksum uint16
+    urg_ptr uint16
+    options bytes(size_expr="(((flags & 0x0f0) >> 4) * 4) - 20")
+    tcp_payload bytes(section="TCP Payload")
+}
+udp_segment struct {
+}
+
+arp_packet struct {
+}

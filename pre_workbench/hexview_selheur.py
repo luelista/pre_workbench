@@ -1,6 +1,8 @@
 import struct
 
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPen
+
+from objects import ByteBuffer
 
 
 def extendRange(bbuf, range, amount=16):
@@ -42,22 +44,42 @@ def highlightMatch(editor, qp, matchrange, desc, color):
 	(start,end)=matchrange
 	for i in range(start,end):
 		(xHex, xAscii, y, dy) = editor.offsetToClientPos(i)
-		qp.fillRect(xHex, y, editor.dxHex, dy, color)
-		qp.fillRect(xAscii, y, editor.dxAscii, dy, color)
+		p = QPen(color)
+		p.setWidth(3)
+		qp.setPen(p)
+		qp.drawLine(xHex+2, y+dy-2, xHex+editor.dxHex-4, y+dy-2)
+		qp.drawLine(xAscii+1, y+dy-2, xAscii+editor.dxAscii-2, y+dy-2)
 
 
 def selectionLengthMatcher(editor, qp, bbuf, sel):
 	(start, end) = sel
 	sellen = end - start + 1
-	print (start,end,sellen,[rangeBefore(bbuf, sel), sel])
 	if sellen == 0: return
-	match, desc = findInRange(bbuf, [rangeBefore(bbuf, sel), sel], intToVarious(sellen))
+	match, desc = findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen))
 	if match != None:
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
-	match, desc = findInRange(bbuf, [rangeBefore(bbuf, sel), sel], intToVarious(sellen+1, sellen+2, sellen+4))
+	match, desc = findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen+1, sellen+2, sellen+4))
 	if match != None:
 		highlightMatch(editor, qp, match,desc,QColor("#993399"))
 
+def debug_highlightMatchRange(editor, qp, bbuf, sel):
+	highlightMatch(editor, qp, rangeBefore(bbuf, sel), "", QColor("#555555"))
 
+def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
+	(start, end)=sel
+	end=end+1
+	if end-start>8: return
+	val = bbuf.getInt(start,end,endianness=">",signed=False)
+	if val > 0 and end+val < len(bbuf):
+		highlightMatch(editor, qp, (end, end+val), "", QColor("#555555"))
+		return
+	val = bbuf.getInt(start,end,endianness="<",signed=False)
+	if val > 0 and end+val < len(bbuf):
+		highlightMatch(editor, qp, (end, end+val), "", QColor("#555555"))
+		return
 
-selectionHelpers = [ selectionLengthMatcher ]
+selectionHelpers = [
+	#debug_highlightMatchRange,
+	highlightSelectionAsLength,
+	selectionLengthMatcher
+]

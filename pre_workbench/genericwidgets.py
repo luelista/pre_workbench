@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo
-from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtGui import QKeyEvent, QIcon
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
 	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
@@ -35,6 +35,7 @@ class SettingsGroup(QFrame):
 		self.setLayout(self.layout)
 		self.setFields(definition)
 		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+		self.setStyleSheet("SettingsGroup{background:#ffeeaa}")
 
 	def setFields(self, definition):
 		for i in reversed(range(self.layout.count())):
@@ -50,9 +51,13 @@ class SettingsGroup(QFrame):
 				if "autocomplete" in params:
 					field.setCompleter(QCompleter(QStringListModel(list(params["autocomplete"]), field), field))
 				if "fileselect" in params:
-					act = QAction("...")
-					act.triggered.connect(lambda field=field: self.selectFile(field, params.get("fileselect"), params.get("caption","Select file"), params.get("filter","All files (*.*)")))
+					act = QAction(QIcon("select.png"), "Select file", field)
+					act.triggered.connect(lambda c,params=params, field=field:
+										  self.selectFile(field, params["fileselect"],
+														  params.get("caption","Select file"),
+														  params.get("filter","All files (*.*)")))
 					field.addAction(act, QLineEdit.TrailingPosition)
+					#field.addAction(QIcon("select.png"), QLineEdit.TrailingPosition)
 			elif fieldtype == "select":
 				field = QComboBox()
 				for value, text in params["options"]:
@@ -81,11 +86,15 @@ class SettingsGroup(QFrame):
 
 	def selectFile(self, field, mode, caption, filter):
 		if mode == "open":
-			QFileDialog.getOpenFileName(self, caption, field.text(), filter)
-		if mode == "save":
-			QFileDialog.getSaveFileName(self, caption, field.text(), filter)
-		if mode == "dir":
-			QFileDialog.getExistingDirectory(self, caption, field.text())
+			r=QFileDialog.getOpenFileName(self, caption, field.text(), filter)
+		elif mode == "save":
+			r=QFileDialog.getSaveFileName(self, caption, field.text(), filter)
+		elif mode == "dir":
+			r=QFileDialog.getExistingDirectory(self, caption, field.text())
+		else:
+			raise Exception("Invalid fileselect mode "+mode)
+		if r:
+			field.setText(r)
 
 	@pyqtSlot(str)
 	def textChanged(self, newText):

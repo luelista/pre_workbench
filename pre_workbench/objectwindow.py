@@ -28,7 +28,7 @@ class ObjectWindow(QWidget):
 
 
 	def saveParams(self):
-		self.params["collapseSettings"] = self.sourceConfig.parent().collapsed
+		self.params["collapseSettings"] = not self.sourceConfig.isVisible()
 		return self.params
 
 	def sizeHint(self):
@@ -50,7 +50,7 @@ class ObjectWindow(QWidget):
 		self.sourceConfig = SettingsGroup([], self.params)
 		self.sourceConfig.item_changed.connect(self.onConfigChanged)
 		#tb.addItem(self.sourceConfig, "Data Source Options")
-		layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
+		#layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
 		toolbar = QToolBar()
 		self.cancelAction = toolbar.addAction("Cancel")
@@ -58,7 +58,14 @@ class ObjectWindow(QWidget):
 		self.cancelAction.setEnabled(False)
 		self.reloadAction = toolbar.addAction("Reload")
 		self.reloadAction.triggered.connect(self.reload)
+		dsoVisAction = toolbar.addAction("Data Source Options")
+		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(True)
+		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
+		#metadataAction = toolbar.addAction("Metadata", checkable=True)
+		#metadataAction.toggled.connect(lambda val: self.meta.setVisible(val))
 		layout.addWidget(toolbar)
+		layout.addWidget(self.sourceConfig)
+
 
 		self.dataDisplay = DynamicDataWidget()
 		self.dataDisplay.on_data_selected.connect(self.on_data_selected.emit)

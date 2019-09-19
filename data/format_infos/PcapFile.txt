@@ -3,10 +3,12 @@ pcap_file variant {
 		header pcap_header
 		packets repeat pcap_packet
 	}
-	struct (endianness=">"){
+	struct (endianness=">", section="pcap file, big endian"){
 		header pcap_header
 		packets repeat pcap_packet
 	}
+	repeat(endianness="<", section="pcapNG file, little endian") pcapng_block
+	repeat(endianness=">", section="pcapNG file, big endian") pcapng_block
 }
 
 pcap_header struct (section="pcap file header"){
@@ -76,7 +78,7 @@ tcp_segment struct {
 		urg_ptr uint16
 		options bytes(size_expr=((((flags & 0xf000) >> 12) * 4) - 20))
 	}
-	tcp_payload bytes(section="TCP Payload")
+	tcp_payload bytes(section="TCP Payload", color="#00aa00")
 }
 
 udp_segment struct {
@@ -85,7 +87,7 @@ udp_segment struct {
 arp struct {
 }
 
-ether struct {
+ether struct (endianness=">"){
 	eheader ether_header
 	payload nl_protos
 }
@@ -143,3 +145,46 @@ uint64 fixed(format="Q")
 float fixed(format="f")
 
 double fixed(format="d")
+
+pcapng_block struct (section="pcapNG block"){
+	block_type fixed(format="I", color="#999900")
+	block_length fixed(format="I", color="#666600")
+	block_payload bytes(size_expr="block_length-12", parse_with=pcapng_block_payload)
+	block_length2 fixed(format="I", color="#666600")
+}
+
+pcapng_block_payload switch block_type {
+	case 0x0A0D0D0A: pcapng_SHB
+	case 1: pcapng_IDB
+	case 6: pcapng_EPB
+}
+
+pcapng_SHB struct {
+	byte_order_magic fixed(format="I", magic=439041101, color="green")
+	version_major fixed(format="H")
+	version_minor fixed(format="H")
+	section_length fixed(format="q")
+	options pcapng_options
+}
+
+pcapng_IDB struct {
+	linktype fixed(format="H")
+	reserved fixed(format="H")
+	snaplen fixed(format="I")
+	options pcapng_options
+}
+
+pcapng_EPB struct {
+	interface_id fixed(format="I")
+	timestamp fixed(format="Q")
+	cap_length fixed(format="I")
+	orig_length fixed(format="I")
+	payload bytes(size_expr="cap_length", parse_with=ether)
+	payload_padding bytes(size_expr="3-((cap_length-1)&3)", textcolor="#888888")
+}
+
+pcapng_options repeat struct {
+		code fixed(format="H")
+		length fixed(format="H")
+		value bytes(size_expr="length")
+	}

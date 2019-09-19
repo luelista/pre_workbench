@@ -49,6 +49,7 @@ class ObjectWindow(QWidget):
 
 		self.sourceConfig = SettingsGroup([], self.params)
 		self.sourceConfig.item_changed.connect(self.onConfigChanged)
+		self.sourceConfig.setVisible(not collapseSettings)
 		#tb.addItem(self.sourceConfig, "Data Source Options")
 		#layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
@@ -59,10 +60,10 @@ class ObjectWindow(QWidget):
 		self.reloadAction = toolbar.addAction("Reload")
 		self.reloadAction.triggered.connect(self.reload)
 		dsoVisAction = toolbar.addAction("Data Source Options")
-		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(True)
+		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(not collapseSettings)
 		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
-		#metadataAction = toolbar.addAction("Metadata", checkable=True)
-		#metadataAction.toggled.connect(lambda val: self.meta.setVisible(val))
+		metadataVisAction = toolbar.addAction("Metadata")
+		#metadataVisAction.toggled.connect(lambda val: self.meta.setVisible(val))
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)
 

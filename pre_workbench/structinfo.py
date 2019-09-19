@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QTreeWidgetItem
 import typeeditor
 import xdrm
 from objects import Range
-from structinfo_expr import Expression
+from structinfo_expr import Expression, deserialize_expr
 from typeregistry import TypeRegistry
 
 class parse_exception(Exception):
@@ -58,7 +58,7 @@ class FormatInfoContainer:
 
 	def load_from_string(self, txt):
 		from structinfo_parser import fi_parser, MainTrans
-		ast = fi_parser.parse(txt)
+		ast = fi_parser.parse(txt, start="start")
 		print(ast.pretty())
 
 		trans = MainTrans(self)
@@ -77,6 +77,8 @@ class FormatInfoContainer:
 		else:
 			raise Exception("unsupported file type")
 
+	def get_fi_by_def_name(self, def_name):
+			return self.format_infos.definitions[def_name]
 
 
 
@@ -94,7 +96,7 @@ class ParseContext:
 
 	def get_fi_by_def_name(self, def_name):
 		try:
-			return self.format_infos.definitions[def_name]
+			return self.format_infos.get_fi_by_def_name(def_name)
 		except KeyError:
 			raise parse_exception(self, "reference to undefined formatinfo name: "+def_name)
 
@@ -108,6 +110,7 @@ class ParseContext:
 
 	def parse(self, by_name=None):
 		if by_name is None: by_name = self.format_infos.main_name
+		self.id = by_name
 		return self.get_fi_by_def_name(by_name).read_from_buffer(self)
 
 	def get_param(self, id, default=None, raise_if_missing=True):
@@ -309,7 +312,17 @@ def bin_deserialize_fi(bin):
 	return deserialize_fi(data)
 
 
-
+def recursive_serialize(obj):
+	if isinstance(obj, dict):
+		return {k:recursive_serialize(v) for k,v in obj.items()}
+	elif isinstance(obj, list):
+		return [recursive_serialize(v) for v in obj]
+	elif isinstance(obj, tuple):
+		return tuple(recursive_serialize(v) for v in obj)
+	elif isinstance(obj, FormatInfo):
+		return obj.serialize()
+	else:
+		return obj
 class FormatInfo:
 	def __init__(self, info=None, typeRef=None, params=None):
 		if info is not None: self.deserialize(info)
@@ -324,11 +337,29 @@ class FormatInfo:
 		self.fi.init(**params)
 		self.params = params
 
+	def updateParams(self, **changes):
+		for k,v in changes.items():
+			if v is None:
+				self.params.pop(k, None)
+			else:
+				self.params[k] = v
+		self.fi.init(**self.params)
+
 	def to_text(self, indent = 0, refs=None):
 		return self.fi._to_text(indent, refs, self.params)
 
+	def from_text(self, txt):
+		from structinfo_parser import fi_parser, MainTrans
+		ast = fi_parser.parse(txt, start="anytype")
+		print(ast.pretty())
+
+		trans = MainTrans(self)
+		item = trans.transform(ast)
+		self.fi = item.fi
+		self.params = item.params
+
 	def serialize(self):
-		return [type(self.fi).type_id, self.params]
+		return [type(self.fi).type_id, recursive_serialize(self.params)]
 
 	def extra_params(self, removewhat=['children','def_name']):
 		return {i:self.params[i] for i in self.params if not i in removewhat}
@@ -337,7 +368,8 @@ class FormatInfo:
 		try:
 			context.push(self, None)
 			return self.fi._parse(context)
-		except:
+		except Exception as ex:
+			context.log("Exception: "+str(ex))
 			context.restore_offset()
 			raise
 		finally:
@@ -371,7 +403,7 @@ class FixedFieldFI:
 class VarByteFieldFI:
 	def init(self, size_expr="", parse_with=None, **kw):
 		if size_expr:
-			self.size_expr = Expression(size_expr)
+			self.size_expr = deserialize_expr(size_expr)
 		else:
 			self.size_expr = None
 		self.parse_with=parse_with
@@ -441,7 +473,9 @@ class VariantStructFI:
 				# aktuell: invalid ist es nur, wenn alle invalid sind - incomplete schon, sobald das erste incomplete ist
 				print("variant %d no match: %r"%(i, ex))
 				pass
-		raise invalid(context, "no variant matched")
+		#raise invalid(context, "no variant matched")
+		context.log("no variant matched")
+		return context.pack_value(None)
 
 
 
@@ -450,10 +484,10 @@ class RepeatStructFI:
 	def init(self, children, times=None, until="false", until_invalid=False, **kw):
 		self.children = deserialize_fi(children)
 		if times is not None:
-			self.times_expr = Expression(times)
+			self.times_expr = deserialize_expr(times)
 			self.until_expr = None
 		else:
-			self.until_expr = Expression(until)
+			self.until_expr = deserialize_expr(until)
 			self.times_expr = None
 		self.until_invalid = until_invalid
 		self.size = None
@@ -492,14 +526,14 @@ class RepeatStructFI:
 @FITypes.register(type_id=5)
 class SwitchFI:
 	def init(self, expr, children, **kw):
-		self.children = [(Expression(expr), deserialize_fi(c)) for (expr, c) in children]
-		self.expr = Expression(expr)
+		self.children = [(deserialize_expr(expr), deserialize_fi(c)) for (expr, c) in children]
+		self.expr = deserialize_expr(expr)
 		self.size = None
 
 	def _to_text(self, indent, refs, all_params):
-		x = "switch "+json.dumps(self.expr.expr_str)+" "+ params_to_text(indent, refs, all_params, ignore=["children","expr"])+"{"+"\n"
+		x = "switch "+self.expr.expr_str+" "+ params_to_text(indent, refs, all_params, ignore=["children","expr"])+"{"+"\n"
 		for (expr, c) in self.children:
-			x += "\t"*(1+indent) + "case "+json.dumps(expr.expr_str) + ": " + c.to_text(indent+1, refs) + "\n"
+			x += "\t"*(1+indent) + "case "+expr.expr_str + ": " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
 	def _parse(self, context):
@@ -507,7 +541,9 @@ class SwitchFI:
 		for expr, child in self.children:
 			if expr.evaluate(context) == checkFor:
 				return context.pack_value(child.read_from_buffer(context))
-		raise invalid(context, "no switch case matched")
+		#raise invalid(context, "no switch case matched")
+		context.log("no switch case matched, expr value = "+repr(checkFor))
+		return context.pack_value(None)
 
 
 @FITypes.register(type_id=6)

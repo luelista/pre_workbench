@@ -1,5 +1,6 @@
 import binascii
 import re
+from math import ceil, floor
 
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidgetItem
@@ -12,6 +13,57 @@ from guihelper import getClipboardText
 
 class ReloadRequired(Exception):
 	pass
+
+class RangeList:
+	def __init__(self, totalLength, ranges, chunkSize=1024):
+		self.ranges = ranges
+		self.chunkCount = totalLength // chunkSize + 1
+		self.chunkSize = chunkSize
+		self.chunks = [[] for i in range(self.chunkCount)]
+		for el in ranges:
+			firstChunk = el.start // chunkSize
+			lastChunk = el.end // chunkSize
+			for i in range(firstChunk, lastChunk+1):
+				self.chunks[i].append(el)
+
+	def findMatchingRanges(self, start=None, end=None, contains=None, overlaps=None, **kw):
+		scanChunk = None
+		if start is not None:
+			scanChunk = start // self.chunkSize
+		elif end is not None:
+			scanChunk = end // self.chunkSize
+		elif contains is not None:
+			scanChunk = contains // self.chunkSize
+		elif overlaps is not None:
+			firstChunk = overlaps.start // self.chunkSize
+			lastChunk = overlaps.end // self.chunkSize
+			if firstChunk == lastChunk:
+				scanChunk = firstChunk
+
+		if scanChunk is not None:
+			for el in self.chunks[scanChunk]:
+				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
+					yield el
+		else:
+			for el in self.ranges:
+				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
+					yield el
+
+	def __len__(self):
+		return len(self.ranges)
+
+	def append(self, el):
+		firstChunk = el.start // self.chunkSize
+		lastChunk = el.end // self.chunkSize
+		while lastChunk >= self.chunkCount:
+			self.chunks.append(list())
+			self.chunkCount += 1
+		for i in range(firstChunk, lastChunk+1):
+			self.chunks[i].append(el)
+		self.ranges.append(el)
+
+
+
 
 class ByteBuffer(QObject):
 	"""
@@ -27,7 +79,7 @@ class ByteBuffer(QObject):
 		super().__init__()
 		self.metadata = dict() if metadata is None else metadata
 		self.setContent(buf)
-		self.ranges = list()
+		self.ranges = RangeList(len(self), list())
 		self.fields = dict()
 		self.fi_tree = None
 
@@ -59,6 +111,8 @@ class ByteBuffer(QObject):
 		self.ranges.append(r)
 		if "name" in r.metadata: self.fields[r.metadata["name"]] = r
 		return r
+	def clearRanges(self):
+		self.ranges = RangeList(len(self), list())
 
 	def appendBytes(self, newBytes, meta=None):
 		start = len(self)
@@ -77,25 +131,18 @@ class ByteBuffer(QObject):
 		return int.from_bytes(self.buffer[offset:end], byteorder='big' if endianness == '>' else 'little', signed=signed)
 
 	def getAnnotationValues(self, contains=None, start=None, annotationProperty=None):
-		# TODO check whether a more efficient algorithm needs to be used
+		# TODO use a more efficient algorithm!
 		values = []
-		for rr in self.ranges:
-			if rr.matches(contains=contains, start=start, hasMetaKey=annotationProperty):
-				values.append(rr.metadata[annotationProperty])
+		for rr in self.ranges.findMatchingRanges(contains=contains, start=start, hasMetaKey=annotationProperty):
+			values.append(rr.metadata[annotationProperty])
 		return values
 
 	def matchRanges(self, **match):
-		# TODO check whether a more efficient algorithm needs to be used
-		values = []
-		for rr in self.ranges:
-			if rr.matches(**match):
-				values.append(rr)
-		return values
+		return self.ranges.findMatchingRanges(**match)
 
 	def getStyle(self, i, styleName, defaultValue):
-		for rr in self.ranges:
-			if rr.contains(i) and styleName in rr.style:
-				return rr.style[styleName]
+		for rr in self.ranges.findMatchingRanges(contains=i, hasMetaKey=styleName):
+			return rr.metadata[styleName]
 		return defaultValue
 
 	def __len__(self):

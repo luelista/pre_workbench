@@ -1,23 +1,27 @@
+import json
 
 from lark import Lark, Transformer
 
 
-fi_expr_parser = Lark(open("format_info.lark"), start="expression")
+fi_expr_parser = Lark(open("format_info.lark"), start="expression", parser="lalr")
 
 class Evaluator(Transformer):
 	def __init__(self, parse_context):
 		super().__init__()
 		self.parse_context = parse_context
 
-	def string(self, s):
-		return s[0][1:-1]
+	def paren_expr(self, s):
+		return s[0]
 
-	def number(self, n):
+	def string_expr(self, s):
+		return json.loads(s)
+
+	def number_expr(self, n):
 		return float(n[0]) if "." in n[0] else int(n[0], 0)
 
-	null = lambda self, _: None
-	true = lambda self, _: True
-	false = lambda self, _: False
+	null_expr = lambda self, _: None
+	true_expr = lambda self, _: True
+	false_expr = lambda self, _: False
 
 	def math_expr(self, node):
 		print(node)
@@ -63,6 +67,10 @@ class Evaluator(Transformer):
 		print("array_expr", node)
 		return self.parse_context.unpack_value(node[0][node[1]])
 
+	def member_expr(self, node):
+		print("member_expr", node)
+		return self.parse_context.unpack_value(node[0][node[1]])
+
 	def anyfield_expr(self, node):
 		id = node[0]
 		for i in range(len(self.parse_context.stack)-1, -1, -1):
@@ -75,13 +83,65 @@ class Evaluator(Transformer):
 		return self.parse_context.get_param(node[0])
 
 
+class Stringifier(Transformer):
+	def __init__(self):
+		super().__init__()
+
+	def string_expr(self, s):
+		return json.dumps(s[0])
+
+	def number_expr(self, n):
+		return str(n[0])
+
+	null_expr = lambda self, _: "null"
+	true_expr = lambda self, _: "true"
+	false_expr = lambda self, _: "false"
+
+	def math_expr(self, node):
+		return " ".join(node)
+
+	def compare_expr(self, node):
+		return " ".join(node)
+
+	def hierarchy_expr(self, node):
+		return node[0]
+
+	def member_expr(self, node):
+		return node[0] + "." + node[1]
+
+	def array_expr(self, node):
+		return node[0] + "[" + node[1] + "]"
+
+	def anyfield_expr(self, node):
+		return node[0]
+
+	def param_expr(self, node):
+		return "$" + node[0]
+
+	def paren_expr(self, node):
+		return "(" + node[0] + ")"
+
+
+def deserialize_expr(expr):
+	if isinstance(expr, Expression): return expr
+	return Expression(expr_str=expr)
+
 class Expression:
-	def __init__(self, expr_str):
-		self.expr_str = expr_str
-		try:
-			self.expr_tree = fi_expr_parser.parse(self.expr_str)
-		except Exception as e:
-			raise Exception("Failed to parse expression '"+expr_str+"': "+str(e)) from e
+	def __init__(self, expr_str=None, expr_tree=None):
+		if expr_str:
+			self.expr_str = expr_str
+			try:
+				self.expr_tree = fi_expr_parser.parse(self.expr_str)
+			except Exception as e:
+				raise Exception("Failed to parse expression '"+expr_str+"': "+str(e)) from e
+		elif expr_tree:
+			self.expr_tree = expr_tree
+			self.expr_str = Stringifier().transform(expr_tree)
+
+	def serialize(self):
+		return self.expr_str
+	def to_text(self, indent=0, refs=None):
+		return "("+self.expr_str+")"
 
 	def evaluate(self, parse_context):
 		try:

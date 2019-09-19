@@ -9,7 +9,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
-	QTreeWidgetItemIterator, QMessageBox
+	QTreeWidgetItemIterator, QMessageBox, QInputDialog
 
 import configs
 import structinfo
@@ -20,6 +20,25 @@ from hexdump import hexdump
 from hexview_selheur import selectionHelpers
 from objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
 from typeeditor import showTypeEditorDlg
+
+
+class InteractiveFormatInfoContainer(structinfo.FormatInfoContainer):
+	def __init__(self, parent, **kw):
+		super().__init__(**kw)
+		self.parent = parent
+
+	def get_fi_by_def_name(self, def_name):
+		try:
+			return self.definitions[def_name]
+		except KeyError:
+			if QMessageBox.question(self.parent, "Format Info", "Reference to undefined formatinfo '"+def_name+"'. Create it now?") == QMessageBox.Yes:
+				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create formatinfo '"+def_name+"'")
+				if params is None: raise
+				self.definitions[def_name] = structinfo.deserialize_fi(params)
+				return self.definitions[def_name]
+			else:
+				raise
+
 
 
 class RangeTreeWidget(QTreeWidget):
@@ -40,7 +59,7 @@ class RangeTreeWidget(QTreeWidget):
 		if bbuf.fi_tree is not None:
 			root = QTreeWidgetItem(self)
 			root.setExpanded(True)
-			root.setText(0, "FormatInfo tree")
+			root.setText(0, self.formatInfoContainerFileName)
 			bbuf.fi_tree.addToTree(root)
 
 	def fiTreeItemActivated(self, item, column):
@@ -59,35 +78,75 @@ class RangeTreeWidget(QTreeWidget):
 		ctx = QMenu("Context menu", self)
 		item = self.itemAt(point)
 		if item != None:
+			range = item.data(0, Range.RangeRole)
 			source = item.data(0, Range.SourceDescRole)
+
 			if item.parent() != None:
 				parentSource = item.parent().data(0, Range.SourceDescRole)
 			if isinstance(source, structinfo.FormatInfo):
 				if isinstance(source.fi, structinfo.StructFI):
-					ctx.addAction("Add field ...", lambda: self.addField(source))
+					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
+					ctx.addSeparator()
+				if isinstance(source.fi, structinfo.VariantStructFIFI):
+					ctx.addAction("Add variant ...", lambda: self.addField(source, "AnyFI"))
+					ctx.addSeparator()
+				if isinstance(source.fi, structinfo.SwitchFI):
+					ctx.addAction("Add case ...", lambda: self.addField(source, "SwitchItem"))
+					ctx.addSeparator()
+				if parentSource is not None and isinstance(parentSource, structinfo.StructFI):
+					ctx.addAction("Remove this field", lambda: self.removeField(parentSource, range.field_name))
 					ctx.addSeparator()
 				ctx.addAction("Edit ...", lambda: self.editField(source))
+				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
+				ctx.addSeparator()
 
 		ctx.addAction("New format info ...", self.newFormatInfo)
 		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
-		ctx.addAction("Save format info ...", self.fileOpenFormatInfo)
+		if self.formatInfoContainerFileName:
+			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainerFileName))
 		ctx.exec(self.mapToGlobal(point))
 
-	def addField(self, parent):
-		params = showTypeEditorDlg("format_info.tes", "StructField")
+	def addField(self, parent, typeName):
+		params = showTypeEditorDlg("format_info.tes", typeName)
 		if params is None: return
-		print(parent.children+[params])
-		parent.updateParams(children=parent.children+[params])
+		parent.updateParams(children=parent.params['children']+[params])
+		self.parent().applyFormatInfo()
+		self.saveFormatInfo(self.formatInfoContainerFileName)
+
+	def removeField(self, parent, field_name):
+		ch = parent.params['children']
+		del ch[field_name]
+		parent.updateParams(children=ch)
+		self.parent().applyFormatInfo()
+
+
+	def editDisplayParams(self, parent):
+		params = showSettingsDlg([
+			("color", "Background color", "text", {"color":True}),
+			("textcolor", "Text color", "text", {"color":True}),
+			("section", "Section header", "text", {}),
+		], title="Edit display params", values=parent.params, parent=self)
+		if params is None: return
+		if params.get("color") == "": params["color"] = None
+		if params.get("textcolor") == "": params["textcolor"] = None
+		if params.get("section") == "": params["section"] = None
+		parent.updateParams(**params)
 		self.parent().applyFormatInfo()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	def editField(self, element: structinfo.FormatInfo):
+		"""
 		params = showTypeEditorDlg("format_info.tes", "AnyFI", element.serialize())
 		if params is None: return
 		element.deserialize(params)
-		self.parent().applyFormatInfo()
-		self.saveFormatInfo(self.formatInfoContainerFileName)
+		"""
+		result, ok = QInputDialog.getMultiLineText(self, "Edit field", "Edit field", element.to_text(0, None))
+		if ok:
+			element.from_text(result)
+			self.parent().applyFormatInfo()
+			self.saveFormatInfo(self.formatInfoContainerFileName)
+
 
 	def repeatField(self, element: structinfo.FormatInfo):
 		params = showTypeEditorDlg("format_info.tes", "RepeatFI", { "children": element.serialize() })
@@ -102,7 +161,7 @@ class RangeTreeWidget(QTreeWidget):
 		if params is None: return
 		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
 		if not fileName: return
-		self.formatInfoContainer = structinfo.FormatInfoContainer()
+		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
 		self.formatInfoContainer.main_name = "DEFAULT"
 		self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
 		self.formatInfoContainerFileName = fileName
@@ -117,7 +176,7 @@ class RangeTreeWidget(QTreeWidget):
 
 	def loadFormatInfo(self, fileName):
 		try:
-			self.formatInfoContainer = structinfo.FormatInfoContainer(load_from_file=fileName)
+			self.formatInfoContainer = InteractiveFormatInfoContainer(self, load_from_file=fileName)
 		except Exception as ex:
 			traceback.print_exc()
 			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
@@ -270,7 +329,12 @@ class HexView2(QWidget):
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addAction("Options ...", self.showParamDialog)
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
+		ctx.addAction("Clear ranges", lambda: self.clearRanges())
 		return ctx
+
+	def clearRanges(self):
+		self.buffers[0].clearRanges()
+		self.redraw()
 
 	def getRangeString(self, range, style=(" ","%02X")):
 		if isinstance(style, tuple):
@@ -401,7 +465,7 @@ class HexView2(QWidget):
 		self.fiTreeWidget.hilightFormatInfoTree(self.selRange())
 
 	def selectRange(self, rangeObj, scrollIntoView=False):
-		self.select(rangeObj.start, rangeObj.end-1, bufferIdx=rangeObj.buffer_idx, scrollIntoView=scrollIntoView)
+		self.select(rangeObj.start, max(rangeObj.start, rangeObj.end-1), bufferIdx=rangeObj.buffer_idx, scrollIntoView=scrollIntoView)
 
 	def selectAll(self):
 		self.select(0, len(self.buffers[0]))
@@ -535,7 +599,7 @@ class HexView2(QWidget):
 				qpTxt.setPen(self.fsSection);
 				qpTxt.drawText(5, y+TXT_DY, "\n".join(sectionAnnotations))
 				y += self.dyLine;
-				qpTxt.setFont(self.fontHex)
+				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(QColor("#555555"));
 				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(i));
 			
@@ -548,8 +612,9 @@ class HexView2(QWidget):
 
 			#// if specified, draw background color from style attribute
 			bg = buffer.getStyle(i, "color", None);
+			fg = buffer.getStyle(i, "textcolor", None);
 			if (bg):
-				qpBg.fillRect(self.xHex + (ii) * self.dxHex, y, self.dxHex, self.dyLine-2, QColor(bg));
+				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg));
 			
 
 			#// store item's Y position
@@ -557,10 +622,10 @@ class HexView2(QWidget):
 
 			#// print HEX and ASCII representation of this byte
 			qpTxt.setFont(self.fontHex)
-			qpTxt.setPen(self.fsHex)
+			qpTxt.setPen( self.fsHex if fg is None else QColor(fg))
 			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+TXT_DY, "%02x"%(theByte));
 			qpTxt.setFont(self.fontAscii)
-			qpTxt.setPen(self.fsAscii)
+			qpTxt.setPen(self.fsAscii if fg is None else QColor(fg))
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
 			qpTxt.drawText(self.xAscii + ii * self.dxAscii, y+TXT_DY, asciichar);
 			ii += 1

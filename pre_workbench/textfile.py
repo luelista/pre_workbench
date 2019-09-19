@@ -4,6 +4,7 @@ from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox
 
 from genericwidgets import MdiFile
+from guihelper import navigate
 from typeregistry import WindowTypes
 
 class RichEdit(QTextEdit):
@@ -15,7 +16,7 @@ class RichEdit(QTextEdit):
 			anchor = self.anchorAt(e.pos())
 			if anchor:
 				if QMessageBox.question(self, "Open from anchor?", str(anchor)) == QMessageBox.Yes:
-					navigate("OPEN", "file=" + anchor)
+					navigate("OPEN", "FileName=" + anchor)
 
 
 

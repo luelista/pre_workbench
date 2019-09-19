@@ -1,6 +1,11 @@
 from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu
+from PyQt5.QtCore import pyqtSignal, QUrl
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
+	QAction
+
+from guihelper import navigate
+from typeregistry import WindowTypes
 
 
 class FileBrowserWidget(QWidget):
@@ -37,14 +42,23 @@ class FileBrowserWidget(QWidget):
 		index = self.tree.indexAt(point)
 		selectedFile = None
 		selectedFolder = None
+		ctx = QMenu("Context menu", self)
 		if index.isValid():
 			file = self.model.fileInfo(index)
 			selectedFile = file.absoluteFilePath()
 			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
+			if file.isDir():
+				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl(selectedFile)))
+			if not file.isDir():
+				for wndTyp, meta in WindowTypes.types:
+					text = 'Open with '+meta.get('displayName', meta['name'])
+					print(wndTyp, meta)
+					ctx.addAction(QAction(text, self, statusTip=text,
+											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
+				ctx.addSeparator()
 
-		ctx = QMenu("Context menu", self)
 		ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
-		ctx.exec(self.mapToGlobal(point))
+		ctx.exec(self.tree.viewport().mapToGlobal(point))
 
 	def selectRootFolder(self, preselect=None):
 		if preselect == None: preselect = self.rootFolder
@@ -62,7 +76,7 @@ class FileBrowserWidget(QWidget):
 		if index.isValid():
 			file = self.model.fileInfo(index)
 			if not file.isDir():
-				self.on_open.emit(file.absoluteFilePath())
+				navigate("OPEN", "FileName="+file.absoluteFilePath())
 
 	def saveState(self):
 		if self.tree.currentIndex().isValid():

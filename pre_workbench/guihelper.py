@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QApplication
 
 from typeregistry import TypeRegistry
 
-NavigateCommands = TypeRegistry()
+NavigateCommands = dict()
 
 def setClipboardText(txt):
     cb = QApplication.clipboard()
@@ -16,7 +16,7 @@ def getClipboardText():
 def splitNavArgs(args):
     start = None
     for i in range(len(args)):
-        if not "=" in i:
+        if not "=" in args[i]:
             if start is not None:
                 yield args[start:i]
             start = i
@@ -25,12 +25,16 @@ def splitNavArgs(args):
 
 
 def navigate(*args):
-    for item in navigate(args):
+    for item in splitNavArgs(args):
         navigateSingle(*item)
 
 def navigateSingle(cmd, *args):
-    fun = NavigateCommands.find(command=cmd)
-    fun(*args)
+    fun = NavigateCommands[cmd]
+    params = dict()
+    for arg in args:
+        key, value = arg.split("=", 2)
+        params[key] = value
+    fun(**params)
 
 def qApp():
     return QApplication.instance()

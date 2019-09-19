@@ -2,8 +2,9 @@ from lark import Lark, Transformer
 
 from structinfo import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
 	FormatInfoContainer, FormatInfo
+from structinfo_expr import Expression
 
-fi_parser = Lark(open("format_info.lark"))
+fi_parser = Lark(open("format_info.lark"), parser="lalr", start=["start","anytype","expression"])
 
 
 builtinTypes = {"fixed": FixedFieldFI, "bytes": VarByteFieldFI}
@@ -31,7 +32,7 @@ class MainTrans(Transformer):
 	def string(self, s):
 		return s[0][1:-1]
 	def number(self, n):
-		return float(n[0]) if "." in n[0] else int(n[0])
+		return float(n[0]) if "." in n[0] else int(n[0], 0)
 
 	list = list
 	pair = tuple
@@ -80,6 +81,9 @@ class MainTrans(Transformer):
 		params['expr'] = expr
 		params['children'] = cases
 		return FormatInfo(typeRef=SwitchFI, params=params)
+
+	def expr_value(self, node):
+		return Expression(expr_tree=node[0])
 
 
 

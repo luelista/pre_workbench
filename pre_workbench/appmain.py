@@ -18,7 +18,7 @@ import sys
 import traceback
 import uuid
 
-from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper)
+from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer)
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QFileDialog, QWidget, QVBoxLayout, \
@@ -28,8 +28,10 @@ import configs
 from datawidgets import DynamicDataWidget, PacketListWidget
 from dockwindows import FileBrowserWidget
 from genericwidgets import JsonView, MdiFile
+from guihelper import NavigateCommands
 from hexview import HexView2
 from objectwindow import ObjectWindow
+from syshelper import MemoryUsageWidget
 from typeregistry import WindowTypes
 
 import typeeditor
@@ -41,6 +43,15 @@ class WorkbenchMain(QMainWindow):
 		super().__init__()
 		self.initUI()
 		self.restoreChildren()
+
+		NavigateCommands["WINDOW"] = self.navigateWindow
+		NavigateCommands["OPEN"] = self.openFile
+		self.statusTimer = QTimer(self)
+		self.statusTimer.timeout.connect(self.onStatusTimer)
+		self.statusTimer.start(1000)
+
+	def onStatusTimer(self):
+		self.statusBar()
 
 	def restoreChildren(self):
 		for wndInfo in configs.getValue("ChildrenInfo", []):
@@ -175,7 +186,9 @@ class WorkbenchMain(QMainWindow):
 		#toolbar.addAction(self.newAct)
 		toolbar.addAction(self.openAct)
 		toolbar.addAction(self.exitAct)
-		
+
+		self.statusBar().addWidget(MemoryUsageWidget())
+
 		self.setGeometry(300, 300, 850, 850)
 		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
@@ -253,15 +266,30 @@ class WorkbenchMain(QMainWindow):
 			self.openFile(fileName)
 
 	@pyqtSlot(str)
-	def openFile(self, fileName):
-		configs.updateMru("MainFileMru", fileName, MRU_MAX)
+	def navigateWindow(self, Type, FileName):
+		winType, _ = WindowTypes.find(name=Type)
+		if winType is None:
+			QMessageBox.critical(self, "Failed to open window", "Failed to open window of unknown type "+Type)
+			return
+		try:
+			wnd = winType(fileName=FileName)
+			self.showChild(wnd)
+		except Exception as ex:
+			msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
+			msg.setDetailedText(traceback.format_exc())
+			msg.exec()
+
+
+	@pyqtSlot(str)
+	def openFile(self, FileName):
+		configs.updateMru("MainFileMru", FileName, MRU_MAX)
 		self.updateMruActions()
 
-		root,ext=os.path.splitext(fileName)
+		root,ext=os.path.splitext(FileName)
 		winType, _ = WindowTypes.find(fileExts=ext)
 		if winType != None:
 			try:
-				wnd = winType(fileName=fileName)
+				wnd = winType(fileName=FileName)
 				self.showChild(wnd)
 			except Exception as ex:
 				msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
@@ -269,17 +297,17 @@ class WorkbenchMain(QMainWindow):
 				msg.exec()
 			return
 
-		if fileName.endswith(".pcap") or fileName.endswith(".pcapng"):
+		if FileName.endswith(".pcap") or FileName.endswith(".pcapng"):
 			meta = {
-				"name": fileName,
+				"name": FileName,
 				"dataSourceType": "PcapFileDataSource",
-				"fileName": fileName
+				"fileName": FileName
 			}
 		else:
 			meta = {
-				"name": fileName,
+				"name": FileName,
 				"dataSourceType": "FileDataSource",
-				"fileName": fileName
+				"fileName": FileName
 			}
 		ow = ObjectWindow(collapseSettings=True)
 		ow.setConfig(meta)

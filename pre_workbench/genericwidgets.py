@@ -9,9 +9,9 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 from typeregistry import DataWidgetTypes
 
 
-def showSettingsDlg(definition, values=None, title="Options"):
+def showSettingsDlg(definition, values=None, title="Options", parent=None):
 	if values == None: values = {}
-	dlg = QDialog()
+	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	sg = SettingsGroup(definition, values)

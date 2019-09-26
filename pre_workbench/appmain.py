@@ -1,17 +1,22 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-"""
-ZetCode PyQt5 tutorial 
-
-This program creates a skeleton of
-a classic GUI application with a menubar,
-toolbar, statusbar, and a central widget. 
-
-Author: Jan Bodnar
-Website: zetcode.com 
-Last edited: August 2017
-"""
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
 import time
 import os
 import sys
@@ -24,18 +29,17 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QFileDialog, QWidget, QVBoxLayout, \
 	QMdiArea, QDockWidget, QMessageBox, QTextEdit
 
-import configs
-from datawidgets import DynamicDataWidget, PacketListWidget
-from dockwindows import FileBrowserWidget
-from genericwidgets import JsonView, MdiFile
-from guihelper import NavigateCommands
-from hexview import HexView2
-from objectwindow import ObjectWindow
-from syshelper import MemoryUsageWidget
-from typeregistry import WindowTypes
+from . import configs
+from .datawidgets import DynamicDataWidget, PacketListWidget
+from .dockwindows import FileBrowserWidget
+from .genericwidgets import JsonView, MdiFile, MemoryUsageWidget
+from .guihelper import NavigateCommands
+from .hexview import HexView2
+from .objectwindow import ObjectWindow
+from .typeregistry import WindowTypes
 
-import typeeditor
-import textfile
+from . import typeeditor
+from . import textfile
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -426,12 +430,15 @@ def excepthook(excType, excValue, tracebackobj):
 
 sys.excepthook = excepthook
 
+def run_app():
+	from PyQt5.QtWidgets import QApplication
 
-if __name__ == '__main__':
-	
 	app = QApplication(sys.argv)
-	app.setStyle("fusion")
+	app.setStyle(configs.getValue("AppTheme", "fusion"))
 	ex = WorkbenchMain()
-	#os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
+	# os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
 	sys.exit(app.exec_())
 
+
+if __name__ == '__main__':
+	run_app()

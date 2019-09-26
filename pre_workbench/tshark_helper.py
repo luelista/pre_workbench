@@ -1,10 +1,27 @@
+
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import re
 import subprocess
 from xml.etree.ElementTree import XMLParser
 import binascii, os, shutil
 
-import structinfo
-from objects import ByteBuffer
+from . import structinfo
+from .objects import ByteBuffer
 
 class PdmlToPacketListParser:
 	def __init__(self, destPacketList, parse_context_type=structinfo.ParseContext):
@@ -28,7 +45,7 @@ class PdmlToPacketListParser:
 		if tag == "packet":
 			self.next_packet = ByteBuffer()
 			self.cur_proto = None
-			self.parse_context = structinfo.BytebufferAnnotatingParseContext(self.next_packet)
+			self.parse_context = structinfo.BytebufferAnnotatingParseContext(None, self.next_packet)
 			self.parse_context.push(None, None, id="root")
 			self.parse_context.push(attrib, list(), id="packet")
 			return

@@ -1,12 +1,29 @@
+
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import traceback
 
 from PyQt5.QtCore import pyqtSignal, QObject, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
 
-from datasource import DataSourceTypes
-from datawidgets import DynamicDataWidget
-from genericwidgets import SettingsGroup, ExpandWidget
-from typeregistry import WindowTypes
+from .datasource import DataSourceTypes
+from .datawidgets import DynamicDataWidget
+from .genericwidgets import SettingsGroup, ExpandWidget
+from .typeregistry import WindowTypes
 
 
 @WindowTypes.register()
@@ -63,13 +80,14 @@ class ObjectWindow(QWidget):
 		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(not collapseSettings)
 		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
 		metadataVisAction = toolbar.addAction("Metadata")
-		#metadataVisAction.toggled.connect(lambda val: self.meta.setVisible(val))
+		metadataVisAction.setCheckable(True)
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)
 
 
 		self.dataDisplay = DynamicDataWidget()
 		self.dataDisplay.on_data_selected.connect(self.on_data_selected.emit)
+		metadataVisAction.toggled.connect(self.dataDisplay.setMetadataVisible)
 		#tb.addItem(self.dataDisplay, "Results")
 		#layout.addWidget(ExpandWidget("Results", self.dataDisplay))
 		layout.addWidget(self.dataDisplay)

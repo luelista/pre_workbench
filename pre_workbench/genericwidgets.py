@@ -1,12 +1,30 @@
+
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo, QTimer
 from PyQt5.QtGui import QKeyEvent, QIcon
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
 	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
-	QMessageBox, QAction
+	QMessageBox, QAction, QLabel
 
-from typeregistry import DataWidgetTypes
+from .syshelper import get_current_rss
+from .typeregistry import DataWidgetTypes
 
 
 def showSettingsDlg(definition, values=None, title="Options", parent=None):
@@ -51,7 +69,7 @@ class SettingsGroup(QFrame):
 				if "autocomplete" in params:
 					field.setCompleter(QCompleter(QStringListModel(list(params["autocomplete"]), field), field))
 				if "fileselect" in params:
-					act = QAction(QIcon("select.png"), "Select file", field)
+					act = QAction(QIcon("icons/select.png"), "Select file", field)
 					act.triggered.connect(lambda c,params=params, field=field:
 										  self.selectFile(field, params["fileselect"],
 														  params.get("caption","Select file"),
@@ -352,4 +370,20 @@ class MdiFile:
 				return False
 
 		return True
+
+
+class MemoryUsageWidget(QLabel):
+	def __init__(self, parent=None):
+		super().__init__(parent=parent)
+		try:
+			self.onStatusUpdate()
+			self.timer = QTimer(self)
+			self.timer.timeout.connect(self.onStatusUpdate)
+			self.timer.start(5000)
+		except:
+			self.setText("---")
+
+	def onStatusUpdate(self):
+		self.setText("%0.1f MB"%(get_current_rss()/1024/1024))
+
 

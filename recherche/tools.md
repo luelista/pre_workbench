@@ -43,13 +43,19 @@ KaiTai struct
 - einige interessante antworten https://stackoverflow.com/questions/18270311/dynamic-recognition-and-handling-of-protocol-data-units-in-bytestream
     - "next generation network analyzer" ??? https://i.stack.imgur.com/3iF6s.png
 
+- BinaryMarkup: XML schema für forensische binary analyse http://www.binarymarkup.com/
 
 # Wireshark dissectors
 - https://stackoverflow.com/questions/4904991/how-can-i-add-a-custom-protocol-analyzer-to-wireshark
   -    wssdl -- A Lua library that defines a domain-specific language built on top of Lua for the purpose of defining protocol dissectors.
+        https://github.com/diacritic/wssdl
+        viel magie damit Lua-dsl so aussieht wie gewünscht
   -    wsgd -- A generic dissector that parses a protocol definition and uses it to dissect messages.
+        http://wsgd.free.fr/first_proto.html
   -    asn2wrs -- A tool that compiles an ASN.1 specification and some C glue to a Wireshark dissector.
+        https://wiki.wireshark.org/Asn2wrs
   -    csjark -- A tool for generating Lua dissectors from C struct definitions to use with Wireshark.
+        https://csjark.readthedocs.io/en/latest/user/use_ws.html
 
 
 

@@ -1,3 +1,20 @@
+
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import struct
 import uuid
@@ -8,11 +25,11 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex
 from PyQt5.QtWidgets import QTreeWidgetItem
 
 
-import typeeditor
-import xdrm
-from objects import Range
-from structinfo_expr import Expression, deserialize_expr
-from typeregistry import TypeRegistry
+from . import typeeditor
+from . import xdrm
+from .objects import Range
+from .structinfo_expr import Expression, deserialize_expr
+from .typeregistry import TypeRegistry
 
 class parse_exception(Exception):
 	def __init__(self, context, msg):
@@ -57,7 +74,7 @@ class FormatInfoContainer:
 				raise NotImplemented
 
 	def load_from_string(self, txt):
-		from structinfo_parser import fi_parser, MainTrans
+		from .structinfo_parser import fi_parser, MainTrans
 		ast = fi_parser.parse(txt, start="start")
 		print(ast.pretty())
 
@@ -349,7 +366,7 @@ class FormatInfo:
 		return self.fi._to_text(indent, refs, self.params)
 
 	def from_text(self, txt):
-		from structinfo_parser import fi_parser, MainTrans
+		from .structinfo_parser import fi_parser, MainTrans
 		ast = fi_parser.parse(txt, start="anytype")
 		print(ast.pretty())
 

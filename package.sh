@@ -1,0 +1,4 @@
+#!/bin/sh
+rm dist/*
+python3 setup.py sdist bdist_wheel
+twine upload --verbose -u __token__ -p pypi-AgEIcHlwaS5vcmcCJDkzZDExOGNiLTFjZTYtNDNiZC04ZjEzLTcxZmIyNzM0N2E2NAACPnsicGVybWlzc2lvbnMiOiB7InByb2plY3RzIjogWyJwcmUtd29ya2JlbmNoIl19LCAidmVyc2lvbiI6IDF9AAAGIF9lEuPW2H2RyN172yDJW8jJwchP_dzrvdubqg6w6V0t dist/*

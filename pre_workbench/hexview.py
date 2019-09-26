@@ -1,5 +1,22 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import struct
 import sys
 import traceback
@@ -11,15 +28,15 @@ from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEven
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator, QMessageBox, QInputDialog
 
-import configs
-import structinfo
-import xdrm
-from genericwidgets import showSettingsDlg
-from guihelper import setClipboardText
-from hexdump import hexdump
-from hexview_selheur import selectionHelpers
-from objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
-from typeeditor import showTypeEditorDlg
+from . import configs
+from . import structinfo
+from . import xdrm
+from .genericwidgets import showSettingsDlg
+from .guihelper import setClipboardText
+from .hexdump import hexdump
+from .hexview_selheur import selectionHelpers
+from .objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
+from .typeeditor import showTypeEditorDlg
 
 
 class InteractiveFormatInfoContainer(structinfo.FormatInfoContainer):
@@ -87,7 +104,7 @@ class RangeTreeWidget(QTreeWidget):
 				if isinstance(source.fi, structinfo.StructFI):
 					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
 					ctx.addSeparator()
-				if isinstance(source.fi, structinfo.VariantStructFIFI):
+				if isinstance(source.fi, structinfo.VariantStructFI):
 					ctx.addAction("Add variant ...", lambda: self.addField(source, "AnyFI"))
 					ctx.addSeparator()
 				if isinstance(source.fi, structinfo.SwitchFI):

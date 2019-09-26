@@ -1,0 +1,3 @@
+include pre_workbench/icons/*
+include pre_workbench/*.lark
+include pre_workbench/*.tes

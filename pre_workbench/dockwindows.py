@@ -1,11 +1,28 @@
+
+# PRE Workbench
+# Copyright (C) 2019 Max Weller
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
-	QAction
+	QAction, QListWidget
 
-from guihelper import navigate
-from typeregistry import WindowTypes
+from .guihelper import navigate
+from .typeregistry import WindowTypes
 
 
 class FileBrowserWidget(QWidget):
@@ -96,5 +113,43 @@ class FileBrowserWidget(QWidget):
 				self.tree.scrollTo(idx, QAbstractItemView.PositionAtCenter)
 		except:
 			pass
+
+
+class MdiWindowListWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self.initUI()
+
+	def initUI(self):
+		self.list = QListWidget()
+		self.list.doubleClicked.connect(self.onDblClick)
+		self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		self.list.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.list)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def onCustomContextMenuRequested(self, point):
+		item = self.list.itemAt(point)
+		ctx = QMenu("Context menu", self)
+		if item is not None:
+			file = self.model.fileInfo(index)
+			selectedFile = file.absoluteFilePath()
+			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
+			if file.isDir():
+				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl(selectedFile)))
+			if not file.isDir():
+				for wndTyp, meta in WindowTypes.types:
+					text = 'Open with '+meta.get('displayName', meta['name'])
+					print(wndTyp, meta)
+					ctx.addAction(QAction(text, self, statusTip=text,
+											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
+				ctx.addSeparator()
+
+		ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
+		ctx.exec(self.tree.viewport().mapToGlobal(point))
+
 
 

@@ -118,9 +118,8 @@ class ObjectWindow(QWidget):
 		confFields = []
 		if self.params["dataSourceType"]:
 			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
-			if self.dataSourceType != self.params["dataSourceType"]:
-				confFields = clz.getConfigFields()
-				self.dataSourceType = self.params["dataSourceType"]
+			confFields = clz.getConfigFields()
+			self.dataSourceType = self.params["dataSourceType"]
 		self.sourceConfig.setFields([
 			("name", "Name", "text", {}),
 			("dataSourceType", "Data Source Type", "select", {"options":DataSourceTypes.getSelectList("DisplayName")}),

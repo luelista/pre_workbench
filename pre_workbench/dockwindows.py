@@ -19,7 +19,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
-	QAction, QListWidget
+	QAction, QListWidget, QListWidgetItem
 
 from .guihelper import navigate
 from .typeregistry import WindowTypes
@@ -43,6 +43,7 @@ class FileBrowserWidget(QWidget):
 		self.tree.setSortingEnabled(True)
 		self.tree.sortByColumn(0, 0)
 		self.tree.setColumnWidth(0, 200)
+		self.tree.setDragEnabled(True)
 
 		self.tree.setWindowTitle("Dir View")
 		self.tree.resize(640, 480)
@@ -65,7 +66,7 @@ class FileBrowserWidget(QWidget):
 			selectedFile = file.absoluteFilePath()
 			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
 			if file.isDir():
-				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl(selectedFile)))
+				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 			if not file.isDir():
 				for wndTyp, meta in WindowTypes.types:
 					text = 'Open with '+meta.get('displayName', meta['name'])
@@ -122,34 +123,40 @@ class MdiWindowListWidget(QWidget):
 
 	def initUI(self):
 		self.list = QListWidget()
-		self.list.doubleClicked.connect(self.onDblClick)
+		#self.list.doubleClicked.connect(self.onDblClick)
 		self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 		self.list.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+		self.list.itemClicked.connect(self.gotoItem)
 
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.list)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
+	def gotoItem(self, item):
+		windowId = item.data(QtCore.Qt.UserRole)
+		navigate("WINDOW-ID","Id="+windowId)
+
+
+	def updateWindowList(self, wndList):
+		print("MdiWindowListWidget.updateWindowList", len(wndList))
+		self.list.clear()
+		for wnd in wndList:
+			wid = wnd.widget()
+			text = wnd.windowTitle() + "|" + type(wid).__name__ + "|" + wid.objectName()
+			listitem = QListWidgetItem(text)
+			listitem.setData(QtCore.Qt.UserRole, wid.objectName())
+			self.list.addItem(listitem)
+
+
 	def onCustomContextMenuRequested(self, point):
 		item = self.list.itemAt(point)
 		ctx = QMenu("Context menu", self)
 		if item is not None:
-			file = self.model.fileInfo(index)
-			selectedFile = file.absoluteFilePath()
-			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
-			if file.isDir():
-				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl(selectedFile)))
-			if not file.isDir():
-				for wndTyp, meta in WindowTypes.types:
-					text = 'Open with '+meta.get('displayName', meta['name'])
-					print(wndTyp, meta)
-					ctx.addAction(QAction(text, self, statusTip=text,
-											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
-				ctx.addSeparator()
+			ctx.addAction("Close window", lambda: self.closeWindow(item))
 
-		ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
-		ctx.exec(self.tree.viewport().mapToGlobal(point))
+		ctx.addAction("New window", lambda: self.newWindow())
+		ctx.exec(self.list.viewport().mapToGlobal(point))
 
 
 

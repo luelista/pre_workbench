@@ -1,0 +1,19 @@
+
+
+Abstract
+Introduction
+	Motivation
+	Contributions
+	Übersicht über die folgenden Kapitel
+Related Work
+	Software zitieren
+		wenn Paper existiert dann beides
+
+
+Aufteilung Design/Impl. in Implementierungsarbeiten nachsehen
+	internalblue/nexmon/...
+Design
+
+
+Lesestoff für Max bis 24./28. Oktober
+

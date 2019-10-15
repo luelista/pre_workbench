@@ -158,11 +158,9 @@ class PacketListWidget(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        tabs = QTabWidget()
-        layout.addWidget(tabs)
+        #tabs = QTabWidget()
+        #layout.addWidget(tabs)
 
-        #self.packetlist = QTableWidget()
-        #self.packetlist.setColumnCount(10)
         self.packetlist = QTableView()
         self.packetlist.setSortingEnabled(True)
         self.packetlist.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -175,16 +173,8 @@ class PacketListWidget(QWidget):
         self.packetlist.setModel(self.packetlistmodel)
         self.packetlist.selectionModel().selectionChanged.connect(self.onPacketlistSelectionChanged)
         self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
-        tabs.addTab(self.packetlist, "Raw Frames")
-
-        self.iplist = QTableWidget()
-        tabs.addTab(self.iplist, "IP Payloads")
-
-        self.udplist = QTableWidget()
-        tabs.addTab(self.udplist, "UDP Payloads")
-
-        self.sessionlist = QTableWidget()
-        tabs.addTab(self.sessionlist, "TCP Sessions")
+        #tabs.addTab(self.packetlist, "Raw Frames")
+        layout.addWidget(self.packetlist)
 
     def setContents(self, lstObj):
         self.listObject = lstObj
@@ -291,11 +281,12 @@ class ByteBufferWidget(QWidget):
         layout.setContentsMargins(0,0,0,0)
         self.setLayout(layout)
 
+        self.tabWidget = QTabWidget()
+        layout.addWidget(self.tabWidget)
         self.textbox = HexView2()
         self.textbox.on_data_selected.connect(self.on_data_selected.emit)
-        layout.addWidget(self.textbox)
+        self.tabWidget.addTab(self.textbox, "Raw buffer")
         layout.addWidget(toolbar)
-
 
     def setContents(self, bufObj):
         self.bufferObject = bufObj

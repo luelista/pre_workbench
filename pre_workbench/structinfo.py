@@ -108,6 +108,8 @@ class ParseContext:
 		self.buf_limit_end = None
 		self.display_offset_delta = 0
 		self.buf = bytes()
+		self.on_new_subflow_category = None
+		self.subflow_categories = dict()
 		if buf != None:
 			self.feed_bytes(buf)
 
@@ -208,6 +210,19 @@ class ParseContext:
 		self.stack[-1][1] = value
 
 	def pack_value(self, value):
+		if self.on_new_subflow_category is not None:
+			desc = self.stack[-1][0]
+			if 'reassemble_into' in desc.params:
+				meta = {}
+				for expr in desc.params['reassemble_into'][1:]:
+					if isinstance(expr, Expression):
+						meta[expr.expr_str] = expr.evaluate(self)
+					else:
+						meta[str(expr)] = str(expr)
+				#self.on_new_subflow_category(category=desc.params['reassemble_into'][0], meta=meta, parse_context=self)
+			if 'store_into' in desc.params:
+				#TODO
+				pass
 		return value
 
 	def unpack_value(self, packed_value):
@@ -222,7 +237,7 @@ class LoggingParseContext(ParseContext):
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
 		self.log(type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length(), value)
-		return Range(self.top_offset(), self.top_offset() + self.top_length(), value, source_desc=self.stack[-1][0], field_name=self.top_id())
+		return Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=self.stack[-1][0], field_name=self.top_id())
 
 	def unpack_value(self, packed_value):
 		while isinstance(packed_value, Range):

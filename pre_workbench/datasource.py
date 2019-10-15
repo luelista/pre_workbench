@@ -57,7 +57,7 @@ class FileDataSource(DataSource):
 	def cancelFetch(self):
 		# cancel reading file
 		pass
-	
+
 @DataSourceTypes.register(DisplayName = "PCAP file")
 class PcapFileDataSource(DataSource):
 	@staticmethod

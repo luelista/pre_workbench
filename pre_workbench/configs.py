@@ -17,7 +17,9 @@
 
 import errno
 import os
+from collections import defaultdict
 
+from PyQt5.QtGui import QIcon
 from appdirs import AppDirs
 
 from . import xdrm
@@ -26,10 +28,18 @@ from PyQt5.QtCore import QByteArray
 def getValue(key, defaultValue=None):
 	return configDict.get(key,defaultValue)
 
+def registerOption(key, defaultValue, callback):
+	if key not in configDict:
+		configDict[key] = defaultValue
+		saveConfig()
+	callback(key, configDict[key])
+	configWatchers[key] = callback
+
 def setValue(key, value):
 	if isinstance(value, QByteArray): value=bytes(value)
 	configDict[key] = value
 	saveConfig()
+	if key in configWatchers: configWatchers[key](key, value)
 
 def updateMru(key, value, max=5):
 	mru = getValue(key, [])
@@ -54,6 +64,8 @@ def mkdir_p(path):
 		else:
 			raise
 
+def getIcon(name):
+	return QIcon(respath("icons/"+name))
 
 def respath(filename):
 	return os.path.join(os.path.dirname(__file__), filename)
@@ -62,6 +74,7 @@ dirs = AppDirs("PRE-Workbench", "Weller IT", roaming=True)
 mkdir_p(dirs.user_config_dir)
 configFilespec = os.path.join(dirs.user_config_dir, "config.xdr")
 
+configWatchers = dict()
 configDict = dict()
 try:
 	with open(configFilespec, "rb") as f:
@@ -69,4 +82,21 @@ try:
 except:
 	pass
 
+
+if __name__ == "__main__":
+	import sys, json, binascii
+
+	def configSerializer(obj):
+		if isinstance(obj, bytes):
+			return {'_bytes': binascii.hexlify(obj).decode("ascii")}
+	#print(len(sys.argv), sys.argv)
+	#for x in sys.argv: print(">>>"+x+"<<<")
+	if len(sys.argv) == 2:
+		print("value of '"+sys.argv[1]+"' = "+json.dumps(getValue(sys.argv[1]), default=configSerializer))
+	elif len(sys.argv) == 3:
+		val = json.loads(sys.argv[2])
+		print("setting '"+sys.argv[1]+"' to ", json.dumps(val))
+		setValue(sys.argv[1], val)
+	else:
+		print(json.dumps(configDict, indent=2, default=configSerializer))
 

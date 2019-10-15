@@ -24,10 +24,11 @@ from math import ceil, floor
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
-from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
-	QTreeWidgetItemIterator, QMessageBox, QInputDialog
+	QTreeWidgetItemIterator, QMessageBox, QInputDialog, QAction
 
+from .textfile import showScintillaDialog
 from . import configs
 from . import structinfo
 from . import xdrm
@@ -70,6 +71,9 @@ class RangeTreeWidget(QTreeWidget):
 		self.formatInfoContainer = None
 		self.formatInfoContainerFileName = None
 		self.optionsConfigKey="RangeTree"
+		self.setMouseTracking(True)
+
+	formatInfoUpdated = pyqtSignal()
 
 	def updateTree(self, bbuf):
 		self.clear()
@@ -87,8 +91,8 @@ class RangeTreeWidget(QTreeWidget):
 		while iterator.value():
 			item = iterator.value()
 			itemRange = item.data(0, Range.RangeRole)
-			#item.setBackground(0, QColor("#dddddd") if range is not None and selRange.contains(range.start) else QColor("#ffffff"))
-			item.setBackground(0, QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff"))
+			#item.setBackground(0, QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff"))
+			#item.setProperty("class", "highlighted" if itemRange is not None and itemRange.overlaps(range) else "")
 			iterator += 1
 
 	def onCustomContextMenuRequested(self, point):
@@ -128,20 +132,20 @@ class RangeTreeWidget(QTreeWidget):
 		params = showTypeEditorDlg("format_info.tes", typeName)
 		if params is None: return
 		parent.updateParams(children=parent.params['children']+[params])
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	def removeField(self, parent, field_name):
 		ch = parent.params['children']
 		del ch[field_name]
 		parent.updateParams(children=ch)
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 
 
 	def editDisplayParams(self, parent):
 		params = showSettingsDlg([
-			("color", "Background color", "text", {"color":True}),
-			("textcolor", "Text color", "text", {"color":True}),
+			("color", "Background color", "color", {"color":True}),
+			("textcolor", "Text color", "color", {"color":True}),
 			("section", "Section header", "text", {}),
 		], title="Edit display params", values=parent.params, parent=self)
 		if params is None: return
@@ -149,7 +153,7 @@ class RangeTreeWidget(QTreeWidget):
 		if params.get("textcolor") == "": params["textcolor"] = None
 		if params.get("section") == "": params["section"] = None
 		parent.updateParams(**params)
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	def editField(self, element: structinfo.FormatInfo):
@@ -158,10 +162,12 @@ class RangeTreeWidget(QTreeWidget):
 		if params is None: return
 		element.deserialize(params)
 		"""
-		result, ok = QInputDialog.getMultiLineText(self, "Edit field", "Edit field", element.to_text(0, None))
-		if ok:
+		#result, ok = QInputDialog.getMultiLineText(self, "Edit field", "Edit field", element.to_text(0, None))
+		#if ok:
+		result = showScintillaDialog(self, "Edit field", element.to_text(0, None))
+		if result is not None:
 			element.from_text(result)
-			self.parent().applyFormatInfo()
+			self.formatInfoUpdated.emit()
 			self.saveFormatInfo(self.formatInfoContainerFileName)
 
 
@@ -169,7 +175,7 @@ class RangeTreeWidget(QTreeWidget):
 		params = showTypeEditorDlg("format_info.tes", "RepeatFI", { "children": element.serialize() })
 		if params is None: return
 		element.setContents(structinfo.RepeatStructFI, params)
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 
@@ -182,7 +188,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.formatInfoContainer.main_name = "DEFAULT"
 		self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
 		self.formatInfoContainerFileName = fileName
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 		self.saveFormatInfo(self.formatInfoContainerFileName)
 
 	def fileOpenFormatInfo(self):
@@ -199,7 +205,7 @@ class RangeTreeWidget(QTreeWidget):
 			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
 			return
 		self.formatInfoContainerFileName = fileName
-		self.parent().applyFormatInfo()
+		self.formatInfoUpdated.emit()
 
 
 	def saveFormatInfo(self, fileName):
@@ -230,16 +236,19 @@ class HexView2(QWidget):
 		('sectionFontSize', 'sectionFontSize', 'number', {'min':1, 'max':1024}),
 		('sectionColor', 'sectionColor', 'text', {}),
 		('','','-',{}),
-		('lineHeight', 'lineHeight', 'number', {'min':5, 'max':1024}),
+		('lineHeight', 'lineHeight', 'number', {'min':0.1, 'max':10}),
 		('bytesPerLine', 'bytesPerLine', 'number', {'min':1, 'max':1024}),
 	]
 	def __init__(self, byteBuffer=None, options=dict(), optionsConfigKey="HexViewParams"):
 		super().__init__()
+		self.buffers = list()
 		self.firstLine = 0
 		self.scrollY = 0
 		self.setFocusPolicy(QtCore.Qt.StrongFocus)
 		self.fiTreeWidget = RangeTreeWidget(self)
+		self.fiTreeWidget.show()
 		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
+		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
 
@@ -248,7 +257,7 @@ class HexView2(QWidget):
 			'hexFontFamily': 'monospace', 'hexFontSize': 10, 'hexColor': '#ffffff',
 			'asciiFontFamily': 'monospace', 'asciiFontSize': 10, 'asciiColor': '#bbffbb',
 			'sectionFontFamily': 'Serif', 'sectionFontSize': 8, 'sectionColor': '#aaaaaa',
-			'lineHeight': 18,
+			'lineHeight': 1.1,
 			'addressFormat': '{:08x}',
 			'bytesPerLine': 16,
 			'hexSpaceAfter': 8, 'hexSpaceWidth': 8
@@ -278,7 +287,6 @@ class HexView2(QWidget):
 	def setOptions(self, options):
 		self.options.update(options)
 
-		self.dyLine = self.options['lineHeight']
 		self.bytesPerLine = self.options['bytesPerLine']
 		self.addressFormat = self.options['addressFormat']
 
@@ -299,55 +307,62 @@ class HexView2(QWidget):
 		self.fontSection = QFont(self.options['sectionFontFamily'], self.options['sectionFontSize'], QFont.Light)
 		self.fsSection = QColor(self.options['sectionColor']);
 
+		self.dyLine = max(QFontMetrics(self.fontAddress).height(), QFontMetrics(self.fontHex).height()) * self.options['lineHeight']
+
 		self.fiTreeWidget.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, 10)
+		self.redraw()
 
 	def showParamDialog(self):
 		result = showSettingsDlg(HexView2.SettingsDefinition, self.options)
 		if result is not None:
 			self.setOptions(result)
-			if self.optionsConfigKey is not None:
-				configs.setValue(self.optionsConfigKey, self.options)
-		self.redraw()
+			self.storeOptions()
 
 
 
-	############ EDITOR CONTEXT MENU  #############################################################
+	def storeOptions(self):
+		if self.optionsConfigKey is not None:
+			configs.setValue(self.optionsConfigKey, self.options)
+
+
+	############ HEX VIEW CONTEXT MENU  #############################################################
 
 	def onCustomContextMenuRequested(self, point):
 		hit = self.hitTest(point)
 		ctxMenu = None
+		ctxMenu = QMenu("Context menu", self)
 		if hit != None:
 			if hit < self.selStart or hit > self.selEnd:
 				self.selStart = self.selEnd = hit
 				self.selecting = False
 				self.redrawSelection()
-			ctxMenu = self.buildSelectionContextMenu()
+			self.buildSelectionContextMenu(ctxMenu)
 		else:
-			ctxMenu = self.buildGeneralContextMenu()
+			self.buildGeneralContextMenu(ctxMenu)
 		ctxMenu.exec(self.mapToGlobal(point))
 
-	def buildSelectionContextMenu(self):
-		ctx = QMenu("Context menu", self)
-		ctx.addAction("Copy selection hex", lambda: self.copySelection())
+	def buildSelectionContextMenu(self, ctx):
+		ctx.addAction(QAction("Copy selection hex\tCtrl-C", ctx, triggered=lambda: self.copySelection(), shortcut="Ctrl+C"))
 		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
-		ctx.addAction("Copy selection hexdump", lambda: self.copySelection("hexdump"))
+		ctx.addAction("Copy selection hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
 		ctx.addSeparator()
 		ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
+		ctx.addAction("Set style", lambda: self.styleSelection())
 		ctx.addSeparator()
 		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
 			ctx.addAction("Range %d-%d (%s): %s" % (d.start, d.end, d.metadata.get("name"), d.metadata.get("showname")), lambda d=d: self.selectRange(d))
 			for k,v in d.metadata.items():
 				if k != "name" and k != "showname":
 					ctx.addAction("    %s=%s" % (k,v))
-		return ctx
-	def buildGeneralContextMenu(self):
-		ctx = QMenu("Context menu", self)
+
+
+	def buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addAction("Options ...", self.showParamDialog)
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		ctx.addAction("Clear ranges", lambda: self.clearRanges())
-		return ctx
+
 
 	def clearRanges(self):
 		self.buffers[0].clearRanges()
@@ -362,6 +377,8 @@ class HexView2(QWidget):
 	def copySelection(self, style=(" ","%02X")):
 		setClipboardText(self.getRangeString(self.selRange(), style))
 
+	def styleSelection(self):
+		pass
 
 
 	################# FI Tree ####################################################
@@ -370,12 +387,18 @@ class HexView2(QWidget):
 		if self.fiTreeWidget.formatInfoContainer != None:
 			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
 			try:
-				self.buffers[0].fi_tree = structinfo.BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0]).parse()
+				parse_context = structinfo.BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
+				parse_context.on_new_subflow_category = self.on_new_subflow_category
+				self.buffers[0].fi_tree = parse_context.parse()
 				self.fiTreeWidget.updateTree(self.buffers[0])
 				self.redraw()
 			except structinfo.parse_exception as ex:
 				traceback.print_exc()
 				QMessageBox.warning(self, "Failed to apply format info", str(ex))
+
+	def on_new_subflow_category(self, name):
+		#self.
+		pass
 
 	def fiTreeItemSelected(self, item, previous):
 		if item == None: return
@@ -395,6 +418,7 @@ class HexView2(QWidget):
 			deltaY = e.angleDelta().y() / 4
 		else:
 			deltaY = e.pixelDelta().y()
+		if deltaY == 0: return
 		self.scrollY = max(0, min((self.maxLine()-1)*self.dyLine, self.scrollY - deltaY))
 		self.firstLine = ceil(self.scrollY / self.dyLine)
 		print("wheel",deltaY,self.scrollY)
@@ -480,6 +504,9 @@ class HexView2(QWidget):
 		self.redrawSelection()
 		print("selection changed",self.selStart, self.selEnd, self.lastHit)
 		self.fiTreeWidget.hilightFormatInfoTree(self.selRange())
+		QApplication.postEvent(self, QStatusTipEvent("Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
+			self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
+
 
 	def selectRange(self, rangeObj, scrollIntoView=False):
 		self.select(rangeObj.start, max(rangeObj.start, rangeObj.end-1), bufferIdx=rangeObj.buffer_idx, scrollIntoView=scrollIntoView)
@@ -519,6 +546,24 @@ class HexView2(QWidget):
 				self.fiTreeWidget.loadFormatInfo(configs.getValue(self.fiTreeWidget.optionsConfigKey+"_lastOpenFile",""))
 			elif e.key() == QtCore.Qt.Key_F5:
 				self.applyFormatInfo()
+			elif e.key() == QtCore.Qt.Key_Plus:
+				self.options['addressFontSize'] += 1
+				self.options['hexFontSize'] += 1
+				self.options['asciiFontSize'] += 1
+				self.options['sectionFontSize'] += 1
+				self.setOptions({}); self.storeOptions()
+			elif e.key() == QtCore.Qt.Key_Minus:
+				self.options['addressFontSize'] -= 1
+				self.options['hexFontSize'] -= 1
+				self.options['asciiFontSize'] -= 1
+				self.options['sectionFontSize'] -= 1
+				self.setOptions({}); self.storeOptions()
+			elif e.key() == QtCore.Qt.Key_0:
+				self.options['addressFontSize'] = 10
+				self.options['hexFontSize'] = 10
+				self.options['asciiFontSize'] = 10
+				self.options['sectionFontSize'] = 8
+				self.setOptions({}); self.storeOptions()
 
 		if mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
 			if e.key() == QtCore.Qt.Key_C:
@@ -586,11 +631,11 @@ class HexView2(QWidget):
 		qp.drawPixmap(0, 0, self.textPixmap)
 		#self.drawQuicktip(qp)
 		qp.end()
-	  
-	  
+
 	def drawLines(self, qpTxt, qpBg):
 		y=10
 		canvasHeight = self.size().height()
+		if len(self.buffers) == 0: return
 		buffer = self.buffers[0]
 		maxLine = self.maxLine()
 		self.itemY = list()

@@ -88,22 +88,16 @@ arp struct {
 }
 
 ether struct (endianness=">"){
-	eheader ether_header
-	payload nl_protos
-}
-
-ether_header struct (section="ethernet header"){
+	eheader struct (section="ethernet header"){
 	dst_addr mac_addr
 	src_addr mac_addr
 	ethertype uint16
 }
-
-llzp struct {
-	header llzp_header
-	payload ll_protos
+	payload nl_protos
 }
 
-llzp_header struct {
+llzp struct {
+	header struct {
 	version uint8
 	type uint8
 	encap_proto uint16
@@ -121,6 +115,9 @@ llzp_header struct {
 			}
 		}
 }
+	payload ll_protos
+}
+
 
 char fixed(format="c")
 

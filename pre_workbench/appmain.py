@@ -16,6 +16,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
 import time
 import os
@@ -23,16 +25,16 @@ import sys
 import traceback
 import uuid
 
-from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer)
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer, QFileSystemWatcher)
+from PyQt5.QtGui import QKeySequence, QPixmap
 from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QFileDialog, QWidget, QVBoxLayout, \
-	QMdiArea, QDockWidget, QMessageBox, QTextEdit
+	QMdiArea, QDockWidget, QMessageBox, QTextEdit, QMdiSubWindow, QStyleFactory, QToolButton, QMenu, QSplashScreen
 
 from . import configs
 from .datawidgets import DynamicDataWidget, PacketListWidget
-from .dockwindows import FileBrowserWidget
-from .genericwidgets import JsonView, MdiFile, MemoryUsageWidget
+from .dockwindows import FileBrowserWidget, MdiWindowListWidget
+from .genericwidgets import JsonView, MdiFile, MemoryUsageWidget, showSettingsDlg
 from .guihelper import NavigateCommands
 from .hexview import HexView2
 from .objectwindow import ObjectWindow
@@ -45,9 +47,11 @@ MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
 	def __init__(self):
 		super().__init__()
+		self.mappedChildActions = list()
 		self.initUI()
 		self.restoreChildren()
 
+		NavigateCommands["WINDOW-ID"] = self.navigateWindowId
 		NavigateCommands["WINDOW"] = self.navigateWindow
 		NavigateCommands["OPEN"] = self.openFile
 		self.statusTimer = QTimer(self)
@@ -62,10 +66,15 @@ class WorkbenchMain(QMainWindow):
 			clz, _ = WindowTypes.find(name=wndInfo["clz"])
 			try:
 				wnd = clz(**wndInfo["par"])
-				self.showChild(wnd)
-				wnd.parent().restoreGeometry(wndInfo["geo"])
 				wnd.setObjectName(str(wndInfo["id"]))
+				self.showChild(wnd)
+				if self.mdiArea.viewMode() == QMdiArea.SubWindowView:
+					#wnd.parent().restoreGeometry(wndInfo["geo"])
+					x,y,w,h = wndInfo["geo"]
+					wnd.parent().move(x,y)
+					wnd.parent().resize(w,h)
 			except Exception as ex:
+				traceback.print_exc()
 				msg = QMessageBox(QMessageBox.Critical, "Failed to restore window", "Failed to restore window of type "+wndInfo["clz"]+"\n\n"+traceback.format_exc(), QMessageBox.Ok | QMessageBox.Abort, self)
 				msg.addButton("Show parameters", QMessageBox.YesRole)
 				res = msg.exec()
@@ -76,6 +85,10 @@ class WorkbenchMain(QMainWindow):
 		for wndInfo in configs.getValue("DockWidgetStates", []):
 			self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
 
+	def updateChildWindowList(self, obj=None):
+		print("updateChildWindowList")
+		wndList = self.mdiArea.subWindowList()
+		self.dockWidgets["Window List"].updateWindowList(wndList)
 
 	def closeEvent(self, e):
 		configs.setValue("MainWindowGeometry", self.saveGeometry())
@@ -88,10 +101,10 @@ class WorkbenchMain(QMainWindow):
 			{
 				"id": wnd.widget().objectName(),
 				"clz": type(wnd.widget()).__name__,
-				"geo": bytes(wnd.saveGeometry()),
+				"geo": [wnd.pos().x(), wnd.pos().y(), wnd.size().width(), wnd.size().height() ], #bytes(wnd.saveGeometry()),
 				"par": wnd.widget().saveParams(),
 			}
-			for wnd in self.mdiArea.subWindowList()
+			for wnd in self.mdiArea.subWindowList(QMdiArea.StackingOrder)
 			if hasattr(wnd.widget(), "saveParams")
 		])
 		configs.setValue("DockWidgetStates", [
@@ -108,17 +121,40 @@ class WorkbenchMain(QMainWindow):
 		self.addDockWidget(Qt.RightDockWidgetArea, dw)
 		self.dockWidgets[name] = widget
 
+	def mapChildAction(self, action, funcName):
+		action.setProperty("childFuncName", funcName)
+		self.mappedChildActions.append(action)
+		action.triggered.connect(self.mappedChildActionTriggered)
+
+	def mappedChildActionTriggered(self):
+		funcName = self.sender().property("childFuncName")
+		child = self.activeMdiChild()
+		if child is not None and hasattr(child, funcName):
+			getattr(child.widget(), funcName)()
+
+	def updateMappedChildActions(self):
+		child = self.activeMdiChild()
+		if child is None:
+			for action in self.mappedChildActions:
+				action.setEnabled(False)
+		else:
+			for action in self.mappedChildActions:
+				funcName = action.property("childFuncName")
+				action.setEnabled(hasattr(child, funcName))
+
+
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
 		self.openAct = QAction('Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
 		self.saveAct = QAction("&Save", self,
 				shortcut=QKeySequence.Save,
-				statusTip="Save the document to disk", triggered=self.onFileSaveAction)
+				statusTip="Save the document to disk")
+		self.mapChildAction(self.saveAct, "save")
 
 		self.saveAsAct = QAction("Save &As...", self,
 				shortcut=QKeySequence.SaveAs,
-				statusTip="Save the document under a new name",
-				triggered=self.onFileSaveAsAction)
+				statusTip="Save the document under a new name")
+		self.mapChildAction(self.saveAsAct, "saveAs")
 
 		self.closeAct = QAction("Cl&ose", self,
 				statusTip="Close the active window",
@@ -139,13 +175,20 @@ class WorkbenchMain(QMainWindow):
 
 
 	def initUI(self):
+		self.setUnifiedTitleAndToolBarOnMac(True)
+		self.setDocumentMode(True)
 		self.dockWidgets = dict()
 		self.createDockWnd("File Browser", FileBrowserWidget())
 		self.dockWidgets["File Browser"].on_open.connect(self.openFile)
 		self.createDockWnd("Zoom", DynamicDataWidget())
 		self.createDockWnd("Data Source Log", QTextEdit())
+		self.createDockWnd("Window List", MdiWindowListWidget())
 
 		self.mdiArea = QMdiArea()
+		configs.registerOption("TabbedView", False, lambda k, v:
+			self.mdiArea.setViewMode(QMdiArea.TabbedView if v else QMdiArea.SubWindowView))
+		self.mdiArea.setDocumentMode(True)
+		self.mdiArea.setTabsClosable(True)
 		self.setCentralWidget(self.mdiArea)
 
 		self.mdiArea.subWindowActivated.connect(self.onSubWindowActivated)
@@ -155,11 +198,20 @@ class WorkbenchMain(QMainWindow):
 		self.createActions()
 
 		menubar = self.menuBar()
+		toolbar = self.addToolBar('Main')
+		newTbAct = QToolButton(self, text='New', popupMode=QToolButton.InstantPopup)
+		newTbMenu = QMenu(newTbAct)
+		newTbAct.setMenu(newTbMenu)
 		fileMenu = menubar.addMenu('&File')
 		for wndTyp, meta in WindowTypes.types:
 			text = 'New '+meta.get('displayName', meta.get('name'))
-			fileMenu.addAction(QAction(text, self, shortcut='Ctrl+N', statusTip=text,
-									   triggered=lambda dummy, wndTyp=wndTyp: self.onFileNewWindowAction(wndTyp)))
+			newAct = QAction(text, self, #shortcut='Ctrl+N',
+									   statusTip=text,
+									   triggered=lambda dummy, wndTyp=wndTyp: self.onFileNewWindowAction(wndTyp))
+			fileMenu.addAction(newAct)
+			newTbMenu.addAction(newAct)
+		toolbar.addWidget(newTbAct)
+		fileMenu.addSeparator()
 		#fileMenu.addAction(self.newAct)
 		fileMenu.addAction(self.openAct)
 		fileMenu.addAction(self.saveAct)
@@ -176,17 +228,25 @@ class WorkbenchMain(QMainWindow):
 
 
 		viewMenu = menubar.addMenu('&View')
+		a = QAction("Zoom In", self, shortcut='Ctrl++'); self.mapChildAction(a, "zoomIn"); viewMenu.addAction(a)
+		a = QAction("Zoom Out", self, shortcut='Ctrl+-'); self.mapChildAction(a, "zoomOut"); viewMenu.addAction(a)
+		a = QAction("Reset", self, shortcut='Ctrl+0'); self.mapChildAction(a, "zoomReset"); viewMenu.addAction(a)
+		viewMenu.addSeparator()
 		for name in self.dockWidgets.keys():
 			viewMenu.addAction(name, lambda name=name: self.dockWidgets[name].parent().show())
 
 		toolsMenu = menubar.addMenu('&Tools')
-		toolsMenu.addAction("Show config", lambda: self.showChild(JsonView(configs.configDict)))
+		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(configs.configDict)),
+								   shortcut='Ctrl+Shift+,')
+		toolsMenu.addAction(showConfigAction)
+		editConfigAction = QAction("Preferences ...", self, triggered=lambda: self.onPreferences(),
+								   menuRole=QAction.PreferencesRole, shortcut='Ctrl+,')
+		toolsMenu.addAction(editConfigAction)
 
 		self.windowMenu = menubar.addMenu("&Window")
 		self.updateWindowMenu()
 		self.windowMenu.aboutToShow.connect(self.updateWindowMenu)
 
-		toolbar = self.addToolBar('Main')
 		#toolbar.addAction(self.newAct)
 		toolbar.addAction(self.openAct)
 		toolbar.addAction(self.exitAct)
@@ -198,6 +258,15 @@ class WorkbenchMain(QMainWindow):
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
 		self.setWindowTitle('PRE Workbench')
 		self.show()
+
+	def onPreferences(self):
+		res = showSettingsDlg([
+			("AppTheme", "Theme", "select", {"options":[(x,x) for x in QStyleFactory.keys()]}),
+			("TabbedView", "Tabbed View", "check", {}),
+		], configs.configDict, "Preferences", self)
+		if res is not None:
+			for k,v in res.items():
+				configs.setValue(k,v)
 
 	def onMruClicked(self):
 		self.openFile(self.sender().data())
@@ -235,25 +304,17 @@ class WorkbenchMain(QMainWindow):
 			self.windowMapper.setMapping(action, window)
 
 	def onSubWindowActivated(self):
-		pass
+		self.updateMappedChildActions()
 
 	def activeMdiChild(self):
 		activeSubWindow = self.mdiArea.activeSubWindow()
 		if activeSubWindow:
 			return activeSubWindow.widget()
 		return None
+
 	def setActiveSubWindow(self, window):
 		if window:
 			self.mdiArea.setActiveSubWindow(window)
-
-
-	def onFileSaveAction(self):
-		if self.activeMdiChild() and self.activeMdiChild().save():
-			self.statusBar().showMessage("File saved", 2000)
-
-	def onFileSaveAsAction(self):
-		if self.activeMdiChild() and self.activeMdiChild().saveAs():
-			self.statusBar().showMessage("File saved", 2000)
 
 
 	def onFileNewWindowAction(self, typ):
@@ -269,7 +330,19 @@ class WorkbenchMain(QMainWindow):
 			configs.setValue("lastOpenFile", fileName)
 			self.openFile(fileName)
 
-	@pyqtSlot(str)
+	def navigateWindowId(self, Id):
+		#childWnd = self.mdiArea.findChild(QMdiSubWindow, Id)
+		for childWnd in self.mdiArea.subWindowList():
+			print(childWnd.objectName())
+			if childWnd.objectName() == Id:
+				print(childWnd)
+				self.setActiveSubWindow(childWnd)
+				childWnd.show()
+				return True
+
+		return False
+
+	@pyqtSlot(str, str)
 	def navigateWindow(self, Type, FileName):
 		winType, _ = WindowTypes.find(name=Type)
 		if winType is None:
@@ -325,15 +398,19 @@ class WorkbenchMain(QMainWindow):
 		self.dockWidgets["Zoom"].setContents(cont)
 
 	def showChild(self, widget):
-		self.mdiArea.addSubWindow(widget)
+		print("showChild", widget)
+		subwnd = self.mdiArea.addSubWindow(widget)
 		try:
 			widget.on_data_selected.connect(self.onZoom)
 		except: pass
 		try:
 			widget.on_log.connect(self.onLog)
 		except: pass
+		widget.destroyed.connect(self.updateChildWindowList)
 		if not widget.objectName(): widget.setObjectName(str(uuid.uuid1()))
+		subwnd.setObjectName(widget.objectName())
 		widget.show()
+		self.updateChildWindowList()
 
 
 
@@ -430,12 +507,30 @@ def excepthook(excType, excValue, tracebackobj):
 
 sys.excepthook = excepthook
 
+def load_file_watch(parent, filename, callback):
+	def cb(p=""):
+		try:
+			with open(filename, "r") as f:
+				data = f.read()
+		except:
+			return
+		callback(data)
+	fsw = QFileSystemWatcher([filename], parent)
+	fsw.fileChanged.connect(cb)
+	cb()
+
 def run_app():
 	from PyQt5.QtWidgets import QApplication
 
 	app = QApplication(sys.argv)
-	app.setStyle(configs.getValue("AppTheme", "fusion"))
+	splashimg = configs.respath("icons/splash.jpg")
+	splash = QSplashScreen(QPixmap(splashimg))
+	splash.show()
+	configs.registerOption("AppTheme", "fusion", lambda key, value: app.setStyle(value))
+	load_file_watch(app, os.path.join(os.path.dirname(__file__), "stylesheet.css"), lambda contents: app.setStyleSheet(contents))
 	ex = WorkbenchMain()
+	ex.show()
+	splash.finish(ex)
 	# os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
 	sys.exit(app.exec_())
 

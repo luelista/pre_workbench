@@ -212,26 +212,32 @@ class Range:
 
 	def addToTree(self, parent):
 		me = QTreeWidgetItem(parent)
-		me.setData(0, Range.RangeRole, self)
-		me.setData(0, Range.BytesOffsetRole, self.start)
-		me.setData(0, Range.BytesSizeRole, self.bytes_size)
-		me.setData(0, Range.SourceDescRole, self.source_desc)
-		me.setText(0, self.field_name)
-		me.setText(1, str(self.start) + "+" + str(self.bytes_size))
-		me.setText(2, str(self.source_desc))
-		if type(self.value) == dict:
+		theRange = self
+		me.setData(0, Range.RangeRole, theRange)
+		me.setData(0, Range.BytesOffsetRole, theRange.start)
+		me.setData(0, Range.BytesSizeRole, theRange.bytes_size)
+		me.setData(0, Range.SourceDescRole, theRange.source_desc)
+		text0 = theRange.field_name
+		text1 = str(theRange.start) + "+" + str(theRange.bytes_size)
+		text2 = str(theRange.source_desc)
+		while type(theRange.value) == Range:
+			theRange = theRange.value
+			text0 += " >> "+theRange.field_name
+			text1 += " >> "+str(theRange.start) + "+" + str(theRange.bytes_size)
+			text2 += " >> "+str(theRange.source_desc)
+		me.setText(0, text0)
+		me.setText(1, text1)
+		me.setText(2, text2)
+		if type(theRange.value) == dict:
 			me.setExpanded(True)
-			for key,item in self.value.items():
+			for key,item in theRange.value.items():
 				item.addToTree(me)
-		elif type(self.value) == list:
+		elif type(theRange.value) == list:
 			me.setExpanded(True)
-			for item in self.value:
+			for item in theRange.value:
 				item.addToTree(me)
-		elif type(self.value) == Range:
-			me.setExpanded(True)
-			self.value.addToTree(me)
 		else:
-			me.setText(3, str(self.value))
+			me.setText(3, str(theRange.value))
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def __repr__(self):

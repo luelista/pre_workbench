@@ -17,12 +17,13 @@
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo, QTimer
-from PyQt5.QtGui import QKeyEvent, QIcon
+from PyQt5.QtGui import QKeyEvent, QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
 	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
-	QMessageBox, QAction, QLabel
+	QMessageBox, QAction, QLabel, QColorDialog
 
+from .configs import getIcon
 from .syshelper import get_current_rss
 from .typeregistry import DataWidgetTypes
 
@@ -42,6 +43,44 @@ def showSettingsDlg(definition, values=None, title="Options", parent=None):
 	if dlg.exec() == QDialog.Rejected: return None
 	return values
 
+class FileDropLineEdit(QLineEdit):
+	def __init__(self, *__args):
+		super().__init__(*__args)
+		self.setAcceptDrops(True)
+
+	def dragEnterEvent(self, e:QDragEnterEvent):
+		if e.mimeData().hasText() or (e.mimeData().hasUrls() and e.mimeData().urls()[0].isLocalFile()):
+			e.accept()
+		else:
+			e.ignore()
+	def dropEvent(self, e:QDropEvent):
+		if e.mimeData().hasUrls():
+			self.setText(e.mimeData().urls()[0].toLocalFile())
+			e.accept()
+		elif e.mimeData().hasText():
+			self.setText(e.mimeData().text())
+			e.accept()
+
+class ColorSelectLineEdit(QLineEdit):
+	def __init__(self, *__args):
+		super().__init__(*__args)
+		self.colorSelectAction = QAction(getIcon("select.png"), "Select color", self)
+		self.colorSelectAction.triggered.connect(self.selectColor)
+		self.textChanged.connect(self.onTextChanged)
+		self.addAction(self.colorSelectAction, QLineEdit.TrailingPosition)
+	def selectColor(self):
+		result, ok = QColorDialog.getColor(QColor(self.text()))
+		if ok:
+			self.setText(result.name())
+	def onTextChanged(self, newText):
+		self.colorSelectAction.setIcon(filledColorIcon(newText, 16))
+
+
+
+def filledColorIcon(color, size):
+	pix = QPixmap(size, size)
+	pix.fill(QColor(color))
+	return QIcon(pix)
 
 class SettingsGroup(QFrame):
 	item_changed = pyqtSignal(str, str)
@@ -54,6 +93,7 @@ class SettingsGroup(QFrame):
 		self.setFields(definition)
 		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 		self.setStyleSheet("SettingsGroup{background:#ffeeaa}")
+		self.layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
 	def setFields(self, definition):
 		for i in reversed(range(self.layout.count())):
@@ -64,18 +104,20 @@ class SettingsGroup(QFrame):
 				self.layout.addRow("  ",None)
 				continue
 			if fieldtype == "text":
-				field = QLineEdit()
+				field = FileDropLineEdit()
 				field.textChanged.connect(self.textChanged)
 				if "autocomplete" in params:
 					field.setCompleter(QCompleter(QStringListModel(list(params["autocomplete"]), field), field))
 				if "fileselect" in params:
-					act = QAction(QIcon("icons/select.png"), "Select file", field)
+					act = QAction(getIcon("select.png"), "Select file", field)
 					act.triggered.connect(lambda c,params=params, field=field:
 										  self.selectFile(field, params["fileselect"],
 														  params.get("caption","Select file"),
 														  params.get("filter","All files (*.*)")))
 					field.addAction(act, QLineEdit.TrailingPosition)
-					#field.addAction(QIcon("select.png"), QLineEdit.TrailingPosition)
+			elif fieldtype == "color":
+				field = ColorSelectLineEdit()
+				field.textChanged.connect(self.textChanged)
 			elif fieldtype == "select":
 				field = QComboBox()
 				for value, text in params["options"]:
@@ -148,9 +190,9 @@ class SettingsGroup(QFrame):
 			field.setCurrentIndex(idx)
 		elif isinstance(field, QCheckBox):
 			if value == True:
-				field.setState(Qt.Checked)
+				field.setCheckState(QtCore.Qt.Checked)
 			elif value == False:
-				field.setState(Qt.Unchecked)
+				field.setCheckState(QtCore.Qt.Unchecked)
 			else:
 				raise Exception("invalid check value: "+value)
 

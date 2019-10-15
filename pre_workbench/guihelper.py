@@ -52,8 +52,9 @@ def navigateSingle(cmd, *args):
     fun(**params)
 
 def navigateLink(link):
-    if QMessageBox.question("Open from anchor?", str(link)) == QMessageBox.Yes:
+    if QMessageBox.question(None, "Open from anchor?", str(link)) == QMessageBox.Yes:
         navigate("OPEN", "FileName=" + link)
+
 """
 
 	private void T_LinkClicked(object sender, LinkClickedEventArgs e) {

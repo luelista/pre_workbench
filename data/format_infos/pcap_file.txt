@@ -78,7 +78,7 @@ tcp_segment struct {
 		urg_ptr uint16
 		options bytes(size_expr=((((flags & 0xf000) >> 12) * 4) - 20))
 	}
-	tcp_payload bytes(section="TCP Payload", color="#00aa00")
+	tcp_payload bytes(section="TCP Payload", color="#00aa00", reassemble_into=["TCP Simplex Streams", (ipheader.src_ip), (tcpheader.src_port), (ipheader.dst_ip), (tcpheader.dst_port)])
 }
 
 udp_segment struct {
@@ -89,35 +89,34 @@ arp struct {
 
 ether struct (endianness=">"){
 	eheader struct (section="ethernet header"){
-	dst_addr mac_addr
-	src_addr mac_addr
-	ethertype uint16
-}
+		dst_addr mac_addr
+		src_addr mac_addr
+		ethertype uint16
+	}
 	payload nl_protos
 }
 
 llzp struct {
 	header struct {
-	version uint8
-	type uint8
-	encap_proto uint16
-	fields repeat(until=(_[-1].tag == 1)) variant {
-			struct {
-				tag uint8(magic=0)
+		version uint8
+		type uint8
+		encap_proto uint16
+		fields repeat(until=(_[-1].tag == 1)) variant {
+				struct {
+					tag uint8(magic=0)
+				}
+				struct {
+					tag uint8(magic=1)
+				}
+				struct {
+					tag uint8
+					length uint8
+					body bytes(size_expr="length")
+				}
 			}
-			struct {
-				tag uint8(magic=1)
-			}
-			struct {
-				tag uint8
-				length uint8
-				body bytes(size_expr="length")
-			}
-		}
-}
+	}
 	payload ll_protos
 }
-
 
 char fixed(format="c")
 

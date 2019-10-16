@@ -17,6 +17,7 @@
 
 import json
 import os
+import traceback
 
 from lark import Lark, Transformer
 from .configs import respath
@@ -88,7 +89,10 @@ class Evaluator(Transformer):
 
 	def member_expr(self, node):
 		print("member_expr", node)
-		return self.parse_context.unpack_value(node[0][node[1]])
+		try:
+			return self.parse_context.unpack_value(node[0][node[1]])
+		except KeyError as e:
+			raise Exception("item has no member named "+str(node[1]))
 
 	def anyfield_expr(self, node):
 		id = node[0]
@@ -166,9 +170,10 @@ class Expression:
 		try:
 			return Evaluator(parse_context).transform(self.expr_tree)
 		except Exception as e:
+			traceback.print_exc()
 			print(self.expr_str)
 			print(self.expr_tree.pretty())
-			raise Exception("Failed to evaluate expression '"+self.expr_str+"': "+str(e)) from e
+			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
 
 
 

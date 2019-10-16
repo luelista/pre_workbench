@@ -27,19 +27,31 @@ from .configs import getIcon
 from .syshelper import get_current_rss
 from .typeregistry import DataWidgetTypes
 
+def makeDlgButtonBox(dlg, ok_callback, retval_callback):
+	btn = QDialogButtonBox()
+	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+	if ok_callback is not None:
+		def ok_slot():
+			try:
+				ok_callback(retval_callback())
+				dlg.accept()
+			except Exception as ex:
+				QMessageBox.critical(dlg, "Fehler", str(ex))
+		btn.accepted.connect(ok_slot)
+	else:
+		btn.accepted.connect(dlg.accept)
+	btn.rejected.connect(dlg.reject)
+	dlg.layout().addWidget(btn)
 
-def showSettingsDlg(definition, values=None, title="Options", parent=None):
+
+def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None):
 	if values == None: values = {}
 	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	sg = SettingsGroup(definition, values)
 	dlg.layout().addWidget(sg)
-	btn = QDialogButtonBox()
-	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
-	btn.clicked.connect(dlg.accept)
-	btn.rejected.connect(dlg.reject)
-	dlg.layout().addWidget(btn)
+	makeDlgButtonBox(dlg, ok_callback, lambda: values)
 	if dlg.exec() == QDialog.Rejected: return None
 	return values
 

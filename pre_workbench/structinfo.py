@@ -17,17 +17,19 @@
 
 import json
 import struct
+import traceback
 import uuid
 from collections import namedtuple
+from json import JSONEncoder
 
 from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex
 from PyQt5.QtWidgets import QTreeWidgetItem
 
-
+from structinfo_valueenc import StructInfoValueEncoder
 from . import typeeditor
 from . import xdrm
-from .objects import Range
+from .objects import Range, ByteBuffer, ByteBufferList
 from .structinfo_expr import Expression, deserialize_expr
 from .typeregistry import TypeRegistry
 
@@ -142,8 +144,14 @@ class ParseContext:
 			return default
 
 	def log(self, *dat):
-		print("\t"*len(self.stack) + self.get_path(), end=": ")
-		print(*dat)
+		#print("\t"*len(self.stack) + self.get_path(), end=": ")
+		print( self.get_path(), end=": ")
+		try:
+			print(*dat)
+		except Exception as ex:
+			print("!!!EXCEPTION in log print!!!")
+			print(str(ex))
+			traceback.print_exc()
 
 	def push(self, desc, value=None, id=None):
 		if id != None: self.id = id
@@ -156,8 +164,8 @@ class ParseContext:
 
 	def pop(self):
 		self.log("pop")
-		_, value, self.id, _, self.buf_limit_end = self.stack.pop()
-		self.log("returning",value)
+		desc, value, self.id, _, self.buf_limit_end = self.stack.pop()
+		self.log("-->", value, desc)
 		return value
 
 	def set_child_limit(self, max_length):
@@ -211,33 +219,54 @@ class ParseContext:
 
 	def pack_value(self, value):
 		if self.on_new_subflow_category is not None:
-			desc = self.stack[-1][0]
-			if 'reassemble_into' in desc.params:
-				meta = {}
-				for expr in desc.params['reassemble_into'][1:]:
-					if isinstance(expr, Expression):
-						meta[expr.expr_str] = expr.evaluate(self)
+			try:
+				desc = self.stack[-1][0]
+				if 'reassemble_into' in desc.params:
+					category, meta, subflow_key = self.build_subflow_key(desc.params['reassemble_into'])
+					print("reassemble:",category,subflow_key,value)
+					if category not in self.subflow_categories:
+						self.subflow_categories[category] = ByteBufferList()
+						self.on_new_subflow_category(category=category, parse_context=self)
+					databytes = value
+					if 'segment_meta' in desc.params:
+						datameta = { k: v.evaluate(self) for k,v in desc.params['segment_meta'] }
 					else:
-						meta[str(expr)] = str(expr)
-				#self.on_new_subflow_category(category=desc.params['reassemble_into'][0], meta=meta, parse_context=self)
-			if 'store_into' in desc.params:
-				#TODO
-				pass
+						datameta = {}
+					self.subflow_categories[category].reassemble(subflow_key, meta, databytes, datameta)
+
+				if 'store_into' in desc.params:
+					#TODO
+					pass
+			except Exception as ex:
+				raise parse_exception(self, "while adding bytes to reassembly buffer: "+ str(ex))
 		return value
 
 	def unpack_value(self, packed_value):
 		return packed_value
 
+	def build_subflow_key(self, param):
+		meta = {}
+		category = param[0]
+		subflow_key = list()
+		for expr in param[1:]:
+			if isinstance(expr, Expression):
+				key, value = expr.expr_str, expr.evaluate(self)
+			else:
+				key, value = str(expr), str(expr)
+			meta[key] = value
+			subflow_key.append(value)
+		return category, meta, tuple(subflow_key)
 
 class LoggingParseContext(ParseContext):
 	def pack_value(self, value):
-		self.log(type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length(), value)
+		self.log("pack(L)",type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length())#, value)
 		return value
 
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
-		self.log(type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length(), value)
-		return Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=self.stack[-1][0], field_name=self.top_id())
+		source_desc = self.stack[-1][0]
+		self.log("pack(A)",type(source_desc).__name__, self.top_offset(), self.top_length())#, value)
+		return Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=self.top_id())
 
 	def unpack_value(self, packed_value):
 		while isinstance(packed_value, Range):
@@ -400,11 +429,20 @@ class FormatInfo:
 		try:
 			context.push(self, None)
 			return self.fi._parse(context)
-		except Exception as ex:
-			context.log("Exception: "+str(ex))
+		except parse_exception as ex:
+			context.log("parse_exception: "+str(ex))
 			context.restore_offset()
 			raise
+		except Exception as ex:
+			context.restore_offset()
+			raise
+		#except Exception as ex:
+		#	context.log("UNHANDLED Exception in FI parse: "+str(ex))
+		#	traceback.print_exc()
+		#	context.restore_offset()
+		#	raise
 		finally:
+			context.log("calling context.pop",self.fi)
 			context.pop()
 
 	def __repr__(self):
@@ -595,11 +633,11 @@ class NamedFI:
 		return context.pack_value(self.ref.read_from_buffer(context))
 
 
-
 def params_to_text(indent, refs, params, ignore=['children','def_name'], before="(", after=")"):
-	x=["%s=%s"%(k,v.to_text(indent,refs) if hasattr(v, "to_text") else json.dumps(v)) for k,v in params.items() if k not in ignore]
+	x=["%s=%s"%(k,StructInfoValueEncoder().encode(v)) for k,v in params.items() if k not in ignore]
 	if len(x) == 0: return ""
 	return before+", ".join(x)+after
+
 
 """
 class FixedStructFI:

@@ -130,7 +130,7 @@ class WorkbenchMain(QMainWindow):
 		funcName = self.sender().property("childFuncName")
 		child = self.activeMdiChild()
 		if child is not None and hasattr(child, funcName):
-			getattr(child.widget(), funcName)()
+			getattr(child, funcName)()
 
 	def updateMappedChildActions(self):
 		child = self.activeMdiChild()

@@ -112,6 +112,13 @@ class ByteBuffer(QObject):
 			self.buffer = self.buffer + (newLength - self.length) * b"\0"
 			self.length = len(self.buffer)
 
+	def reassemble(self, databytes, datameta):
+		if 'offset' in datameta:
+			self.setBytes(datameta['offset'], databytes)
+			self.addRange(Range(datameta['offset'], datameta['offset']+len(databytes), meta=datameta))
+		else:
+			self.appendBytes(databytes, datameta)
+
 	def setBytes(self, offset, newBytes):
 		if type(newBytes) == bytes:
 			n = len(newBytes)
@@ -272,6 +279,7 @@ class ByteBufferList(QObject):
 		super().__init__()
 		self.metadata = dict()
 		self.buffers = list()
+		self.buffers_hash = dict()
 		self.updating = None
 	def add(self, bbuf):
 		self.buffers.append(bbuf)
@@ -279,6 +287,15 @@ class ByteBufferList(QObject):
 			self.on_new_packet.emit(1)
 		else:
 			self.updating += 1
+
+	def reassemble(self, subflow_key, bufmeta, databytes, datameta):
+		if subflow_key not in self.buffers_hash:
+			print("Starting new buffer for key",subflow_key)
+			bbuf = ByteBuffer(metadata=bufmeta)
+			self.buffers_hash[subflow_key] = bbuf
+			self.add(bbuf)
+		self.buffers_hash[subflow_key].reassemble(databytes, datameta)
+
 	def beginUpdate(self):
 		if self.updating is not None: raise AssertionError("beginUpdate called while in update")
 		self.updating = 0

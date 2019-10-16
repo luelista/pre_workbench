@@ -21,7 +21,7 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox, QDialog, QDialogButtonBox
 
-from .genericwidgets import MdiFile
+from .genericwidgets import MdiFile, makeDlgButtonBox
 from .guihelper import navigateLink
 from .typeregistry import WindowTypes
 
@@ -192,17 +192,13 @@ class TextFileWindow(QWidget, MdiFile):
 		self.setCurrentFile(fileName)
 		return True
 
-def showScintillaDialog(parent, title, content):
+def showScintillaDialog(parent, title, content, ok_callback):
 	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	sg = SimplePythonEditor()
 	sg.setText(content)
 	dlg.layout().addWidget(sg)
-	btn = QDialogButtonBox()
-	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
-	btn.clicked.connect(dlg.accept)
-	btn.rejected.connect(dlg.reject)
-	dlg.layout().addWidget(btn)
+	makeDlgButtonBox(dlg, ok_callback, lambda: sg.text())
 	if dlg.exec() == QDialog.Rejected: return None
 	return sg.text()

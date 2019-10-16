@@ -169,7 +169,7 @@ class PacketListWidget(QWidget):
         self.packetlist.horizontalHeader().customContextMenuRequested.connect(self.onHeaderContextMenu)
         self.packetlist.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.packetlistmodel = PacketListModel()
-        self.packetlistmodel.rowsInserted.connect(lambda a,b,c: tabs.setTabText(0, "Raw Frames (%d)"%self.packetlistmodel.rowCount(QModelIndex())))
+        #self.packetlistmodel.rowsInserted.connect(lambda a,b,c: tabs.setTabText(0, "Raw Frames (%d)"%self.packetlistmodel.rowCount(QModelIndex())))
         self.packetlist.setModel(self.packetlistmodel)
         self.packetlist.selectionModel().selectionChanged.connect(self.onPacketlistSelectionChanged)
         self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
@@ -285,6 +285,7 @@ class ByteBufferWidget(QWidget):
         layout.addWidget(self.tabWidget)
         self.textbox = HexView2()
         self.textbox.on_data_selected.connect(self.on_data_selected.emit)
+        self.textbox.onNewSubflowCategory.connect(self.newSubflowCategory)
         self.tabWidget.addTab(self.textbox, "Raw buffer")
         layout.addWidget(toolbar)
 
@@ -293,6 +294,14 @@ class ByteBufferWidget(QWidget):
         self.setWindowTitle(str(bufObj))
         self.textbox.setBuffer(bufObj)
         self.bufferObject.on_new_data.connect(self.onNewData)
+
+    def newSubflowCategory(self, category, parse_context):
+        for i in range(self.tabWidget.count()):
+            if self.tabWidget.tabText(i) == category:
+                break
+        widget = PacketListWidget()
+        widget.setContents(parse_context.subflow_categories[category])
+        self.tabWidget.addTab(widget, category)
 
     def onNewData(self):
         #self.textbox.showHex(bufObj.buffer)

@@ -129,11 +129,13 @@ class RangeTreeWidget(QTreeWidget):
 		ctx.exec(self.mapToGlobal(point))
 
 	def addField(self, parent, typeName):
-		params = showTypeEditorDlg("format_info.tes", typeName)
-		if params is None: return
-		parent.updateParams(children=parent.params['children']+[params])
-		self.formatInfoUpdated.emit()
-		self.saveFormatInfo(self.formatInfoContainerFileName)
+		def ok(params):
+			parent.updateParams(children=parent.params['children']+[params])
+			self.formatInfoUpdated.emit()
+			self.saveFormatInfo(self.formatInfoContainerFileName)
+
+		params = showTypeEditorDlg("format_info.tes", typeName, ok_callback=ok)
+
 
 	def removeField(self, parent, field_name):
 		ch = parent.params['children']
@@ -164,32 +166,38 @@ class RangeTreeWidget(QTreeWidget):
 		"""
 		#result, ok = QInputDialog.getMultiLineText(self, "Edit field", "Edit field", element.to_text(0, None))
 		#if ok:
-		result = showScintillaDialog(self, "Edit field", element.to_text(0, None))
-		if result is not None:
+		def ok_callback(result):
 			element.from_text(result)
 			self.formatInfoUpdated.emit()
 			self.saveFormatInfo(self.formatInfoContainerFileName)
+		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback)
+
 
 
 	def repeatField(self, element: structinfo.FormatInfo):
-		params = showTypeEditorDlg("format_info.tes", "RepeatFI", { "children": element.serialize() })
-		if params is None: return
-		element.setContents(structinfo.RepeatStructFI, params)
-		self.formatInfoUpdated.emit()
-		self.saveFormatInfo(self.formatInfoContainerFileName)
+		def ok_callback(params):
+			element.setContents(structinfo.RepeatStructFI, params)
+			self.formatInfoUpdated.emit()
+			self.saveFormatInfo(self.formatInfoContainerFileName)
+
+		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
+
 
 
 	def newFormatInfo(self):
-		params = showTypeEditorDlg("format_info.tes", "AnyFI")
-		if params is None: return
-		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
-		if not fileName: return
-		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
-		self.formatInfoContainer.main_name = "DEFAULT"
-		self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
-		self.formatInfoContainerFileName = fileName
-		self.formatInfoUpdated.emit()
-		self.saveFormatInfo(self.formatInfoContainerFileName)
+		def ok_callback(params):
+			fileName, _ = QFileDialog.getSaveFileName(self, "Save format info",
+													  configs.getValue(self.optionsConfigKey + "_lastOpenFile", ""),
+													  "Format Info files (*.pfi *.txt)")
+			if not fileName: return
+			self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
+			self.formatInfoContainer.main_name = "DEFAULT"
+			self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
+			self.formatInfoContainerFileName = fileName
+			self.formatInfoUpdated.emit()
+			self.saveFormatInfo(self.formatInfoContainerFileName)
+		showTypeEditorDlg("format_info.tes", "AnyFI", ok_callback=ok_callback)
+
 
 	def fileOpenFormatInfo(self):
 		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
@@ -216,6 +224,9 @@ class RangeTreeWidget(QTreeWidget):
 
 class HexView2(QWidget):
 	on_data_selected = pyqtSignal(QObject)
+	onNewSubflowCategory = pyqtSignal(str, object)
+	formatInfoUpdated = pyqtSignal()
+
 	SettingsDefinition = [
 		('addressFontFamily', 'addressFontFamily', 'text', {}),
 		('addressFontSize', 'addressFontSize', 'number', {'min':1, 'max':1024}),
@@ -388,17 +399,20 @@ class HexView2(QWidget):
 			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
 			try:
 				parse_context = structinfo.BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
-				parse_context.on_new_subflow_category = self.on_new_subflow_category
+				parse_context.on_new_subflow_category = self.newSubflowCategory
 				self.buffers[0].fi_tree = parse_context.parse()
 				self.fiTreeWidget.updateTree(self.buffers[0])
+				self.formatInfoUpdated.emit()
 				self.redraw()
 			except structinfo.parse_exception as ex:
 				traceback.print_exc()
 				QMessageBox.warning(self, "Failed to apply format info", str(ex))
 
-	def on_new_subflow_category(self, name):
-		#self.
-		pass
+
+	def newSubflowCategory(self, category, parse_context, **kv):
+		print("on_new_subflow_category",category)
+		self.onNewSubflowCategory.emit(category, parse_context)
+
 
 	def fiTreeItemSelected(self, item, previous):
 		if item == None: return

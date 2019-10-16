@@ -21,11 +21,11 @@ from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
-	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDialogButtonBox
+	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDialogButtonBox, QMessageBox
 
 from .configs import respath
 from . import xdrm
-from .genericwidgets import MdiFile
+from .genericwidgets import MdiFile, makeDlgButtonBox
 from .typeregistry import WindowTypes
 
 FILE_MAGIC = b"\xde\xca\xf9\x30"
@@ -453,7 +453,7 @@ class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
 
 
 
-def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options"):
+def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options", ok_callback=None):
 	dlg = QDialog()
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
@@ -462,11 +462,7 @@ def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options"):
 	editor = metaSchema.generateTypeEditorByName(dlg, typeName)
 	if values != None: editor.set(values)
 	dlg.layout().addWidget(editor)
-	btn = QDialogButtonBox()
-	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
-	btn.clicked.connect(dlg.accept)
-	btn.rejected.connect(dlg.reject)
-	dlg.layout().addWidget(btn)
+	makeDlgButtonBox(dlg, ok_callback, lambda: editor.get())
 	if dlg.exec() == QDialog.Rejected: return None
 	return editor.get()
 

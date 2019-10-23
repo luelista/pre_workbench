@@ -1,3 +1,4 @@
+
 /*QMainWindow { background: #111111; color: #dddddd; }
 QListWidget, QTreeWidget, QTreeView { background: #111111; color: #eeeeee; selection-background-color: #885588; selection-color: white; }
 QListWidget::item:selected, QTreeWidget::item:selected, QTreeView::item:selected { background: #885588; color:white; }

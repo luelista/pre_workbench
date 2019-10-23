@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import struct
 import sys
 import traceback
 from math import ceil, floor
@@ -26,15 +25,13 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
-	QTreeWidgetItemIterator, QMessageBox, QInputDialog, QAction
+	QTreeWidgetItemIterator, QMessageBox, QAction
 
 from .textfile import showScintillaDialog
 from . import configs
 from . import structinfo
-from . import xdrm
 from .genericwidgets import showSettingsDlg
 from .guihelper import setClipboardText
-from .hexdump import hexdump
 from .hexview_selheur import selectionHelpers
 from .objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
 from .typeeditor import showTypeEditorDlg

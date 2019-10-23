@@ -17,12 +17,11 @@
 
 import errno
 import os
-from collections import defaultdict
 
 from PyQt5.QtGui import QIcon
 from appdirs import AppDirs
 
-from . import xdrm
+from .structinfo import xdrm
 from PyQt5.QtCore import QByteArray
 
 def getValue(key, defaultValue=None):

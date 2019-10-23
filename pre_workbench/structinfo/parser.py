@@ -14,15 +14,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import os
 
-from lark import Lark, Transformer
+from lark import Transformer
 
-from .structinfo import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
-	FormatInfoContainer, FormatInfo
-from .structinfo_expr import Expression, fi_parser
-
-
+from . import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
+	FormatInfo
+from .expr import Expression
 
 builtinTypes = {"fixed": FixedFieldFI, "bytes": VarByteFieldFI}
 def make_builtin(name, params):

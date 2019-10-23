@@ -16,14 +16,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import os
+import os.path
 import traceback
 
 from lark import Lark, Transformer
-from .configs import respath
 
-grammar_file = respath("format_info.lark")
+grammar_file = os.path.join(os.path.dirname(__file__), "format_info.lark")
 fi_parser = Lark(open(grammar_file), parser="lalr", start=["start","anytype","expression"])
+
 
 class Evaluator(Transformer):
 	def __init__(self, parse_context):
@@ -178,7 +178,7 @@ class Expression:
 
 
 if __name__ == "__main__":
-	from structinfo import ParseContext
+	from . import ParseContext
 	import sys
 	e = Expression(sys.argv[1])
 	print(e.expr_tree.pretty())

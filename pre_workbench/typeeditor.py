@@ -21,10 +21,10 @@ from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
-	QSpinBox, QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDialogButtonBox, QMessageBox
+	QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog
 
 from .configs import respath
-from . import xdrm
+from .structinfo import xdrm
 from .genericwidgets import MdiFile, makeDlgButtonBox
 from .typeregistry import WindowTypes
 
@@ -481,7 +481,7 @@ if __name__ == '__main__':
 	scroll.setWidgetResizable(True)
 	wnd.setCentralWidget(scroll)
 	wnd.show()
-	editor.set(xdrm.loads(open(sys.argv[3],'rb').read()))
+	editor.set(xdrm.loads(open(sys.argv[3], 'rb').read()))
 	with open(sys.argv[4],"wb") as f:
 		f.write(editor.serialize())
 	sys.exit(app.exec_())

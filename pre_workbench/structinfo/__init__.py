@@ -15,23 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
 import struct
 import traceback
-import uuid
-from collections import namedtuple
-from json import JSONEncoder
 
-from PyQt5 import QtGui, QtWidgets, QtCore
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex
-from PyQt5.QtWidgets import QTreeWidgetItem
-
-from structinfo_valueenc import StructInfoValueEncoder
-from . import typeeditor
-from . import xdrm
-from .objects import Range, ByteBuffer, ByteBufferList
-from .structinfo_expr import Expression, deserialize_expr
-from .typeregistry import TypeRegistry
+from .valueenc import StructInfoValueEncoder
+from ..objects import Range, ByteBufferList
+from .expr import Expression, deserialize_expr
+from typeregistry import TypeRegistry
 
 class parse_exception(Exception):
 	def __init__(self, context, msg):
@@ -76,7 +66,7 @@ class FormatInfoContainer:
 				raise NotImplemented
 
 	def load_from_string(self, txt):
-		from .structinfo_parser import fi_parser, MainTrans
+		from .parser import fi_parser, MainTrans
 		ast = fi_parser.parse(txt, start="start")
 		print(ast.pretty())
 
@@ -362,28 +352,6 @@ def deserialize_fi(data):
 	else:
 		return data
 
-
-def bin_serialize_fi(self):
-	return xdrm.dumps([uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07"), "FormatInfoFile", self.serialize()], magic=typeeditor.FILE_MAGIC)
-
-def bin_deserialize_fi(bin):
-	iid, typename, data = xdrm.loads(bin, magic=typeeditor.FILE_MAGIC)
-	if iid != uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07") or typename != "FormatInfoFile":
-		raise Exception("Invalid file format (got iid=%r typename=%r)"%(iid,typename))
-	return deserialize_fi(data)
-
-
-def recursive_serialize(obj):
-	if isinstance(obj, dict):
-		return {k:recursive_serialize(v) for k,v in obj.items()}
-	elif isinstance(obj, list):
-		return [recursive_serialize(v) for v in obj]
-	elif isinstance(obj, tuple):
-		return tuple(recursive_serialize(v) for v in obj)
-	elif isinstance(obj, FormatInfo):
-		return obj.serialize()
-	else:
-		return obj
 class FormatInfo:
 	def __init__(self, info=None, typeRef=None, params=None):
 		if info is not None: self.deserialize(info)
@@ -410,7 +378,7 @@ class FormatInfo:
 		return self.fi._to_text(indent, refs, self.params)
 
 	def from_text(self, txt):
-		from .structinfo_parser import fi_parser, MainTrans
+		from .parser import fi_parser, MainTrans
 		ast = fi_parser.parse(txt, start="anytype")
 		print(ast.pretty())
 

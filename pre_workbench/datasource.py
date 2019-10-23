@@ -16,12 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QProcess)
+from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
 from . import structinfo
 from .objects import ByteBuffer, ByteBufferList, ReloadRequired
 from .typeregistry import TypeRegistry
-from .tshark_helper import findTshark, convertPdmlToPacketList, PdmlToPacketListParser, findInterfaces
+from .tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
 
 
 DataSourceTypes = TypeRegistry()
@@ -286,6 +286,6 @@ PcapFile = VariantStructFI(def_name="pcap_file", children=[
 
 if __name__=="__main__":
 	with open("PcapFile.pfi", "wb") as f:
-		f.write(structinfo.bin_serialize_fi(PcapFile))
+		f.write(structinfo.serialization.bin_serialize_fi(PcapFile))
 	with open("PcapFile.txt", "w") as f:
 		f.write(PcapFile.to_text())

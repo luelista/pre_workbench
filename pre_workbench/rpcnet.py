@@ -6,11 +6,10 @@ import re
 import ssl
 import struct
 import time
-from collections import namedtuple
 
 import pyhy
 
-import xdrm
+from .structinfo import xdrm
 
 
 def void(*args):
@@ -211,7 +210,7 @@ class EncryptedSession:
 		chan = RpcChannel(id, meta=meta, proto_handler=proto_handler, session=self)
 		self.channels[id] = chan
 		await self.send_chan_frame(id, RpcChannel.TYPE_CREATE,
-							 xdrm.dumps(meta))
+								   xdrm.dumps(meta))
 		return chan
 
 	async def start_kx_initiator(self):

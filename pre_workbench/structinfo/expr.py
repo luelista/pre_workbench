@@ -26,10 +26,6 @@ fi_parser = Lark(open(grammar_file), parser="lalr", start=["start","anytype","ex
 
 
 class Evaluator(Transformer):
-	def __init__(self, parse_context):
-		super().__init__()
-		self.parse_context = parse_context
-
 	def paren_expr(self, s):
 		return s[0]
 
@@ -79,6 +75,12 @@ class Evaluator(Transformer):
 		elif node[1] == "<=":
 			return node[0] <= node[2]
 
+
+class ParseContextEvaluator(Evaluator):
+	def __init__(self, parse_context):
+		super().__init__()
+		self.parse_context = parse_context
+
 	def hierarchy_expr(self, node):
 		print("hierarchy_expr", node, self.parse_context.stack[-len(node[0])][1])
 		return self.parse_context.stack[-len(node[0])][1]
@@ -104,6 +106,41 @@ class Evaluator(Transformer):
 
 	def param_expr(self, node):
 		return self.parse_context.get_param(node[0])
+
+
+def generic_unpack_value(packed_value):
+	while hasattr(packed_value, 'value'):
+		packed_value = packed_value.value
+	return packed_value
+
+class ByteBufferEvaluator(Evaluator):
+	def __init__(self, bbuf):
+		super().__init__()
+		self.bbuf = bbuf
+
+	def hierarchy_expr(self, node):
+		raise NotImplemented
+
+	def array_expr(self, node):
+		print("array_expr", node)
+		return generic_unpack_value(node[0][node[1]])
+
+	def member_expr(self, node):
+		print("member_expr", node)
+		try:
+			return generic_unpack_value(node[0][node[1]])
+		except KeyError as e:
+			raise Exception("item has no member named "+str(node[1]))
+
+	def anyfield_expr(self, node):
+		id = node[0]
+		frame = generic_unpack_value(self.bbuf.fi_tree)
+		if frame is not None and id in frame:
+			return generic_unpack_value(frame[id])
+		raise Exception("field "+id+" not found")
+
+	def param_expr(self, node):
+		return self.bbuf.metadata[node[0]]
 
 
 class Stringifier(Transformer):
@@ -145,9 +182,49 @@ class Stringifier(Transformer):
 		return "(" + node[0] + ")"
 
 
+class CCodeGenerator(Transformer):
+	def __init__(self):
+		super().__init__()
+
+	def string_expr(self, s):
+		return json.dumps(s[0])
+
+	def number_expr(self, n):
+		return str(n[0])
+
+	null_expr = lambda self, _: "NULL"
+	true_expr = lambda self, _: "TRUE"
+	false_expr = lambda self, _: "FALSE"
+
+	def math_expr(self, node):
+		return " ".join(node)
+
+	def compare_expr(self, node):
+		return " ".join(node)
+
+	def hierarchy_expr(self, node):
+		return node[0]
+
+	def member_expr(self, node):
+		return "get_member(" + node[0] + ", \"" + node[1] + "\")"
+
+	def array_expr(self, node):
+		return "get_array_item(" + node[0] + ", " + node[1] + ")"
+
+	def anyfield_expr(self, node):
+		return "find_by_name(\"" + node[0] + "\")"
+
+	def param_expr(self, node):
+		return "get_param(\"" + node[0] + "\")"
+
+	def paren_expr(self, node):
+		return "(" + node[0] + ")"
+
+
 def deserialize_expr(expr):
 	if isinstance(expr, Expression): return expr
 	return Expression(expr_str=expr)
+
 
 class Expression:
 	def __init__(self, expr_str=None, expr_tree=None):
@@ -168,7 +245,16 @@ class Expression:
 
 	def evaluate(self, parse_context):
 		try:
-			return Evaluator(parse_context).transform(self.expr_tree)
+			return ParseContextEvaluator(parse_context).transform(self.expr_tree)
+		except Exception as e:
+			traceback.print_exc()
+			print(self.expr_str)
+			print(self.expr_tree.pretty())
+			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
+
+	def evaluate_bbuf(self, bbuf):
+		try:
+			return ByteBufferEvaluator(bbuf).transform(self.expr_tree)
 		except Exception as e:
 			traceback.print_exc()
 			print(self.expr_str)

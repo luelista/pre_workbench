@@ -18,7 +18,7 @@
 from PyQt5 import QtCore
 from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerCPP
 from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor
+from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox, QDialog, QDialogButtonBox
 
 from .genericwidgets import MdiFile, makeDlgButtonBox
@@ -34,6 +34,18 @@ class RichEdit(QTextEdit):
 			anchor = self.anchorAt(e.pos())
 			if anchor:
 				navigateLink(anchor)
+		super().mouseReleaseEvent(e)
+
+	def keyPressEvent(self, e: QKeyEvent):
+		if e.key() == QtCore.Qt.Key_F4:
+			cur = self.textCursor()
+			format = QTextFrameFormat()
+			format.setBorder(2.0)
+			format.setBorderBrush(QColor(255,0,255))
+			format.setProperty(QTextFormat.UserProperty + 100, "code-block")
+			frame = cur.insertFrame(format)
+			self.setTextCursor(frame.firstCursorPosition())
+		super().keyPressEvent(e)
 
 
 

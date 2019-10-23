@@ -286,6 +286,6 @@ PcapFile = VariantStructFI(def_name="pcap_file", children=[
 
 if __name__=="__main__":
 	with open("PcapFile.pfi", "wb") as f:
-		f.write(structinfo.serialization.bin_serialize_fi(PcapFile))
+		f.write(structinfo.bin_serialize_fi(PcapFile))
 	with open("PcapFile.txt", "w") as f:
 		f.write(PcapFile.to_text())

@@ -16,12 +16,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import cgi
+import itertools
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
     QTableWidgetItem, QMenu, \
     QAbstractItemView, QTableView
 
+from .structinfo.expr import Expression
 from .genericwidgets import ExpandWidget, showSettingsDlg, JsonView
 from .hexview import HexView2
 from .objects import ByteBuffer, ByteBufferList
@@ -29,24 +31,13 @@ from .typeregistry import DataWidgetTypes
 
 
 class ColumnInfo:
-    def __init__(self, title, key=None, src="field", show="show"):
-        self.title=title
-        if key == None: key = title
-        self.key = key
-        self.src = src
-        self.show=show
+    def __init__(self, expr_str, title=None):
+        self.expr = Expression(expr_str=expr_str)
+        if title == None: title = expr_str
+
     def extract(self, bbuf : ByteBuffer):
-        if self.src == "field":
-            rr = bbuf.fields.get(self.key)
-            if rr == None: return None
-            if self.show == "hex":
-                return bbuf.toHex(rr.start, rr.length(), " ")
-            else:
-                return rr.metadata[self.show]
-        elif self.src == "meta":
-            return bbuf.metadata.get(self.key)
-        else:
-            return None
+        return self.expr.evaluate_bbuf(bbuf)
+
     def __str__(self):
         return self.title
     def __repr__(self):
@@ -54,14 +45,17 @@ class ColumnInfo:
     def toDict(self):
         return {"title":self.title, "key":self.key, "src":self.src, "show":self.show}
 
+def get_wireshark_colset():
+    return [ColumnInfo("frame.time", src="meta"), ColumnInfo("frame.len", src="meta"),
+            ColumnInfo("frame.number", src="meta"), ColumnInfo("frame.protocols", src="meta"),
+            ColumnInfo("eth.src"), ColumnInfo("eth.dst"), ColumnInfo("eth.type"),
+            ColumnInfo("ip.src"), ColumnInfo("ip.dst"), ColumnInfo("ip.proto"),
+            ColumnInfo("Payload", key="tcp.payload", show="hex")]
 
 class PacketListModel(QAbstractItemModel):
     def __init__(self, plist=None, parent=None):
         super().__init__(parent)
-        self.columns = [ColumnInfo("frame.time", src="meta"), ColumnInfo("frame.len", src="meta"), ColumnInfo("frame.number", src="meta"), ColumnInfo("frame.protocols", src="meta"),
-                        ColumnInfo("eth.src"), ColumnInfo("eth.dst"), ColumnInfo("eth.type"),
-                        ColumnInfo("ip.src"), ColumnInfo("ip.dst"), ColumnInfo("ip.proto"),
-                        ColumnInfo("Payload", key="tcp.payload", show="hex")]
+        self.columns = []
         self.listObject = None
         self.setList(plist)
         #self.rootItem = TreeItem(("Model", "Status","Location"))
@@ -71,9 +65,18 @@ class PacketListModel(QAbstractItemModel):
         if self.listObject is not None:
             self.listObject.on_new_packet.disconnect(self.onNewPacket)
         self.listObject = plist
+        if len(self.columns) == 0:
+            self.autoCols()
         if self.listObject is not None:
             self.listObject.on_new_packet.connect(self.onNewPacket)
         self.endResetModel()
+
+    def autoCols(self):
+        if self.rowCount(None) > 0:
+            self.columns = list(itertools.islice(itertools.chain(
+                (ColumnInfo(x, src="meta") for x in self.listObject.buffers[0].metadata.keys()),
+                (ColumnInfo(x) for x in self.listObject.buffers[0].fields.keys())
+            ), 12))
 
     def onNewPacket(self, count):
         if count < 1: return
@@ -81,6 +84,8 @@ class PacketListModel(QAbstractItemModel):
         print("onNewPacket",idx,count)
         self.beginInsertRows(QModelIndex(), idx - count, idx - 1)
         self.endInsertRows()
+        if len(self.columns) == 0:
+            self.autoCols()
 
     def columnCount(self, parent):
         return len(self.columns)

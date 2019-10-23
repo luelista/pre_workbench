@@ -104,6 +104,8 @@ class ByteBuffer(QObject):
 		if buf is None:
 			self.buffer = bytearray()
 		else:
+			if isinstance(buf, ByteBuffer):
+				buf = buf.buffer
 			self.buffer = bytearray(buf)
 		self.length = len(self.buffer)
 
@@ -120,6 +122,8 @@ class ByteBuffer(QObject):
 			self.appendBytes(databytes, datameta)
 
 	def setBytes(self, offset, newBytes):
+		if isinstance(newBytes, ByteBuffer):
+			newBytes = newBytes.buffer
 		if type(newBytes) == bytes:
 			n = len(newBytes)
 			self.ensureCapacity(offset + n)
@@ -130,7 +134,7 @@ class ByteBuffer(QObject):
 			n = newBytes
 			self.ensureCapacity(offset + n)
 		else:
-			raise TypeError("newBytes must be of type 'bytes' or 'int'")
+			raise TypeError("newBytes must be of type 'bytes' or 'int' or 'ByteBuffer'")
 	def addRange(self, r):
 		self.ranges.append(r)
 		if "name" in r.metadata: self.fields[r.metadata["name"]] = r
@@ -245,7 +249,8 @@ class Range:
 			for item in theRange.value:
 				item.addToTree(me)
 		else:
-			me.setText(3, str(theRange.value))
+			formatter = theRange.source_desc.formatter if theRange.source_desc is not None else str
+			me.setText(3, formatter(theRange.value))
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def __repr__(self):

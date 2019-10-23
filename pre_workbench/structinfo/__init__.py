@@ -17,11 +17,16 @@
 
 import struct
 import traceback
+import uuid
 
+from . import display_styles
 from .valueenc import StructInfoValueEncoder
-from ..objects import Range, ByteBufferList
+from ..objects import Range, ByteBufferList, ByteBuffer
 from .expr import Expression, deserialize_expr
 from typeregistry import TypeRegistry
+
+FILE_MAGIC = b"\xde\xca\xf9\x30"
+IFACE_UUID = uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07")
 
 class parse_exception(Exception):
 	def __init__(self, context, msg):
@@ -66,9 +71,8 @@ class FormatInfoContainer:
 				raise NotImplemented
 
 	def load_from_string(self, txt):
-		from .parser import fi_parser, MainTrans
-		ast = fi_parser.parse(txt, start="start")
-		print(ast.pretty())
+		from .parser import parse_string, MainTrans
+		ast = parse_string(txt)
 
 		trans = MainTrans(self)
 		trans.load_definitions(ast)
@@ -207,6 +211,9 @@ class ParseContext:
 	def set_top_value(self, value):
 		self.stack[-1][1] = value
 
+	def top_buf(self):
+		return self.buf[ self.stack[-1][3] : self.buf_offset ]
+
 	def pack_value(self, value):
 		if self.on_new_subflow_category is not None:
 			try:
@@ -214,19 +221,28 @@ class ParseContext:
 				if 'reassemble_into' in desc.params:
 					category, meta, subflow_key = self.build_subflow_key(desc.params['reassemble_into'])
 					print("reassemble:",category,subflow_key,value)
+					new = False
 					if category not in self.subflow_categories:
 						self.subflow_categories[category] = ByteBufferList()
-						self.on_new_subflow_category(category=category, parse_context=self)
-					databytes = value
+						new = True
+					databytes = self.top_buf()
 					if 'segment_meta' in desc.params:
 						datameta = { k: v.evaluate(self) for k,v in desc.params['segment_meta'] }
 					else:
 						datameta = {}
 					self.subflow_categories[category].reassemble(subflow_key, meta, databytes, datameta)
+					if new: self.on_new_subflow_category(category=category, parse_context=self)
 
 				if 'store_into' in desc.params:
-					#TODO
-					pass
+					category, meta, subflow_key = self.build_subflow_key(desc.params['store_into'])
+					print("store:",category,subflow_key,value)
+					new = False
+					if category not in self.subflow_categories:
+						self.subflow_categories[category] = ByteBufferList()
+						new = True
+					self.subflow_categories[category].add(ByteBuffer(buf=self.top_buf(), metadata=meta))
+					if new: self.on_new_subflow_category(category=category, parse_context=self)
+
 			except Exception as ex:
 				raise parse_exception(self, "while adding bytes to reassembly buffer: "+ str(ex))
 		return value
@@ -346,6 +362,28 @@ class RangeTreeModel(QAbstractItemModel):
 
 FITypes = TypeRegistry()
 
+def bin_serialize_fi(self):
+	return xdrm.dumps([IFACE_UUID, "FormatInfoFile", self.serialize()], magic=FILE_MAGIC)
+
+def bin_deserialize_fi(bin):
+	iid, typename, data = xdrm.loads(bin, magic=FILE_MAGIC)
+	if iid != IFACE_UUID or typename != "FormatInfoFile":
+		raise Exception("Invalid file format (got iid=%r typename=%r)"%(iid,typename))
+	return deserialize_fi(data)
+
+
+def recursive_serialize(obj):
+	if isinstance(obj, dict):
+		return {k:recursive_serialize(v) for k,v in obj.items()}
+	elif isinstance(obj, list):
+		return [recursive_serialize(v) for v in obj]
+	elif isinstance(obj, tuple):
+		return tuple(recursive_serialize(v) for v in obj)
+	elif isinstance(obj, FormatInfo):
+		return obj.serialize()
+	else:
+		return obj
+
 def deserialize_fi(data):
 	if type(data) == list and len(data) == 2:
 		return FormatInfo(data)
@@ -365,6 +403,12 @@ class FormatInfo:
 		self.fi = typeRef()
 		self.fi.init(**params)
 		self.params = params
+		if "show" not in self.params:
+			self.formatter = str
+		elif hasattr(display_styles, self.params["show"]):
+			self.formatter = getattr(display_styles, self.params["show"])
+		else:
+			self.formatter = lambda x: self.params["show"] % x
 
 	def updateParams(self, **changes):
 		for k,v in changes.items():
@@ -412,6 +456,7 @@ class FormatInfo:
 		finally:
 			context.log("calling context.pop",self.fi)
 			context.pop()
+
 
 	def __repr__(self):
 		return type(self.fi).__name__+ params_to_text(0, None, self.params)

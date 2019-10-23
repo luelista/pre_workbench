@@ -19,7 +19,7 @@ from lark import Transformer
 
 from . import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
 	FormatInfo
-from .expr import Expression
+from .expr import Expression, fi_parser
 
 builtinTypes = {"fixed": FixedFieldFI, "bytes": VarByteFieldFI}
 def make_builtin(name, params):
@@ -29,6 +29,11 @@ def make_builtin(name, params):
 		return None
 	return FormatInfo(typeRef=t, params=params)
 
+
+def parse_string(txt):
+	ast = fi_parser.parse(txt, start="start")
+	#print(ast.pretty())
+	return ast
 
 class MainTrans(Transformer):
 	def __init__(self, container):

@@ -398,11 +398,11 @@ class HexView2(QWidget):
 		if self.fiTreeWidget.formatInfoContainer != None:
 			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
 			try:
+				self.formatInfoUpdated.emit()
 				parse_context = structinfo.BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
 				parse_context.on_new_subflow_category = self.newSubflowCategory
 				self.buffers[0].fi_tree = parse_context.parse()
 				self.fiTreeWidget.updateTree(self.buffers[0])
-				self.formatInfoUpdated.emit()
 				self.redraw()
 			except structinfo.parse_exception as ex:
 				traceback.print_exc()

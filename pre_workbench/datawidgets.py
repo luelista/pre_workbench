@@ -289,6 +289,7 @@ class ByteBufferWidget(QWidget):
         self.textbox = HexView2()
         self.textbox.on_data_selected.connect(self.on_data_selected.emit)
         self.textbox.onNewSubflowCategory.connect(self.newSubflowCategory)
+        self.textbox.formatInfoUpdated.connect(self.onFormatInfoUpdated)
         self.tabWidget.addTab(self.textbox, "Raw buffer")
         #layout.addWidget(toolbar)
 
@@ -298,6 +299,10 @@ class ByteBufferWidget(QWidget):
         self.textbox.setBuffer(bufObj)
         self.bufferObject.on_new_data.connect(self.onNewData)
 
+    def onFormatInfoUpdated(self):
+        self.tabWidget.clear()
+        self.tabWidget.addTab(self.textbox, "Raw buffer")
+
     def newSubflowCategory(self, category, parse_context):
         for i in range(self.tabWidget.count()):
             if self.tabWidget.tabText(i) == category:
@@ -305,6 +310,7 @@ class ByteBufferWidget(QWidget):
         widget = PacketListWidget()
         widget.setContents(parse_context.subflow_categories[category])
         self.tabWidget.addTab(widget, category)
+        widget.on_data_selected.connect(self.on_data_selected.emit)
 
     def onNewData(self):
         #self.textbox.showHex(bufObj.buffer)

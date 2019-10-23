@@ -156,8 +156,8 @@ class PacketListWidget(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-
         #tabs = QTabWidget()
         #layout.addWidget(tabs)
 
@@ -273,21 +273,24 @@ class ByteBufferWidget(QWidget):
 
 
     def initUI(self):
-        toolbar = QToolBar()
-        self.splitIntoPacketsAction = toolbar.addAction("Split into packets")
-        self.splitIntoPacketsAction.triggered.connect(self.splitIntoPackets)
+        #toolbar = QToolBar()
+        #self.splitIntoPacketsAction = toolbar.addAction("Split into packets")
+        #self.splitIntoPacketsAction.triggered.connect(self.splitIntoPackets)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0,0,0,0)
+        layout.setSpacing(0)
         self.setLayout(layout)
 
         self.tabWidget = QTabWidget()
+        self.tabWidget.setContentsMargins(0,0,0,0)
+        self.tabWidget.setDocumentMode(True)
         layout.addWidget(self.tabWidget)
         self.textbox = HexView2()
         self.textbox.on_data_selected.connect(self.on_data_selected.emit)
         self.textbox.onNewSubflowCategory.connect(self.newSubflowCategory)
         self.tabWidget.addTab(self.textbox, "Raw buffer")
-        layout.addWidget(toolbar)
+        #layout.addWidget(toolbar)
 
     def setContents(self, bufObj):
         self.bufferObject = bufObj

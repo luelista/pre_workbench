@@ -1,6 +1,0 @@
-DEFAULT repeat struct (endianness=">"){
-	type uint8
-	version uint16
-	length uint16
-	payload bytes(size_expr="length")
-}

@@ -1,4 +1,0 @@
-DEFAULT repeat struct (endianness="!"){
-		length fixed(format="H")
-		value bytes(size_expr="length")
-	}

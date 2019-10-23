@@ -31,6 +31,7 @@ from .guihelper import getClipboardText
 class ReloadRequired(Exception):
 	pass
 
+
 class RangeList:
 	def __init__(self, totalLength, ranges, chunkSize=1024):
 		self.ranges = ranges
@@ -58,6 +59,7 @@ class RangeList:
 				scanChunk = firstChunk
 
 		if scanChunk is not None:
+			if scanChunk >= self.chunkCount: return
 			for el in self.chunks[scanChunk]:
 				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
 					yield el
@@ -78,8 +80,6 @@ class RangeList:
 		for i in range(firstChunk, lastChunk+1):
 			self.chunks[i].append(el)
 		self.ranges.append(el)
-
-
 
 
 class ByteBuffer(QObject):
@@ -199,6 +199,7 @@ class ByteBuffer(QObject):
 			if line.strip()=="": continue
 			bbuf.appendBytes(binascii.unhexlify(re.match("^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ","")))
 		return bbuf
+
 
 class Range:
 	RangeRole = QtCore.Qt.UserRole

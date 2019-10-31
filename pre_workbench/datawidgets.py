@@ -24,7 +24,8 @@ from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolB
     QAbstractItemView, QTableView
 
 from .structinfo.expr import Expression
-from .genericwidgets import ExpandWidget, showSettingsDlg, JsonView
+from .genericwidgets import showSettingsDlg
+from .typeeditor import JsonView
 from .hexview import HexView2
 from .objects import ByteBuffer, ByteBufferList
 from .typeregistry import DataWidgetTypes

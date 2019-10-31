@@ -34,7 +34,8 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 from . import configs
 from .datawidgets import DynamicDataWidget, PacketListWidget
 from .dockwindows import FileBrowserWidget, MdiWindowListWidget
-from .genericwidgets import JsonView, MdiFile, MemoryUsageWidget, showSettingsDlg
+from .genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg
+from .typeeditor import JsonView
 from .guihelper import NavigateCommands
 from .hexview import HexView2
 from .objectwindow import ObjectWindow
@@ -81,7 +82,7 @@ class WorkbenchMain(QMainWindow):
 				if res == QMessageBox.Abort:
 					sys.exit(13)
 				if res == 0:
-					self.showChild(JsonView(wndInfo))
+					self.showChild(JsonView(jdata=wndInfo))
 		for wndInfo in configs.getValue("DockWidgetStates", []):
 			self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
 
@@ -156,6 +157,11 @@ class WorkbenchMain(QMainWindow):
 				statusTip="Save the document under a new name")
 		self.mapChildAction(self.saveAsAct, "saveAs")
 
+		self.reloadFileAct = QAction("&Reload", self,
+				shortcut=QKeySequence.Refresh,
+				statusTip="Reload the current file from disk")
+		self.mapChildAction(self.reloadFileAct, "reloadFile")
+
 		self.closeAct = QAction("Cl&ose", self,
 				statusTip="Close the active window",
 				triggered=self.mdiArea.closeActiveSubWindow)
@@ -216,6 +222,7 @@ class WorkbenchMain(QMainWindow):
 		fileMenu.addAction(self.openAct)
 		fileMenu.addAction(self.saveAct)
 		fileMenu.addAction(self.saveAsAct)
+		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
 		self.mruActions = list()
 		for i in range(MRU_MAX):
@@ -236,7 +243,7 @@ class WorkbenchMain(QMainWindow):
 			viewMenu.addAction(name, lambda name=name: self.dockWidgets[name].parent().show())
 
 		toolsMenu = menubar.addMenu('&Tools')
-		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(configs.configDict)),
+		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(jdata=configs.configDict)),
 								   shortcut='Ctrl+Shift+,')
 		toolsMenu.addAction(showConfigAction)
 		editConfigAction = QAction("Preferences ...", self, triggered=lambda: self.onPreferences(),

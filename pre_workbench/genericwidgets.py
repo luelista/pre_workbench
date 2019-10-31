@@ -15,17 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QSize, QFileInfo, QTimer
-from PyQt5.QtGui import QKeyEvent, QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor
+from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QFileInfo, QTimer
+from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
-	QDialogButtonBox, QCompleter, QHeaderView, QTreeWidgetItem, QTreeWidget, QInputDialog, QSpinBox, QFileDialog, \
+	QDialogButtonBox, QCompleter, QSpinBox, QFileDialog, \
 	QMessageBox, QAction, QLabel, QColorDialog
 
 from .configs import getIcon
 from .syshelper import get_current_rss
-from .typeregistry import DataWidgetTypes
+
 
 def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	btn = QDialogButtonBox()
@@ -44,16 +44,21 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	dlg.layout().addWidget(btn)
 
 
-def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None):
-	if values == None: values = {}
+def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None):
 	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
-	sg = SettingsGroup(definition, values)
-	dlg.layout().addWidget(sg)
-	makeDlgButtonBox(dlg, ok_callback, lambda: values)
+	dlg.layout().addWidget(widget)
+	makeDlgButtonBox(dlg, ok_callback, retval_callback)
 	if dlg.exec() == QDialog.Rejected: return None
-	return values
+	return retval_callback()
+
+
+def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None):
+	if values == None: values = {}
+	sg = SettingsGroup(definition, values)
+	return showWidgetDlg(sg, title, lambda: values, parent, ok_callback)
+
 
 class FileDropLineEdit(QLineEdit):
 	def __init__(self, *__args):
@@ -81,8 +86,9 @@ class ColorSelectLineEdit(QLineEdit):
 		self.textChanged.connect(self.onTextChanged)
 		self.addAction(self.colorSelectAction, QLineEdit.TrailingPosition)
 	def selectColor(self):
-		result, ok = QColorDialog.getColor(QColor(self.text()))
-		if ok:
+		result = QColorDialog.getColor(QColor(self.text()))
+		print(result)
+		if result:
 			self.setText(result.name())
 	def onTextChanged(self, newText):
 		self.colorSelectAction.setIcon(filledColorIcon(newText, 16))
@@ -113,7 +119,7 @@ class SettingsGroup(QFrame):
 		for fieldId, title, fieldtype, params in definition:
 			empty=""
 			if fieldtype == "-":
-				self.layout.addRow("  ",None)
+				self.layout.addRow(title+"  ",None)
 				continue
 			if fieldtype == "text":
 				field = FileDropLineEdit()
@@ -213,6 +219,8 @@ class SettingsGroup(QFrame):
 			self.values[k] = v
 			self.updateField(k)
 
+
+
 class ExpandWidget(QWidget):
 	def __init__(self, title, body, collapsed=False):
 		super().__init__()
@@ -257,111 +265,6 @@ def printsizepolicy(pol):
 	print("verticalPolicy", pol.verticalPolicy())
 	print("verticalStretch", pol.verticalStretch())
 
-
-
-
-# SOURCE: https://github.com/ashwin/json-viewer/blob/master/json_viewer.py
-
-# GUI viewer to view JSON data as tree.
-# Ubuntu packages needed:
-# python3-pyqt5
-class TextToTreeItem:
-	def __init__(self):
-		self.text_list = []
-		self.titem_list = []
-
-	def append(self, text, titem):
-		self.text_list.append(text)
-		self.titem_list.append(titem)
-
-	# Return model indices that match string
-	def find(self, find_str):
-
-		titem_list = []
-		for i, s in enumerate(self.text_list):
-			if find_str in s:
-				titem_list.append(self.titem_list[i])
-
-		return titem_list
-
-
-@DataWidgetTypes.register(handles=[dict,list])
-class JsonView(QTreeWidget):
-	def __init__(self, jdata=None):
-		super(JsonView, self).__init__()
-
-		self.find_box = None
-		self.tree_widget = None
-		self.text_to_titem = TextToTreeItem()
-		self.find_str = ""
-		self.found_titem_list = []
-		self.found_idx = 0
-
-		self.setHeaderLabels(["Key", "Type", "Value"])
-		self.setColumnWidth(0, 200)
-		self.setColumnWidth(1, 100)
-		self.setColumnWidth(2, 400)
-
-		self.setContents(jdata)
-
-	def sizeHint(self):
-		return QSize(620,600)
-
-	def setContents(self, jdata):
-		self.clear()
-		self.contents = jdata
-		if jdata != None:
-			self.tree_add_row("Root", jdata, self).setExpanded(True)
-			#self.addTopLevelItem(root_item)
-			#root_item.setExpanded(True)
-
-	def tree_add_row(self, key, val, parent):
-		me = QTreeWidgetItem(parent)
-		me.setData(0, QtCore.Qt.UserRole, key)
-		me.setText(0, key)
-		me.setData(1, QtCore.Qt.UserRole, type(val))
-		me.setText(1, type(val).__name__)
-		me.setData(2, QtCore.Qt.UserRole, val)
-
-		if isinstance(val, dict):
-			for key, cc in val.items():
-				self.tree_add_row(key, cc, me)
-		elif isinstance(val, list):
-			for i, cc in enumerate(val):
-				key = str(i)
-				self.tree_add_row(key, cc, me)
-		else:
-			me.setText(2, str(val))
-			self.text_to_titem.append(str(val), me)
-
-		self.text_to_titem.append(key, me)
-		return me
-
-	def keyPressEvent(self, event: QKeyEvent) -> None:
-		if event.key() == QtCore.Qt.Key_F and event.modifiers() == QtCore.Qt.ControlModifier:
-			str = QInputDialog.getText(self, "Find", "Find string:", text=self.find_str)
-			if str is not None:
-				self.find_next(str)
-		if event.key() == QtCore.Qt.Key_F3:
-			self.find_next(self.find_str)
-		if event.key() == QtCore.Qt.Key_F5:
-			self.setContents(self.contents)
-
-	def find_next(self, find_str):
-		# Very common for use to click Find on empty string
-		if find_str == "":
-			return
-
-		# New search string
-		if find_str != self.find_str:
-			self.find_str = find_str
-			self.found_titem_list = self.text_to_titem.find(self.find_str)
-			self.found_idx = 0
-		else:
-			item_num = len(self.found_titem_list)
-			self.found_idx = (self.found_idx + 1) % item_num
-
-		self.tree_widget.setCurrentItem(self.found_titem_list[self.found_idx])
 
 
 
@@ -424,6 +327,9 @@ class MdiFile:
 				return False
 
 		return True
+
+	def reloadFile(self):
+		self.loadFile(self.curFile)
 
 
 class MemoryUsageWidget(QLabel):

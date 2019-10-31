@@ -40,7 +40,6 @@ class Evaluator(Transformer):
 	false_expr = lambda self, _: False
 
 	def math_expr(self, node):
-		print(node)
 		if node[1] == "+":
 			return node[0] + node[2]
 		elif node[1] == "-":
@@ -60,6 +59,10 @@ class Evaluator(Transformer):
 		elif node[1] == "/":
 			if isinstance(node[0], dict): return node[0][node[1]]
 			return node[0] / node[2]
+		elif node[1] == "||":
+			return node[0] or node[2]
+		elif node[1] == "&&":
+			return node[0] and node[2]
 
 	def compare_expr(self, node):
 		if node[1] == "==":
@@ -74,6 +77,12 @@ class Evaluator(Transformer):
 			return node[0] >= node[2]
 		elif node[1] == "<=":
 			return node[0] <= node[2]
+
+	def bool_expr(self, node):
+		if node[1] == "||":
+			return node[0] or node[2]
+		elif node[1] == "&&":
+			return node[0] and node[2]
 
 
 class ParseContextEvaluator(Evaluator):
@@ -143,6 +152,36 @@ class ByteBufferEvaluator(Evaluator):
 		return self.bbuf.metadata[node[0]]
 
 
+class DictEvaluator(Evaluator):
+	def __init__(self, dic):
+		super().__init__()
+		self.dic = dic
+
+	def hierarchy_expr(self, node):
+		raise NotImplemented
+
+	def array_expr(self, node):
+		print("array_expr", node)
+		return node[0][node[1]]
+
+	def member_expr(self, node):
+		print("member_expr", node)
+		try:
+			return node[0][node[1]]
+		except KeyError as e:
+			raise Exception("item has no member named "+str(node[1]))
+
+	def anyfield_expr(self, node):
+		id = node[0]
+		frame = self.dic
+		if frame is not None and id in frame:
+			return frame[id]
+		raise Exception("field "+id+" not found")
+
+	def param_expr(self, node):
+		return self.bbuf.metadata[node[0]]
+
+
 class Stringifier(Transformer):
 	def __init__(self):
 		super().__init__()
@@ -161,6 +200,9 @@ class Stringifier(Transformer):
 		return " ".join(node)
 
 	def compare_expr(self, node):
+		return " ".join(node)
+
+	def bool_expr(self, node):
 		return " ".join(node)
 
 	def hierarchy_expr(self, node):
@@ -255,6 +297,15 @@ class Expression:
 	def evaluate_bbuf(self, bbuf):
 		try:
 			return ByteBufferEvaluator(bbuf).transform(self.expr_tree)
+		except Exception as e:
+			traceback.print_exc()
+			print(self.expr_str)
+			print(self.expr_tree.pretty())
+			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
+
+	def evaluate_dict(self, dic):
+		try:
+			return DictEvaluator(dic).transform(self.expr_tree)
 		except Exception as e:
 			traceback.print_exc()
 			print(self.expr_str)

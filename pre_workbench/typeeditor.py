@@ -17,16 +17,19 @@
 
 import uuid
 
-from PyQt5 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
+from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
-	QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog
+	QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDoubleSpinBox, QSpinBox, QTableWidget, QMenu, \
+	QInputDialog, QTreeWidget, QTreeWidgetItem
 
+from .structinfo.expr import Expression
 from .configs import respath
 from .structinfo import xdrm
-from .genericwidgets import MdiFile, makeDlgButtonBox
-from .typeregistry import WindowTypes
+from .genericwidgets import MdiFile, makeDlgButtonBox, showWidgetDlg
+from .typeregistry import WindowTypes, DataWidgetTypes
 
 FILE_MAGIC = b"\xde\xca\xf9\x30"
 
@@ -59,30 +62,39 @@ class TypeEditorSchema:
 
 	def generateTypeEditor(self, parent, definition):
 		typeKind, typeContent = definition
-		print(definition)
+		#print(definition)
 		if typeKind == Type_Named:
 			return self.generateTypeEditorByName(parent, typeContent)
 		elif typeKind == Type_Struct:
-			return StructTypeEditor(parent, self, typeContent)
+			return StructTypeEditor(parent, self, definition)
 		elif typeKind == Type_Choice:
-			return ChoiceTypeEditor(parent, self, typeContent)
+			return ChoiceTypeEditor(parent, self, definition)
 		elif typeKind == Type_List:
-			return ListTypeEditor(parent, self, typeContent)
-		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_INTEGER and typeContent.get('params',{}).get('isFlagType')==True:
-			return FlagsTypeEditor(parent, self, typeContent)
+			return ListTypeEditor(parent, self, definition)
+		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_INTEGER and typeContent.get('isFlagType')==True:
+			return FlagsTypeEditor(parent, self, definition)
 		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_INTEGER:
-			return NumericTypeEditor(parent, self, typeContent)
+			return IntTypeEditor(parent, self, definition)
+		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_REAL:
+			return FloatTypeEditor(parent, self, definition)
 		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_ENUMERATED:
-			return EnumTypeEditor(parent, self, typeContent)
+			return EnumTypeEditor(parent, self, definition)
 		elif typeKind == Type_Primitive and typeContent['primitive'] == PrimitiveTags_BOOLEAN:
-			return BooleanTypeEditor(parent, self, typeContent)
+			return BooleanTypeEditor(parent, self, definition)
 		else:
-			return TextTypeEditor(parent, self, typeContent)
+			return TextTypeEditor(parent, self, definition)
 
 	def generateTypeEditorByName(self, parent, typeName):
 		te = self.generateTypeEditor(parent, self.typeDefs[typeName]['def'])
 		te.typeName = typeName
 		return te
+
+	def resolveTypeInfo(self, definition):
+		typeKind, typeContent = definition
+		if typeKind == Type_Named:
+			return self.resolveTypeInfo(self.typeDefs[typeContent]['def'])
+		else:
+			return typeKind, typeContent
 
 
 
@@ -94,10 +106,11 @@ class TypeEditorSetOptions:
 
 class BaseTypeEditor(QFrame):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema : TypeEditorSchema, rootTypeContent : dict):
+	def __init__(self, parent, schema : TypeEditorSchema, rootTypeDefinition : dict):
 		super().__init__(parent)
 		self.schema = schema
-		self.rootTypeContent = rootTypeContent
+		self.rootTypeDefinition = rootTypeDefinition
+		self.rootTypeContent = rootTypeDefinition[1]
 		self.initUI()
 		self.typeName = ""
 	def serialize(self):
@@ -110,10 +123,10 @@ class BaseTypeEditor(QFrame):
 
 class PrimitiveTypeEditor(BaseTypeEditor):
 	pass
-"""
-class NumericTypeEditor(QSpinBox):
+
+class FloatTypeEditor(QDoubleSpinBox):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
 	def changeEvent(self, e: QEvent) -> None:
 		self.updated.emit("")
@@ -123,22 +136,23 @@ class NumericTypeEditor(QSpinBox):
 		return self.value()
 	def clear(self):
 		self.setValue(0)
-"""
-class NumericTypeEditor(QLineEdit):
+
+class IntTypeEditor(QSpinBox):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
 	def changeEvent(self, e: QEvent) -> None:
 		self.updated.emit("")
 	def set(self, value, opts=None):
-		self.setText(str(value))
+		self.setValue(value)
 	def get(self):
-		return int(self.text())
+		return self.value()
 	def clear(self):
-		self.setText("0")
+		self.setValue(0)
+
 class TextTypeEditor(QLineEdit):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
 	def changeEvent(self, e: QEvent) -> None:
 		self.updated.emit("")
@@ -151,7 +165,7 @@ class TextTypeEditor(QLineEdit):
 
 class BooleanTypeEditor(QCheckBox):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
 	def changeEvent(self, e: QEvent) -> None:
 		self.updated.emit("")
@@ -164,9 +178,9 @@ class BooleanTypeEditor(QCheckBox):
 
 class EnumTypeEditor(QComboBox):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
-		for t in rootTypeContent["enumOptions"]:
+		for t in rootTypeDefinition[1]["enumOptions"]:
 			self.addItem(t["name"], t["value"])
 		self.activated.connect(self.selectChanged)
 	def selectChanged(self, newIndex):
@@ -181,24 +195,27 @@ class EnumTypeEditor(QComboBox):
 
 class FlagsTypeEditor(QListWidget):
 	updated = pyqtSignal(str)
-	def __init__(self, parent, schema, rootTypeContent):
+	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
-		for t in rootTypeContent["enumOptions"]:
+		for t in rootTypeDefinition[1]["enumOptions"]:
 			listItem = QListWidgetItem(t["name"], self)
 			listItem.setCheckState(Qt.Unchecked)
-			listItem.setData(Qt.ItemDataRole, t["value"])
+			listItem.setData(Qt.UserRole, t["value"])
 		self.itemChanged.connect(self.selectChanged)
+		self.myHeight = min(200, len(rootTypeDefinition[1]["enumOptions"]) * 15)
+	def sizeHint(self):
+		return QSize(150, self.myHeight)
 	def selectChanged(self, newIndex):
 		self.updated.emit("")
 	def set(self, value, opts=None):
 		for i in range(self.count()):
-			flag = self.item(i).data(Qt.ItemDataRole)
+			flag = self.item(i).data(Qt.UserRole)
 			self.item(i).setCheckState(Qt.Checked if (value & flag) != 0 else Qt.Unchecked)
 	def get(self):
 		o = 0
 		for i in range(self.count()):
 			if self.item(i).checkState() == Qt.Checked:
-				o |= self.item(i).data(Qt.ItemDataRole)
+				o |= self.item(i).data(Qt.UserRole)
 		return 0
 	def clear(self):
 		self.set(0)
@@ -206,9 +223,13 @@ class FlagsTypeEditor(QListWidget):
 
 class error_while_assigning(Exception):
 	def __init__(self, key, msg=""):
-		super().__init__("error while assigning "+key+": "+msg)
+		super().__init__("error while assigning '"+key+"': "+msg)
 
 class StructuredTypeEditor(BaseTypeEditor):
+	def initUI(self):
+		self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+
 	def mouseReleaseEvent(self, e: QtGui.QMouseEvent) -> None:
 		pass
 
@@ -219,10 +240,19 @@ class StructuredTypeEditor(BaseTypeEditor):
 	def paste(self):
 		pass
 
+	def onCustomContextMenuRequested(self, point):
+		ctx = QMenu("Context menu", self)
+		ctx.addAction("Paste", lambda: self.paste())
+		ctx.addAction("alt. editor", lambda: showWidgetDlg(JsonView(jdata=self.get(), schema=self.schema, rootTypeDefinition=self.rootTypeDefinition), "alt. editor", lambda: None))
+
+		ctx.exec(self.mapToGlobal(point))
+
+
 
 class StructTypeEditor(StructuredTypeEditor):
 
 	def initUI(self):
+		super().initUI()
 		self.setLayout(QFormLayout())
 		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 		self.conditionals = list()
@@ -234,16 +264,17 @@ class StructTypeEditor(StructuredTypeEditor):
 			child.updated.connect(lambda childKey, fieldKey = field['name']: self.updated.emit("." + fieldKey + childKey))
 			opt = ""
 
+			label = field['label'] if 'label' in field else field['name']
 			if field.get('optional') == True and "defaultValue" in field: raise Exception("can't have optional AND defaultValue attribute on field")
 			if field.get('optional') == True:
-				child._struct_opt = labelWidget = QCheckBox(field['name'])
+				child._struct_opt = labelWidget = QCheckBox(label)
 				labelWidget.stateChanged.connect(lambda value, key=field['name']: self.setOpt(key, value))
 				#opt = child._struct_opt = EL("input", {type: "checkbox",value:field.name}); opt.onchange=function(){self.setOpt(this.value,this.checked)}
 			else:
-				labelWidget = QLabel(field['name'])
+				labelWidget = QLabel(label)
 
 			self.layout().addRow(labelWidget, child)
-			if ("uiShowIf" in field): self.conditionals.append((field['uiShowIf'], labelWidget, child));
+			if ("uiShowIf" in field): self.conditionals.append((Expression(expr_str=field['uiShowIf']), labelWidget, child));
 			# TODO fix autoincrement fields
 			#if ("uiFlags" in field and (field['uiFlags'] & Field_UiFlags_autoIncrement) > 0 and parent.children):
 			#	child.set(parent.children.reduce(function(p,c) { return Math.max(p,c.getFieldValue(field.name))}, 0) + 1);
@@ -302,19 +333,17 @@ class StructTypeEditor(StructuredTypeEditor):
 
 	@pyqtSlot(str)
 	def checkConditions(self, updatedKey):
-		#TODO
-		"""  var obj = self.get();
-		self.conditionals.forEach(function(cond) {
-			with(obj) {
-				cond[1].className = eval(cond[0]) ? "uiShowIf-visible" : "uiShowIf-hidden";
-			}
-		});"""
-		pass
-
+		obj = self.get()
+		for uiShowIf, labelWidget, child in self.conditionals:
+			#vis = eval(uiShowIf, {}, obj)
+			vis = uiShowIf.evaluate_dict(obj)
+			labelWidget.setVisible(vis)
+			child.setVisible(vis)
 
 
 class ChoiceTypeEditor(StructuredTypeEditor):
 	def initUI(self):
+		super().initUI()
 		self.setLayout(QVBoxLayout())
 		self.layout().setContentsMargins(0,0,0,0)
 		self.child = None
@@ -324,7 +353,6 @@ class ChoiceTypeEditor(StructuredTypeEditor):
 			self.selectEl.addItem(t["name"], t["id"])
 		self.selectEl.activated.connect(self.selectChanged)
 		self.selectChanged(0)
-
 
 	def selectChanged(self, newIndex):
 		#id = self.selectEl.itemData(newIndex)
@@ -356,6 +384,7 @@ class ChoiceTypeEditor(StructuredTypeEditor):
 
 class ListTypeEditor(StructuredTypeEditor):
 	def initUI(self):
+		super().initUI()
 		self.setLayout(QVBoxLayout())
 		self.addButton = QPushButton("Add")
 		self.addButton.clicked.connect(lambda: self.add())
@@ -458,13 +487,210 @@ def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options", ok_cal
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
-	metaSchema = TypeEditorSchema(open(respath(schemaFile),'rb').read())
-	editor = metaSchema.generateTypeEditorByName(dlg, typeName)
+	if not isinstance(schemaFile, TypeEditorSchema):
+		schemaFile = TypeEditorSchema(open(respath(schemaFile),'rb').read())
+	if isinstance(typeName, str):
+		editor = schemaFile.generateTypeEditorByName(dlg, typeName)
+	else:
+		editor = schemaFile.generateTypeEditor(dlg, typeName)
 	if values != None: editor.set(values)
 	dlg.layout().addWidget(editor)
 	makeDlgButtonBox(dlg, ok_callback, lambda: editor.get())
 	if dlg.exec() == QDialog.Rejected: return None
 	return editor.get()
+
+
+
+
+
+# SOURCE: https://github.com/ashwin/json-viewer/blob/master/json_viewer.py
+
+# GUI viewer to view JSON data as tree.
+# Ubuntu packages needed:
+# python3-pyqt5
+class TextToTreeItem:
+	def __init__(self):
+		self.text_list = []
+		self.titem_list = []
+
+	def append(self, text, titem):
+		self.text_list.append(text)
+		self.titem_list.append(titem)
+
+	# Return model indices that match string
+	def find(self, find_str):
+
+		titem_list = []
+		for i, s in enumerate(self.text_list):
+			if find_str in s:
+				titem_list.append(self.titem_list[i])
+
+		return titem_list
+
+
+@DataWidgetTypes.register(handles=[dict,list])
+class JsonView(QTreeWidget):
+	def __init__(self, parent=None, schema : "TypeEditorSchema"=None, rootTypeDefinition =None, jdata=None):
+		super(JsonView, self).__init__(parent)
+		self.schema = schema
+		self.rootTypeDefinition = rootTypeDefinition
+		self.typeName = ""
+
+		self.find_box = None
+		self.tree_widget = None
+		self.text_to_titem = TextToTreeItem()
+		self.find_str = ""
+		self.found_titem_list = []
+		self.found_idx = 0
+
+		self.setDragEnabled(True)
+		self.viewport().setAcceptDrops(True)
+		self.setDropIndicatorShown(True)
+		self.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
+		self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+		self.setHeaderLabels(["Key", "Type", "Value"])
+		self.setColumnWidth(0, 200)
+		self.setColumnWidth(1, 100)
+		self.setColumnWidth(2, 400)
+
+		self.setContents(jdata)
+
+	def onCustomContextMenuRequested(self, point):
+		ctx = QMenu("Context menu", self)
+		item = self.itemAt(point)
+		if item != None:
+			typ = item.data(1, QtCore.Qt.UserRole)
+			ctx.addAction("Edit ...", lambda: self.editField(item))
+			ctx.addAction("Change type ...", lambda: self.changeType(item))
+			parentTyp = None
+			if item.parent() is not None:
+				parentTyp = item.parent().data(1, QtCore.Qt.UserRole)
+			if typ is dict:
+				ctx.addSeparator()
+				ctx.addAction("Add field ...", lambda: self.addField(item, "StructField"))
+			if typ is list:
+				ctx.addSeparator()
+				ctx.addAction("Add item ...", lambda: self.addField(item, "AnyFI"))
+				ctx.addAction("Clear list", lambda: self.addField(item, "AnyFI"))
+			if parentTyp is dict:
+				ctx.addSeparator()
+				ctx.addAction("Rename ...", lambda: self.editField(item))
+				ctx.addAction("Remove this field", lambda: self.removeField(item, range.field_name))
+			if parentTyp is list:
+				ctx.addSeparator()
+				ctx.addAction("Remove this item", lambda: self.removeField(item, range.field_name))
+
+		ctx.exec(self.mapToGlobal(point))
+
+	def sizeHint(self):
+		return QSize(620,600)
+
+	def setContents(self, jdata):
+		self.set(jdata)
+	def set(self, jdata):
+		self.clear()
+		self.contents = jdata
+		if jdata != None:
+			self.tree_add_row("Root", jdata, self, self.rootTypeDefinition ).setExpanded(True)
+			#self.addTopLevelItem(root_item)
+			#root_item.setExpanded(True)
+
+	def editField(self, item):
+		typeDef = item.data(1, QtCore.Qt.UserRole + 1)
+		print("typeDef",typeDef)
+		res = showTypeEditorDlg(self.schema, typeDef, self.tree_fetch(item), "Edit item")
+		if res is not None:
+			self.tree_set_row(item, res, typeDef)
+
+	def changeType(self, item):
+		typeDef = item.data(1, QtCore.Qt.UserRole + 1)
+		newTypedef = showTypeEditorDlg("meta_schema.tes", "Type", typeDef, "Set type")
+		if newTypedef is not None:
+			res2 = showTypeEditorDlg(self.schema, newTypedef, None, "Set new value")
+			if res2 is not None:
+				self.tree_set_row(item, res2, newTypedef)
+
+	def get(self):
+		return self.tree_fetch(self.tree_widget.invisibleRootItem())
+
+	def tree_fetch(self, item):
+		typ = item.data(1, QtCore.Qt.UserRole)
+		typeDef = item.data(1, QtCore.Qt.UserRole + 1)
+		if typeDef is not None and typeDef[0] == Type_Choice:
+			choiceId = item.data(1, QtCore.Qt.UserRole + 2)
+			return [choiceId, self.tree_fetch(item.child(0))]
+		elif typ is dict:
+			return {item.child(i).data(0, QtCore.Qt.UserRole) : self.tree_fetch(item.child(i)) for i in range(item.childCount())}
+		elif typ is list:
+			return [self.tree_fetch(item.child(i)) for i in range(item.childCount())]
+		else:
+			return item.data(2, QtCore.Qt.UserRole)
+
+	def tree_add_row(self, key, val, parent, typeDef=None):
+		me = QTreeWidgetItem(parent)
+		me.setData(0, QtCore.Qt.UserRole, key)
+		me.setText(0, key)
+		self.tree_set_row(me, val, typeDef)
+		self.text_to_titem.append(key, me)
+		return me
+
+	def tree_set_row(self, me, val, typeDef):
+		print(typeDef)
+		me.setData(1, QtCore.Qt.UserRole, type(val))
+		me.setData(1, QtCore.Qt.UserRole + 1, typeDef)
+		typeDef = self.schema.resolveTypeInfo(typeDef)
+		me.setText(1, type(val).__name__)
+		me.setData(2, QtCore.Qt.UserRole, val)
+
+		print(typeDef)
+		if isinstance(val, dict):
+			typeDefs = {field['name'] : field['type'] for field in typeDef[1]['fields']}
+			print("defs",typeDefs)
+			for key, cc in val.items():
+				self.tree_add_row(key, cc, me, typeDefs.pop(key, None))
+			me.setData(1, QtCore.Qt.UserRole + 2, typeDefs)
+		elif isinstance(val, list):
+			if typeDef[0] == Type_Choice:
+				choiceItem = next(x for x in typeDef[1]['types'] if x['id'] == val[0])
+				me.setData(1, QtCore.Qt.UserRole + 2, val[0])
+				print("choiceItem",choiceItem)
+				self.tree_add_row(choiceItem['name'], val[1], me, choiceItem['type'])
+			else:
+				for i, cc in enumerate(val):
+					key = str(i)
+					self.tree_add_row(key, cc, me, typeDef[1]['itemType'])
+		else:
+			me.setText(2, str(val))
+			self.text_to_titem.append(str(val), me)
+
+
+	def keyPressEvent(self, event: QKeyEvent) -> None:
+		if event.key() == QtCore.Qt.Key_F and event.modifiers() == QtCore.Qt.ControlModifier:
+			str = QInputDialog.getText(self, "Find", "Find string:", text=self.find_str)
+			if str is not None:
+				self.find_next(str)
+		if event.key() == QtCore.Qt.Key_F3:
+			self.find_next(self.find_str)
+		if event.key() == QtCore.Qt.Key_F5:
+			self.setContents(self.contents)
+
+	def find_next(self, find_str):
+		# Very common for use to click Find on empty string
+		if find_str == "":
+			return
+
+		# New search string
+		if find_str != self.find_str:
+			self.find_str = find_str
+			self.found_titem_list = self.text_to_titem.find(self.find_str)
+			self.found_idx = 0
+		else:
+			item_num = len(self.found_titem_list)
+			self.found_idx = (self.found_idx + 1) % item_num
+
+		self.tree_widget.setCurrentItem(self.found_titem_list[self.found_idx])
+
 
 
 

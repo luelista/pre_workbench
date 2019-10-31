@@ -89,10 +89,10 @@ hierarchy_expr: DOTS
 array_expr: expression "[" expression "]"
 member_expr: expression "." IDENTIFIER
 anyfield_expr: IDENTIFIER
-BINARY_OP.5: "&" | "|" | "^" | "<<" | ">>"
 PUNKT_OP: "*" | "/"
 STRICH_OP: "+" | "-"
 COMP_OP: "==" | "!=" | "<" | ">" | "<=" | ">="
+BINARY_OP.5: "||" | "&&" | "&" | "|" | "^" | "<<" | ">>"
 number_expr: NUMBER
 string_expr: ESCAPED_STRING
 

@@ -256,7 +256,8 @@ class Range:
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def __repr__(self):
-		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
+		#return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
+		return "Range[%d:%d name=%s, valuetype=%r]" % (self.start, self.end, self.field_name, type(self.value))
 	def length(self):
 		return self.bytes_size
 

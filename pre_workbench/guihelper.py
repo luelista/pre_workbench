@@ -19,6 +19,9 @@ from PyQt5.QtWidgets import QApplication, QMessageBox
 
 NavigateCommands = dict()
 
+def str_ellipsis(data, length):
+    return (data[:length] + '...(%d)'%(len(data))) if len(data) > length+2 else data
+
 def setClipboardText(txt):
     cb = QApplication.clipboard()
     cb.clear(mode=cb.Clipboard )

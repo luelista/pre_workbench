@@ -31,7 +31,7 @@ from pre_workbench.textfile import showScintillaDialog
 from pre_workbench import configs
 from pre_workbench import structinfo
 from pre_workbench.genericwidgets import showSettingsDlg
-from pre_workbench.guihelper import setClipboardText
+from pre_workbench.guihelper import setClipboardText, str_ellipsis
 from pre_workbench.hexview_selheur import selectionHelpers
 from pre_workbench.objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
 from pre_workbench.typeeditor import showTypeEditorDlg
@@ -355,7 +355,7 @@ class HexView2(QWidget):
 			ctx.addAction("Range %d-%d (%s): %s" % (d.start, d.end, d.metadata.get("name"), d.metadata.get("showname")), lambda d=d: self.selectRange(d))
 			for k,v in d.metadata.items():
 				if k != "name" and k != "showname":
-					ctx.addAction("    %s=%s" % (k,v))
+					ctx.addAction("    %s=%s" % (k,str_ellipsis(str(v),75)))
 
 
 	def buildGeneralContextMenu(self, ctx):
@@ -665,8 +665,9 @@ class HexView2(QWidget):
 				if (ii != 0): y += self.dyLine;
 				qpTxt.setFont(self.fontSection)
 				qpTxt.setPen(self.fsSection);
-				qpTxt.drawText(5, y+TXT_DY, "\n".join(sectionAnnotations))
-				y += self.dyLine;
+				for row in sectionAnnotations:
+					qpTxt.drawText(5, y+TXT_DY, row)
+					y += self.dyLine;
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(QColor("#555555"));
 				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(i));

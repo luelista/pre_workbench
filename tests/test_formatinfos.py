@@ -1,3 +1,4 @@
+import uuid
 from binascii import unhexlify
 
 import pytest
@@ -145,4 +146,90 @@ def test_variant_strings_endianness():
 		 ]
 	)
 
+def test_ws_numbers():
+	parse_me("""
+	DEFAULT struct(endianness=">", charset="ascii") {
+		none NONE
+		bool BOOLEAN
+		char CHAR
+		euint E_UINT(size=(9))
+		uint8 UINT8
+		uint16 UINT16
+		uint24 UINT24
+		uint32 UINT32
+		uint40 UINT40
+		uint48 UINT48
+		uint56 UINT56
+		uint64 UINT64
+		eint E_INT(size=(9))
+		int8 INT8
+		int16 INT16
+		int24 INT24
+		int32 INT32
+		int40 INT40
+		int48 INT48
+		int56 INT56
+		int64 INT64
+		float FLOAT
+		double DOUBLE
+	}
+	""",
+	"  01  41  000000000000000001  01  0001  0000 01   0000 0001  0000 0000 01  0000 0000 0001  0000 0000 0000 01  0000 0000 0000 0001"
+	"000000000000000001  01  0001  0000 01   0000 0001  0000 0000 01  0000 0000 0001  0000 0000 0000 01  0000 0000 0000 0001"
+	"00000000  0000000000000000    ", {
+				 'none': None,
+				 'bool': True,
+				 'char': 65,
+				 'euint': 1,
+				 'uint8': 1,
+				 'uint16': 1,
+				 'uint24': 1,
+				 'uint32': 1,
+				 'uint40': 1,
+				 'uint48': 1,
+				 'uint56': 1,
+				 'uint64': 1,
+				 'eint': 1,
+				 'int16': 1,
+				 'int24': 1,
+				 'int32': 1,
+				 'int40': 1,
+				 'int48': 1,
+				 'int56': 1,
+				 'int64': 1,
+				 'int8': 1,
+				 'float': 0.0,
+				 'double': 0.0,
+			 })
+
+
+def test_ws_bytes():
+	parse_me("""
+	DEFAULT struct(endianness=">", charset="ascii") {
+		string STRING(size=(3))
+		stringz STRINGZ
+		uint_string UINT_STRING(size_len=(3))
+		ether ETHER
+		bytes BYTES(size=(3))
+		uint_bytes UINT_BYTES(size_len=(3))
+		ipv4 IPv4
+		ipv6 IPv6
+		idocument GUID
+		idispatch GUID
+	}
+	""",
+	"   414243     414243444500   000005 4142434445   aabbccddeeff     010203  000005 0102030405     0a010164"
+	"     fe80 0000 0000 0000 14df 5963 6159 0eac"
+	"bf1b29c2987341b79b45f22c50432bb1  0004020000000000c000000000000046", {
+				 'bytes': b'\x01\x02\x03',
+				 'ether': 'aa:bb:cc:dd:ee:ff',
+				 'idispatch': uuid.UUID('00040200-0000-0000-c000-000000000046'),
+				 'idocument': uuid.UUID('bf1b29c2-9873-41b7-9b45-f22c50432bb1'),
+				 'ipv4': '10.1.1.100',
+				 'ipv6': 'fe80:0000:0000:0000:14df:5963:6159:0eac',
+				 'string': 'ABC',
+				 'stringz': 'ABCDE',
+				 'uint_bytes': b'\x01\x02\x03\x04\x05',
+				 'uint_string': 'ABCDE'
+	})
 

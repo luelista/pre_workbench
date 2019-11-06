@@ -18,7 +18,6 @@ import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
-from . import structinfo
 from .objects import ByteBuffer, ByteBufferList, ReloadRequired
 from .typeregistry import TypeRegistry
 from .tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
@@ -44,13 +43,22 @@ class FileDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			("fileName", "File name", "text", {"fileselect":"open"})
+			("fileName", "File name", "text", {"fileselect":"open"}),
+			("formatInfo", "Format info", "text", {"fileselect":"open"})
 		]
 	def startFetch(self):
 		bbuf = ByteBuffer(metadata={'fileName':self.params['fileName'],
 									'fileTimestamp': os.path.getmtime(self.params['fileName'])})
 		with open(self.params['fileName'], "rb") as f:
 			bbuf.setContent(f.read())
+
+		if self.params["formatInfo"] != "":
+			from . import structinfo
+			bbuf.fi_container = structinfo.FormatInfoContainer(load_from_file=self.params["formatInfo"])
+			parse_context = structinfo.BytebufferAnnotatingParseContext(bbuf.fi_container, bbuf)
+			#parse_context.on_new_subflow_category = self.newSubflowCategory
+			bbuf.fi_tree = parse_context.parse()
+
 		self.on_finished.emit()
 		return bbuf
 		

@@ -28,11 +28,13 @@ from typeregistry import TypeRegistry
 FILE_MAGIC = b"\xde\xca\xf9\x30"
 IFACE_UUID = uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07")
 
+
 class parse_exception(Exception):
 	def __init__(self, context, msg):
 		super().__init__(context.get_path() + ": " + msg)
 		self.parse_stack = context.stack
 		self.offset = context.offset()
+
 
 class incomplete(parse_exception):
 	def __init__(self, context, need, got):
@@ -49,12 +51,19 @@ class value_not_found(parse_exception):
 		super().__init__(context, msg)
 
 
+class spec_error(parse_exception):
+	def __init__(self, context, msg):
+		super().__init__(context, "spec_error: "+msg)
+		self.offending_desc = context.stack[-1][0]
+
+
 #def parse_stack_tostr(stack):
 
 class FormatInfoContainer:
 	def __init__(self, definitions=None, load_from_file=None):
 		self.definitions = {} if definitions is None else definitions
 		self.main_name = None
+		self.file_name = None
 		if load_from_file is not None: self.load_from_file(load_from_file)
 
 	def to_text(self, indent = 0):
@@ -69,6 +78,7 @@ class FormatInfoContainer:
 				#return bin_deserialize_fi(f.read())
 				#TODO
 				raise NotImplemented
+		self.file_name = fileName
 
 	def load_from_string(self, txt):
 		from .parser import parse_string, MainTrans
@@ -91,7 +101,7 @@ class FormatInfoContainer:
 			raise Exception("unsupported file type")
 
 	def get_fi_by_def_name(self, def_name):
-			return self.format_infos.definitions[def_name]
+			return self.definitions[def_name]
 
 
 
@@ -179,7 +189,13 @@ class ParseContext:
 		if self.remaining_bytes() < needed: raise incomplete(self, needed, self.remaining_bytes())
 
 	def peek_structformat(self, format_string):
-		return struct.unpack_from(format_string, self.buf, self.buf_offset)
+		return struct.unpack_from(self.get_param('endianness') + format_string, self.buf, self.buf_offset)
+
+	def peek_int(self, n, signed):
+		return int.from_bytes(self.buf[self.buf_offset:self.buf_offset+n], signed=signed, byteorder='little' if self.get_param('endianness') == '<' else 'big')
+
+	def peek_bytes(self, n):
+		return self.buf[self.buf_offset : self.buf_offset + n]
 
 	def consume_bytes(self, count):
 		self.require_bytes(count)
@@ -193,14 +209,14 @@ class ParseContext:
 	def offset(self):
 		return self.buf_offset + self.display_offset_delta
 
-	def top_offset(self):
-		return self.stack[-1][3] + self.display_offset_delta
+	def top_offset(self, stack_index=-1):
+		return self.stack[stack_index][3] + self.display_offset_delta
 
-	def top_length(self):
-		return self.buf_offset - self.stack[-1][3] + self.display_offset_delta
+	def top_length(self, stack_index=-1):
+		return self.buf_offset - self.stack[stack_index][3] + self.display_offset_delta
 
-	def top_value(self):
-		return self.stack[-1][1]
+	def top_value(self, stack_index=-1):
+		return self.stack[stack_index][1]
 
 	def top_id(self):
 		for i in reversed(range(len(self.stack))):
@@ -211,8 +227,8 @@ class ParseContext:
 	def set_top_value(self, value):
 		self.stack[-1][1] = value
 
-	def top_buf(self):
-		return self.buf[ self.stack[-1][3] : self.buf_offset ]
+	def top_buf(self, stack_index=-1):
+		return self.buf[ self.stack[stack_index][3] : self.buf_offset ]
 
 	def pack_value(self, value):
 		if self.on_new_subflow_category is not None:
@@ -390,6 +406,22 @@ def deserialize_fi(data):
 	else:
 		return data
 
+# struct header_field_info {
+#     const char      *name;
+#     const char      *abbrev;
+#     enum ftenum     type;
+#     int             display;
+#     const void      *strings;
+#     guint64         bitmask;
+#     const char      *blurb;
+#     .....
+# };
+
+hf_info_template = """
+		{ &hf_{proto_abbrev}_{field_name}, {
+			"{description}", "{proto_abbrev}.{field_name}", FT_{ws_type}, BASE_{display_base},
+			{enum_ref}, 0, NULL, HFILL }},"""
+
 class FormatInfo:
 	def __init__(self, info=None, typeRef=None, params=None):
 		if info is not None: self.deserialize(info)
@@ -457,56 +489,8 @@ class FormatInfo:
 			context.log("calling context.pop",self.fi)
 			context.pop()
 
-
 	def __repr__(self):
 		return type(self.fi).__name__+ params_to_text(0, None, self.params)
-
-@FITypes.register(type_id=0)
-class FixedFieldFI:
-
-	def init(self, format, magic=None, **kw):
-		self.pack_format=format
-		#self.magic_value=magic
-		self.size = struct.calcsize(format)
-
-	def _to_text(self, indent, refs, all_params):
-		return  "fixed"+params_to_text(indent, refs, all_params, )
-
-	def _parse(self, context):
-		context.require_bytes(self.size)
-		(value,) = context.peek_structformat(context.get_param("endianness") + self.pack_format)
-		magic = context.get_param("magic", raise_if_missing=False)
-		if magic != None and value != magic:
-			raise invalid(context, "found magic value %r doesn't match spec %r" % (value, magic))
-		context.consume_bytes(self.size)
-		return context.pack_value(value)
-
-
-@FITypes.register(type_id=1)
-class VarByteFieldFI:
-	def init(self, size_expr="", parse_with=None, **kw):
-		if size_expr:
-			self.size_expr = deserialize_expr(size_expr)
-		else:
-			self.size_expr = None
-		self.parse_with=parse_with
-
-	def _to_text(self, indent, refs, all_params):
-		return  "bytes"+params_to_text(indent, refs, all_params, )
-
-	def _parse(self, context):
-		if self.size_expr:
-			n = self.size_expr.evaluate(context)
-		else:
-			n = context.remaining_bytes()
-		if self.parse_with == None:
-			return context.pack_value(context.read_bytes(n))
-		else:
-			context.set_child_limit(n)
-			val = self.parse_with.read_from_buffer(context)
-			context.consume_bytes(context.remaining_bytes())
-			return context.pack_value(val)
-
 
 @FITypes.register(type_id=2)
 class StructFI:
@@ -559,7 +543,6 @@ class VariantStructFI:
 		#raise invalid(context, "no variant matched")
 		context.log("no variant matched")
 		return context.pack_value(None)
-
 
 
 @FITypes.register(type_id=4)
@@ -644,6 +627,158 @@ class NamedFI:
 		print(context.id, self.ref_name)
 		context.id = self.ref_name
 		return context.pack_value(self.ref.read_from_buffer(context))
+
+
+
+EXPR_LEN = -1 #dynamic length specified with size_expr
+DYN_LEN = -2  #dynamic length automatically determined while parsing
+PREFIX_LEN = -3  #dynamic length automatically determined while parsing from a length prefix in the data
+
+def _parse_signed_int(c, n):
+	return c.peek_int(n, signed=True)
+def _parse_unsigned_int(c, n):
+	return c.peek_int(n, signed=False)
+def _parse_stringz(c, n):
+	for i in range(c.buf_offset, c.remaining_bytes() + c.buf_offset):
+		if c.buf[i] == 0:
+			return c.buf[c.buf_offset:i], i - c.buf_offset
+	return b"", 0
+def _parse_bytes_formatted(format):
+	return lambda c,n: format % tuple(c.peek_bytes(n))
+def _parse_uuid(c, n):
+	if c.get_param("endianness") == "<":
+		return uuid.UUID(bytes_le=c.peek_bytes(n))
+	else:
+		return uuid.UUID(bytes=c.peek_bytes(n))
+
+builtinTypes = {
+	"NONE": 	(0, None, ),   			#	/* used for text labels with no value */
+	#"PROTOCOL": (NOT_IMPL, None, ),   	#
+	"BOOLEAN": 	(1, lambda c,n: c.peek_structformat("?")[0], ),   			#	/* TRUE and FALSE come from <glib.h> */
+	"CHAR": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#	/* 1-octet character as 0-255 */
+	"UINT8": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#
+	"UINT16": 	(2, lambda c,n: c.peek_structformat("H")[0], ),   			#
+	"UINT24": 	(3, _parse_unsigned_int, ),   			#	/* really a UINT32,  but displayed as 6 hex-digits if FD_HEX*/
+	"UINT32": 	(4, lambda c,n: c.peek_structformat("L")[0], ),   			#
+	"UINT40": 	(5, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 10 hex-digits if FD_HEX*/
+	"UINT48": 	(6, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 12 hex-digits if FD_HEX*/
+	"UINT56": 	(7, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 14 hex-digits if FD_HEX*/
+	"UINT64": 	(8, lambda c,n: c.peek_structformat("Q")[0], ),   			#
+	"INT8": 	(1, lambda c,n: c.peek_structformat("b")[0], ),   			#
+	"INT16": 	(2, lambda c,n: c.peek_structformat("h")[0], ),   			#
+	"INT24": 	(3, _parse_signed_int, ),   			#	/* same as for UINT24 */
+	"INT32": 	(4, lambda c,n: c.peek_structformat("l")[0], ),   			#
+	"INT40": 	(5, _parse_signed_int, ),   			# /* same as for UINT40 */
+	"INT48": 	(6, _parse_signed_int, ),   			# /* same as for UINT48 */
+	"INT56": 	(7, _parse_signed_int, ),   			# /* same as for UINT56 */
+	"INT64": 	(8, lambda c,n: c.peek_structformat("q")[0], ),   			#
+	"IEEE_11073_SFLOAT": (2, None, ),   #
+	"IEEE_11073_FLOAT": (4, None, ),   	#
+	"FLOAT": 	(4, lambda c,n: c.peek_structformat("f")[0],  ), 			#
+	"DOUBLE": 	(8, lambda c,n: c.peek_structformat("d")[0], ),   			#
+	#"ABSOLUTE_TIME": (NOT_IMPL, None, ),   		#
+	#"RELATIVE_TIME": (NOT_IMPL, None, ),   		#
+	"STRING": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n), ),   	#
+	"STRINGZ": 	(DYN_LEN, _parse_stringz, ),   	#	/* for use with proto_tree_add_item() */
+	"UINT_STRING": (PREFIX_LEN, lambda c,n: c.peek_bytes(n), ),   #	/* for use with proto_tree_add_item() */
+	"ETHER": 	(6, _parse_bytes_formatted("%02x:%02x:%02x:%02x:%02x:%02x"), ),   			#
+	"BYTES": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n), ),   	#
+	"UINT_BYTES": (PREFIX_LEN, lambda c,n: c.peek_bytes(n), ),   	#
+	"IPv4": 	(4, _parse_bytes_formatted("%d.%d.%d.%d"), ),   			#
+	"IPv6": 	(16, _parse_bytes_formatted("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x"), ),   		#
+	#"IPXNET": (NOT_IMPL, None, ),   	#
+	#"FRAMENUM": (NOT_IMPL, None, ),   	#	/* a UINT32,  but if selected lets you go to frame with that number */
+	#"PCRE": (NOT_IMPL, None, ),   		#	/* a compiled Perl-Compatible Regular Expression object */
+	"GUID": 	(16, _parse_uuid, ),   		#	/* GUID,  UUID */
+	"OID": 		(EXPR_LEN, None, ),   	#		/* OBJECT IDENTIFIER */
+	"EUI64": 	(8, None, ),   			#
+	"AX25": 	(7, None, ),   			#
+	"VINES": 	(6, None, ),   			#
+	"REL_OID": 	(EXPR_LEN, None, ),   	#	/* RELATIVE-OID */
+	"SYSTEM_ID":(EXPR_LEN, None, ),   	#
+	#"STRINGZPAD": (NOT_IMPL, None, ),  #	/* for use with proto_tree_add_item() */
+	#"FCWWN": (NOT_IMPL, None, ),   	#
+}
+
+@FITypes.register(type_id=7)
+class FieldFI:
+	def init(self, format_type, base="DEC", bitmask=0, size=None, size_len=None, parse_with=None, **kw):
+		self.format_type = format_type
+		self.base = base
+		self.bitmask = bitmask
+		self.size, self._parse_fn = builtinTypes[format_type]
+		if size:
+			self.size_expr = deserialize_expr(size)
+		else:
+			self.size_expr = None
+		if size_len:
+			self.size_len_expr = deserialize_expr(size_len)
+		else:
+			self.size_len_expr = None
+		self.parse_with=parse_with
+
+	def _to_text(self, indent, refs, all_params):
+		return  self.format_type+""+params_to_text(indent, refs, all_params, ignore=['children', 'def_name', 'format_type'])
+
+	def _parse(self, context):
+		if self.size >= 0:
+			n = self.size
+		elif self.size == PREFIX_LEN:
+			n = context.peek_int(self.size_len_expr.evaluate(context), signed=False)
+		elif self.size == DYN_LEN:
+			n = 0
+		elif self.size == EXPR_LEN:
+			if self.size_expr:
+				n = self.size_expr.evaluate(context)
+			else:
+				n = context.remaining_bytes()
+		else:
+			raise spec_error("invalid builtin-type size %d" % (self.size,))
+
+		if self.parse_with is not None:
+			context.set_child_limit(n)
+			val = self.parse_with.read_from_buffer(context)
+			context.consume_bytes(context.remaining_bytes())
+			return context.pack_value(val)
+
+		context.require_bytes(n)
+		value = self._parse_fn(context, n)
+
+		magic = context.get_param("magic", raise_if_missing=False)
+		if magic is not None and value != magic:
+			raise invalid(context, "found magic value %r doesn't match spec %r" % (value, magic))
+
+		context.consume_bytes(n)
+		return context.pack_value(value)
+
+
+@FITypes.register(type_id=8)
+class UnionFI:
+	def init(self, children, **kw):
+		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
+		try:
+			self.size = sum(c.size for (name, c) in self.children)
+		except:
+			self.size = None
+
+	def _to_text(self, indent, refs, all_params):
+		x = "union "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		for (name, c) in self.children:
+			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
+		return x + "\t"*indent+"}"
+
+	def _parse(self, context):
+		o = {}
+		context.set_top_value(o)
+		start, end = context.buf_offset, context.buf_offset
+		for name, child in self.children:
+			context.buf_offset = start
+			context.id = name
+			o[name] = child.read_from_buffer(context)
+			end = max(end, context.buf_offset)
+		context.buf_offset = end
+		return context.pack_value(o)
+
 
 
 def params_to_text(indent, refs, params, ignore=['children','def_name'], before="(", after=")"):

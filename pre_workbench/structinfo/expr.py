@@ -30,7 +30,7 @@ class Evaluator(Transformer):
 		return s[0]
 
 	def string_expr(self, s):
-		return json.loads(s)
+		return json.loads(s[0])
 
 	def number_expr(self, n):
 		return float(n[0]) if "." in n[0] else int(n[0], 0)
@@ -116,6 +116,14 @@ class ParseContextEvaluator(Evaluator):
 	def param_expr(self, node):
 		return self.parse_context.get_param(node[0])
 
+	def fun_expr(self, node):
+		name, param = node
+		if name == "pad":
+			len = self.parse_context.top_length(-2)
+			if len % param == 0:
+				return 0
+			else:
+				return param - (len % param)
 
 def generic_unpack_value(packed_value):
 	while hasattr(packed_value, 'value'):
@@ -150,6 +158,7 @@ class ByteBufferEvaluator(Evaluator):
 
 	def param_expr(self, node):
 		return self.bbuf.metadata[node[0]]
+
 
 
 class DictEvaluator(Evaluator):
@@ -222,6 +231,9 @@ class Stringifier(Transformer):
 
 	def paren_expr(self, node):
 		return "(" + node[0] + ")"
+
+	def fun_expr(self, node):
+		return node[0] + "(" + node[1] + ")"
 
 
 class CCodeGenerator(Transformer):

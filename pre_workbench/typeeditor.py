@@ -639,19 +639,23 @@ class JsonView(QTreeWidget):
 		print(typeDef)
 		me.setData(1, QtCore.Qt.UserRole, type(val))
 		me.setData(1, QtCore.Qt.UserRole + 1, typeDef)
-		typeDef = self.schema.resolveTypeInfo(typeDef)
+		if self.schema is not None:
+			typeDef = self.schema.resolveTypeInfo(typeDef)
 		me.setText(1, type(val).__name__)
 		me.setData(2, QtCore.Qt.UserRole, val)
 
 		print(typeDef)
 		if isinstance(val, dict):
-			typeDefs = {field['name'] : field['type'] for field in typeDef[1]['fields']}
-			print("defs",typeDefs)
+			if typeDef is None:
+				childTypeDefs = {}
+			else:
+				childTypeDefs = {field['name'] : field['type'] for field in typeDef[1]['fields']}
+			print("defs",childTypeDefs)
 			for key, cc in val.items():
-				self.tree_add_row(key, cc, me, typeDefs.pop(key, None))
-			me.setData(1, QtCore.Qt.UserRole + 2, typeDefs)
+				self.tree_add_row(key, cc, me, childTypeDefs.pop(key, None))
+			me.setData(1, QtCore.Qt.UserRole + 2, childTypeDefs)
 		elif isinstance(val, list):
-			if typeDef[0] == Type_Choice:
+			if typeDef is not None and typeDef[0] == Type_Choice:
 				choiceItem = next(x for x in typeDef[1]['types'] if x['id'] == val[0])
 				me.setData(1, QtCore.Qt.UserRole + 2, val[0])
 				print("choiceItem",choiceItem)
@@ -659,7 +663,7 @@ class JsonView(QTreeWidget):
 			else:
 				for i, cc in enumerate(val):
 					key = str(i)
-					self.tree_add_row(key, cc, me, typeDef[1]['itemType'])
+					self.tree_add_row(key, cc, me, typeDef[1]['itemType'] if typeDef is not None else None)
 		else:
 			me.setText(2, str(val))
 			self.text_to_titem.append(str(val), me)

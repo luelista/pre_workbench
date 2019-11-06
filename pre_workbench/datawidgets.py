@@ -35,6 +35,7 @@ class ColumnInfo:
     def __init__(self, expr_str, title=None):
         self.expr = Expression(expr_str=expr_str)
         if title == None: title = expr_str
+        self.title = title
 
     def extract(self, bbuf : ByteBuffer):
         return self.expr.evaluate_bbuf(bbuf)
@@ -75,7 +76,7 @@ class PacketListModel(QAbstractItemModel):
     def autoCols(self):
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
-                (ColumnInfo(x, src="meta") for x in self.listObject.buffers[0].metadata.keys()),
+                (ColumnInfo("${\"" + x + "\"}") for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo(x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
 

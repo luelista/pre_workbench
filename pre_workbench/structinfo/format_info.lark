@@ -32,6 +32,7 @@ parampair: IDENTIFIER "=" value
 variantfi: "variant" params "{" variantchildren "}"
 variantchildren: anytype+
 structfi: "struct" params "{" structfields "}"
+unionfi: "union" params "{" structfields "}"
 structfields: field*
 field: IDENTIFIER anytype ";"?
 
@@ -58,8 +59,8 @@ list : "[" [value ("," value)*] "]"
 dict : "{" [pair ("," pair)*] "}"
 pair : string ":" value
 
+number: NUMBER
 string : ESCAPED_STRING
-number : NUMBER
 
 IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
 
@@ -82,8 +83,8 @@ IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
             | paren_expr
 paren_expr: "(" expression ")"
 compare_expr: expression COMP_OP expression
-param_expr: "$" IDENTIFIER
-fun_expr: IDENTIFIER "(" value ")"
+param_expr: "$" IDENTIFIER | "${" expression "}"
+fun_expr: IDENTIFIER "(" expression ")"
 DOTS: "_"+
 hierarchy_expr: DOTS
 array_expr: expression "[" expression "]"

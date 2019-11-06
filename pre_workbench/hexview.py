@@ -66,8 +66,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
 		self.formatInfoContainer = None
-		self.formatInfoContainerFileName = None
-		self.optionsConfigKey="RangeTree"
+		self.optionsConfigKey = "RangeTree"
 		self.setMouseTracking(True)
 
 	formatInfoUpdated = pyqtSignal()
@@ -77,7 +76,7 @@ class RangeTreeWidget(QTreeWidget):
 		if bbuf.fi_tree is not None:
 			root = QTreeWidgetItem(self)
 			root.setExpanded(True)
-			root.setText(0, self.formatInfoContainerFileName)
+			root.setText(0, self.formatInfoContainer.file_name)
 			bbuf.fi_tree.addToTree(root)
 
 	def fiTreeItemActivated(self, item, column):
@@ -121,15 +120,15 @@ class RangeTreeWidget(QTreeWidget):
 
 		ctx.addAction("New format info ...", self.newFormatInfo)
 		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
-		if self.formatInfoContainerFileName:
-			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainerFileName))
+		if self.formatInfoContainer.file_name:
+			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
 		ctx.exec(self.mapToGlobal(point))
 
 	def addField(self, parent, typeName):
 		def ok(params):
 			parent.updateParams(children=parent.params['children']+[params])
 			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainerFileName)
+			self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 		params = showTypeEditorDlg("format_info.tes", typeName, ok_callback=ok)
 
@@ -153,7 +152,7 @@ class RangeTreeWidget(QTreeWidget):
 		if params.get("section") == "": params["section"] = None
 		parent.updateParams(**params)
 		self.formatInfoUpdated.emit()
-		self.saveFormatInfo(self.formatInfoContainerFileName)
+		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	def editField(self, element: structinfo.FormatInfo):
 		"""
@@ -166,20 +165,16 @@ class RangeTreeWidget(QTreeWidget):
 		def ok_callback(result):
 			element.from_text(result)
 			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainerFileName)
+			self.saveFormatInfo(self.formatInfoContainer.file_name)
 		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback)
-
-
 
 	def repeatField(self, element: structinfo.FormatInfo):
 		def ok_callback(params):
 			element.setContents(structinfo.RepeatStructFI, params)
 			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainerFileName)
+			self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
-
-
 
 	def newFormatInfo(self):
 		def ok_callback(params):
@@ -190,11 +185,10 @@ class RangeTreeWidget(QTreeWidget):
 			self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
 			self.formatInfoContainer.main_name = "DEFAULT"
 			self.formatInfoContainer.definitions["DEFAULT"] = structinfo.deserialize_fi(params)
-			self.formatInfoContainerFileName = fileName
+			self.formatInfoContainer.file_name = fileName
 			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainerFileName)
+			self.saveFormatInfo(self.formatInfoContainer.file_name)
 		showTypeEditorDlg("format_info.tes", "AnyFI", ok_callback=ok_callback)
-
 
 	def fileOpenFormatInfo(self):
 		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
@@ -209,9 +203,7 @@ class RangeTreeWidget(QTreeWidget):
 			traceback.print_exc()
 			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
 			return
-		self.formatInfoContainerFileName = fileName
 		self.formatInfoUpdated.emit()
-
 
 	def saveFormatInfo(self, fileName):
 		self.formatInfoContainer.write_file(fileName)
@@ -602,6 +594,8 @@ class HexView2(QWidget):
 			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
 		self.firstLine = 0;
 		self.redraw()
+		if self.fiTreeWidget.formatInfoContainer is None:
+			self.fiTreeWidget.formatInfoContainer = bbuf.fi_container
 		self.fiTreeWidget.updateTree(self.buffers[0])
 		if self.buffers[0].fi_tree == None: self.applyFormatInfo()
 
@@ -688,7 +682,8 @@ class HexView2(QWidget):
 			bg = buffer.getStyle(i, "color", None);
 			fg = buffer.getStyle(i, "textcolor", None);
 			if (bg):
-				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg));
+				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg))
+				qpBg.fillRect(self.xAscii + ii * self.dxAscii, y+1, self.dxAscii, self.dyLine-2, QColor(bg))
 			
 
 			#// store item's Y position

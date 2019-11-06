@@ -99,6 +99,7 @@ class ByteBuffer(QObject):
 		self.ranges = RangeList(len(self), list())
 		self.fields = dict()
 		self.fi_tree = None
+		self.fi_container = None
 
 	def setContent(self, buf):
 		if buf is None:
@@ -234,6 +235,7 @@ class Range:
 		text2 = str(theRange.source_desc)
 		while type(theRange.value) == Range:
 			theRange = theRange.value
+			me.setData(0, Range.SourceDescRole, theRange.source_desc)
 			text0 += " >> "+theRange.field_name
 			text1 += " >> "+str(theRange.start) + "+" + str(theRange.bytes_size)
 			text2 += " >> "+str(theRange.source_desc)

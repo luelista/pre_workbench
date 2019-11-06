@@ -97,17 +97,18 @@ class SimplePythonEditor(QsciScintilla):
 		super().__init__(parent)
 
 		# Set the default font
-		font = QFont()
-		font.setFamily('Monaco')
-		font.setFixedPitch(True)
-		font.setPointSize(11)
-		self.setFont(font)
-		self.setMarginsFont(font)
+		#font = QFont()
+		#font.setFamilies(['Monaco', 'Courier New'])
+		#font.setFixedPitch(True)
+		#font.setPointSize(11)
+		#self.setFont(font)
+		#self.setMarginsFont(font)
 
 		# Margin 0 is used for line numbers
-		fontmetrics = QFontMetrics(font)
-		self.setMarginsFont(font)
-		self.setMarginWidth(0, fontmetrics.width("00000") + 6)
+		#fontmetrics = QFontMetrics(font)
+		#self.setMarginsFont(font)
+		#self.setMarginWidth(0, fontmetrics.width("00000") + 6)
+		self.setMarginWidth(0, 45)
 		self.setMarginLineNumbers(0, True)
 		self.setMarginsBackgroundColor(QColor("#cccccc"))
 
@@ -137,9 +138,9 @@ class SimplePythonEditor(QsciScintilla):
 
 		#lexer = QsciLexerPython()
 		lexer = QsciLexerFormatinfo()
-		lexer.setDefaultFont(font)
+		#lexer.setDefaultFont(font)
 		self.setLexer(lexer)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, b'Monaco')
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, b'Courier New')
 		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, 11)
 		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)

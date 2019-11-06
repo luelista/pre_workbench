@@ -14,20 +14,21 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import json
 
 from lark import Transformer
 
-from . import FixedFieldFI, VarByteFieldFI, VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
-	FormatInfo
+from . import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
+	FormatInfo, UnionFI, FieldFI, builtinTypes
 from .expr import Expression, fi_parser
 
-builtinTypes = {"fixed": FixedFieldFI, "bytes": VarByteFieldFI}
+
 def make_builtin(name, params):
-	try:
-		t = builtinTypes[name]
-	except KeyError:
+	if name in builtinTypes:
+		return FormatInfo(typeRef=FieldFI, params={"format_type": name, **params})
+	else:
 		return None
-	return FormatInfo(typeRef=t, params=params)
+
 
 
 def parse_string(txt):
@@ -49,7 +50,7 @@ class MainTrans(Transformer):
 
 
 	def string(self, s):
-		return s[0][1:-1]
+		return json.loads(s[0])
 	def number(self, n):
 		return float(n[0]) if "." in n[0] else int(n[0], 0)
 
@@ -84,6 +85,11 @@ class MainTrans(Transformer):
 		params, children = node
 		params['children'] = children
 		return FormatInfo(typeRef=StructFI, params=params)
+
+	def unionfi(self, node):
+		params, children = node
+		params['children'] = children
+		return FormatInfo(typeRef=UnionFI, params=params)
 
 	def variantfi(self, node):
 		params, children = node

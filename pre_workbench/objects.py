@@ -202,7 +202,7 @@ class ByteBuffer(QObject):
 		bbuf = ByteBuffer()
 		for line in dmp.split("\n"):
 			if line.strip()=="": continue
-			bbuf.appendBytes(binascii.unhexlify(re.match("^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ","")))
+			bbuf.appendBytes(binascii.unhexlify(re.match(r"^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ","")))
 		return bbuf
 
 
@@ -353,7 +353,7 @@ class BidiByteBuffer:
 				bufdir = dir
 				buflinum = linum
 				buf = bytes()
-			buf += binascii.unhexlify(re.match("^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ",""))
+			buf += binascii.unhexlify(re.match(r"^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ",""))
 
 		if bufdir != None:
 				out.appendBytes(buf, bufdir, {"linum":buflinum})
@@ -390,14 +390,14 @@ class BidiByteBuffer:
 
 def parseHexFromClipboard():
 	txt = getClipboardText()
-	if re.match("char \S+\[\]", txt):
+	if re.match(r"char \S+\[\]", txt):
 		return BidiByteBuffer.parse_from_c_arrays(txt)
-	elif re.search("^\s+[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2} ?)+)", txt, re.MULTILINE):
+	elif re.search(r"^\s+[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2} ?)+)", txt, re.MULTILINE):
 		return BidiByteBuffer.parse_from_hexdump(txt)
-	elif re.match("^[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2})+)", txt):
+	elif re.match(r"^[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{0,2})+)", txt):
 		return ByteBuffer.parse_from_hexdump(txt)
-	elif re.match("^[a-fA-F0-9\t\s ]+$", txt):
-		return ByteBuffer(binascii.unhexlify(re.sub("\s","",txt)))
+	elif re.match(r"^[a-fA-F0-9\t\s ]+$", txt):
+		return ByteBuffer(binascii.unhexlify(re.sub(r"\s","",txt)))
 	else:
 		return ByteBuffer(txt.encode("utf-8"))
 

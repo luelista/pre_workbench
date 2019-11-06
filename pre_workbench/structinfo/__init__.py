@@ -24,7 +24,7 @@ from pre_workbench.structinfo import display_styles
 from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
 from pre_workbench.objects import Range, ByteBufferList, ByteBuffer
 from pre_workbench.structinfo.expr import Expression, deserialize_expr
-from typeregistry import TypeRegistry
+from pre_workbench.typeregistry import TypeRegistry
 
 FILE_MAGIC = b"\xde\xca\xf9\x30"
 IFACE_UUID = uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07")

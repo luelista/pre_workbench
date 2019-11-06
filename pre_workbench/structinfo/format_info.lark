@@ -26,6 +26,7 @@ parampair: IDENTIFIER "=" value
     | structfi
     | repeatfi
     | switchfi
+    | unionfi
     | explicitnamedfi
     | namedfi
 

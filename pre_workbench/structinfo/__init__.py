@@ -19,6 +19,7 @@ import struct
 import traceback
 import uuid
 
+from pre_workbench.hexdump import hexdump
 from pre_workbench.structinfo import display_styles
 from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
 from pre_workbench.objects import Range, ByteBufferList, ByteBuffer
@@ -31,9 +32,10 @@ IFACE_UUID = uuid.UUID("cf3d3cfc-8cda-4456-be70-f5c7cc2c6d07")
 
 class parse_exception(Exception):
 	def __init__(self, context, msg):
-		super().__init__(context.get_path() + ": " + msg)
-		self.parse_stack = context.stack
 		self.offset = context.offset()
+		self.context_hexdump = context.hexdump_context(self.offset)
+		super().__init__(context.get_path() + ": " + msg + "\n" + self.context_hexdump)
+		self.parse_stack = context.stack
 
 
 class incomplete(parse_exception):
@@ -119,6 +121,11 @@ class ParseContext:
 		if buf != None:
 			self.feed_bytes(buf)
 
+	def hexdump_context(self, ptr, context=16):
+		start = ptr - (ptr%16) - context
+		end = start + 2*context
+		return hexdump(self.buf[start - self.display_offset_delta : end - self.display_offset_delta], result='return', addr_offset=start, addr_ptr=ptr)
+
 	def get_fi_by_def_name(self, def_name):
 		try:
 			return self.format_infos.get_fi_by_def_name(def_name)
@@ -147,16 +154,6 @@ class ParseContext:
 		else:
 			return default
 
-	def log(self, *dat):
-		#print("\t"*len(self.stack) + self.get_path(), end=": ")
-		print( self.get_path(), end=": ")
-		try:
-			print(*dat)
-		except Exception as ex:
-			print("!!!EXCEPTION in log print!!!")
-			print(str(ex))
-			traceback.print_exc()
-
 	def push(self, desc, value=None, id=None):
 		if id != None: self.id = id
 		self.log("push",desc)
@@ -178,6 +175,9 @@ class ParseContext:
 
 	def get_path(self):
 		return ".".join(x[2] for x in self.stack)
+
+	def log(self, *dat):
+		pass
 
 	def remaining_bytes(self):
 		if self.buf_limit_end:
@@ -280,6 +280,16 @@ class ParseContext:
 		return category, meta, tuple(subflow_key)
 
 class LoggingParseContext(ParseContext):
+	def log(self, *dat):
+		#print("\t"*len(self.stack) + self.get_path(), end=": ")
+		print( self.get_path(), end=": ")
+		try:
+			print(*dat)
+		except Exception as ex:
+			print("!!!EXCEPTION in log print!!!")
+			print(str(ex))
+			traceback.print_exc()
+
 	def pack_value(self, value):
 		self.log("pack(L)",type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length())#, value)
 		return value
@@ -479,7 +489,7 @@ class FormatInfo:
 			raise
 		except Exception as ex:
 			context.restore_offset()
-			raise
+			raise parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex)) from ex
 		#except Exception as ex:
 		#	context.log("UNHANDLED Exception in FI parse: "+str(ex))
 		#	traceback.print_exc()
@@ -495,7 +505,7 @@ class FormatInfo:
 @FITypes.register(type_id=2)
 class StructFI:
 	def init(self, children, **kw):
-		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
+		self.children = [(str(name), deserialize_fi(c)) for (name, c) in children]
 		try:
 			self.size = sum(c.size for (name, c) in self.children)
 		except:
@@ -624,7 +634,7 @@ class NamedFI:
 	def _parse(self, context):
 		if self.ref is None:
 			self.ref = context.get_fi_by_def_name(self.ref_name)
-		print(context.id, self.ref_name)
+		#print(context.id, self.ref_name)
 		context.id = self.ref_name
 		return context.pack_value(self.ref.read_from_buffer(context))
 
@@ -641,7 +651,7 @@ def _parse_unsigned_int(c, n):
 def _parse_stringz(c, n):
 	for i in range(c.buf_offset, c.remaining_bytes() + c.buf_offset):
 		if c.buf[i] == 0:
-			return c.buf[c.buf_offset:i], i - c.buf_offset
+			return c.buf[c.buf_offset:i].decode(c.get_param('charset')), i - c.buf_offset + 1
 	return b"", 0
 def _parse_bytes_formatted(format):
 	return lambda c,n: format % tuple(c.peek_bytes(n))
@@ -652,10 +662,11 @@ def _parse_uuid(c, n):
 		return uuid.UUID(bytes=c.peek_bytes(n))
 
 builtinTypes = {
-	"NONE": 	(0, None, ),   			#	/* used for text labels with no value */
+	"NONE": 	(0, lambda c,b: None, ),   			#	/* used for text labels with no value */
 	#"PROTOCOL": (NOT_IMPL, None, ),   	#
 	"BOOLEAN": 	(1, lambda c,n: c.peek_structformat("?")[0], ),   			#	/* TRUE and FALSE come from <glib.h> */
 	"CHAR": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#	/* 1-octet character as 0-255 */
+	"E_UINT": 	(EXPR_LEN, _parse_unsigned_int, ),
 	"UINT8": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#
 	"UINT16": 	(2, lambda c,n: c.peek_structformat("H")[0], ),   			#
 	"UINT24": 	(3, _parse_unsigned_int, ),   			#	/* really a UINT32,  but displayed as 6 hex-digits if FD_HEX*/
@@ -664,6 +675,7 @@ builtinTypes = {
 	"UINT48": 	(6, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 12 hex-digits if FD_HEX*/
 	"UINT56": 	(7, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 14 hex-digits if FD_HEX*/
 	"UINT64": 	(8, lambda c,n: c.peek_structformat("Q")[0], ),   			#
+	"E_INT": 	(EXPR_LEN, _parse_signed_int, ),
 	"INT8": 	(1, lambda c,n: c.peek_structformat("b")[0], ),   			#
 	"INT16": 	(2, lambda c,n: c.peek_structformat("h")[0], ),   			#
 	"INT24": 	(3, _parse_signed_int, ),   			#	/* same as for UINT24 */
@@ -678,9 +690,9 @@ builtinTypes = {
 	"DOUBLE": 	(8, lambda c,n: c.peek_structformat("d")[0], ),   			#
 	#"ABSOLUTE_TIME": (NOT_IMPL, None, ),   		#
 	#"RELATIVE_TIME": (NOT_IMPL, None, ),   		#
-	"STRING": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n), ),   	#
+	"STRING": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n).decode(c.get_param('charset')), ),   	#
 	"STRINGZ": 	(DYN_LEN, _parse_stringz, ),   	#	/* for use with proto_tree_add_item() */
-	"UINT_STRING": (PREFIX_LEN, lambda c,n: c.peek_bytes(n), ),   #	/* for use with proto_tree_add_item() */
+	"UINT_STRING": (PREFIX_LEN, lambda c,n: c.peek_bytes(n).decode(c.get_param('charset')), ),   #	/* for use with proto_tree_add_item() */
 	"ETHER": 	(6, _parse_bytes_formatted("%02x:%02x:%02x:%02x:%02x:%02x"), ),   			#
 	"BYTES": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n), ),   	#
 	"UINT_BYTES": (PREFIX_LEN, lambda c,n: c.peek_bytes(n), ),   	#
@@ -721,28 +733,31 @@ class FieldFI:
 		return  self.format_type+""+params_to_text(indent, refs, all_params, ignore=['children', 'def_name', 'format_type'])
 
 	def _parse(self, context):
-		if self.size >= 0:
-			n = self.size
-		elif self.size == PREFIX_LEN:
-			n = context.peek_int(self.size_len_expr.evaluate(context), signed=False)
-		elif self.size == DYN_LEN:
-			n = 0
-		elif self.size == EXPR_LEN:
-			if self.size_expr:
-				n = self.size_expr.evaluate(context)
-			else:
-				n = context.remaining_bytes()
+		if self.size == DYN_LEN:
+			value, n = self._parse_fn(context, 0)
 		else:
-			raise spec_error("invalid builtin-type size %d" % (self.size,))
+			if self.size >= 0:
+				n = self.size
+			elif self.size == PREFIX_LEN:
+				nn = self.size_len_expr.evaluate(context)
+				n = context.peek_int(nn, signed=False)
+				context.consume_bytes(nn)
+			elif self.size == EXPR_LEN:
+				if self.size_expr:
+					n = self.size_expr.evaluate(context)
+				else:
+					n = context.remaining_bytes()
+			else:
+				raise spec_error("invalid builtin-type size %d" % (self.size,))
 
-		if self.parse_with is not None:
-			context.set_child_limit(n)
-			val = self.parse_with.read_from_buffer(context)
-			context.consume_bytes(context.remaining_bytes())
-			return context.pack_value(val)
+			if self.parse_with is not None:
+				context.set_child_limit(n)
+				val = self.parse_with.read_from_buffer(context)
+				context.consume_bytes(context.remaining_bytes())
+				return context.pack_value(val)
 
-		context.require_bytes(n)
-		value = self._parse_fn(context, n)
+			context.require_bytes(n)
+			value = self._parse_fn(context, n)
 
 		magic = context.get_param("magic", raise_if_missing=False)
 		if magic is not None and value != magic:
@@ -755,7 +770,7 @@ class FieldFI:
 @FITypes.register(type_id=8)
 class UnionFI:
 	def init(self, children, **kw):
-		self.children = [(name, deserialize_fi(c)) for (name, c) in children]
+		self.children = [(str(name), deserialize_fi(c)) for (name, c) in children]
 		try:
 			self.size = sum(c.size for (name, c) in self.children)
 		except:

@@ -23,8 +23,8 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QDialogButtonBox, QCompleter, QSpinBox, QFileDialog, \
 	QMessageBox, QAction, QLabel, QColorDialog
 
-from .configs import getIcon
-from .syshelper import get_current_rss
+from pre_workbench.configs import getIcon
+from pre_workbench.syshelper import get_current_rss
 
 
 def makeDlgButtonBox(dlg, ok_callback, retval_callback):

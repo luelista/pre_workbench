@@ -18,9 +18,9 @@ import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
-from .objects import ByteBuffer, ByteBufferList, ReloadRequired
-from .typeregistry import TypeRegistry
-from .tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
+from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
+from pre_workbench.typeregistry import TypeRegistry
+from pre_workbench.tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
 
 
 DataSourceTypes = TypeRegistry()
@@ -53,7 +53,7 @@ class FileDataSource(DataSource):
 			bbuf.setContent(f.read())
 
 		if self.params["formatInfo"] != "":
-			from . import structinfo
+			from pre_workbench import structinfo
 			bbuf.fi_container = structinfo.FormatInfoContainer(load_from_file=self.params["formatInfo"])
 			parse_context = structinfo.BytebufferAnnotatingParseContext(bbuf.fi_container, bbuf)
 			#parse_context.on_new_subflow_category = self.newSubflowCategory

@@ -19,10 +19,10 @@ import struct
 import traceback
 import uuid
 
-from . import display_styles
-from .valueenc import StructInfoValueEncoder
-from ..objects import Range, ByteBufferList, ByteBuffer
-from .expr import Expression, deserialize_expr
+from pre_workbench.structinfo import display_styles
+from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
+from pre_workbench.objects import Range, ByteBufferList, ByteBuffer
+from pre_workbench.structinfo.expr import Expression, deserialize_expr
 from typeregistry import TypeRegistry
 
 FILE_MAGIC = b"\xde\xca\xf9\x30"
@@ -81,7 +81,7 @@ class FormatInfoContainer:
 		self.file_name = fileName
 
 	def load_from_string(self, txt):
-		from .parser import parse_string, MainTrans
+		from pre_workbench.structinfo.parser import parse_string, MainTrans
 		ast = parse_string(txt)
 
 		trans = MainTrans(self)
@@ -454,7 +454,7 @@ class FormatInfo:
 		return self.fi._to_text(indent, refs, self.params)
 
 	def from_text(self, txt):
-		from .parser import fi_parser, MainTrans
+		from pre_workbench.structinfo.parser import fi_parser, MainTrans
 		ast = fi_parser.parse(txt, start="anytype")
 		print(ast.pretty())
 

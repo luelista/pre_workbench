@@ -21,9 +21,9 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox, QDialog, QDialogButtonBox
 
-from .genericwidgets import MdiFile, makeDlgButtonBox
-from .guihelper import navigateLink
-from .typeregistry import WindowTypes
+from pre_workbench.genericwidgets import MdiFile, makeDlgButtonBox
+from pre_workbench.guihelper import navigateLink
+from pre_workbench.typeregistry import WindowTypes
 
 class RichEdit(QTextEdit):
 	def __init__(self, parent=None):

@@ -31,18 +31,18 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QFileDialog, QWidget, QVBoxLayout, \
 	QMdiArea, QDockWidget, QMessageBox, QTextEdit, QMdiSubWindow, QStyleFactory, QToolButton, QMenu, QSplashScreen
 
-from . import configs
-from .datawidgets import DynamicDataWidget, PacketListWidget
-from .dockwindows import FileBrowserWidget, MdiWindowListWidget
-from .genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg
-from .typeeditor import JsonView
-from .guihelper import NavigateCommands
-from .hexview import HexView2
-from .objectwindow import ObjectWindow
-from .typeregistry import WindowTypes
+from pre_workbench import configs
+from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
+from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget
+from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg
+from pre_workbench.typeeditor import JsonView
+from pre_workbench.guihelper import NavigateCommands
+from pre_workbench.hexview import HexView2
+from pre_workbench.objectwindow import ObjectWindow
+from pre_workbench.typeregistry import WindowTypes
 
-from . import typeeditor
-from . import textfile
+from pre_workbench import typeeditor
+from pre_workbench import textfile
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -513,34 +513,3 @@ def excepthook(excType, excValue, tracebackobj):
 		print(str(e))
 
 sys.excepthook = excepthook
-
-def load_file_watch(parent, filename, callback):
-	def cb(p=""):
-		try:
-			with open(filename, "r") as f:
-				data = f.read()
-		except:
-			return
-		callback(data)
-	fsw = QFileSystemWatcher([filename], parent)
-	fsw.fileChanged.connect(cb)
-	cb()
-
-def run_app():
-	from PyQt5.QtWidgets import QApplication
-
-	app = QApplication(sys.argv)
-	splashimg = configs.respath("icons/splash.jpg")
-	splash = QSplashScreen(QPixmap(splashimg))
-	splash.show()
-	configs.registerOption("AppTheme", "fusion", lambda key, value: app.setStyle(value))
-	load_file_watch(app, os.path.join(os.path.dirname(__file__), "stylesheet.css"), lambda contents: app.setStyleSheet(contents))
-	ex = WorkbenchMain()
-	ex.show()
-	splash.finish(ex)
-	# os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
-	sys.exit(app.exec_())
-
-
-if __name__ == '__main__':
-	run_app()

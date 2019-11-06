@@ -344,7 +344,7 @@ def runtest(logfile=None):
 '''
 
   # get path to hexfile.bin
-  # this doesn't work from .zip
+  # this doesn't work from pre_workbench.zip
   #   import os.path as osp
   #   hexfile = osp.dirname(osp.abspath(__file__)) + '/hexfile.bin'
   # this doesn't work either

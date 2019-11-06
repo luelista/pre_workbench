@@ -21,8 +21,8 @@ from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
 	QAction, QListWidget, QListWidgetItem
 
-from .guihelper import navigate
-from .typeregistry import WindowTypes
+from pre_workbench.guihelper import navigate
+from pre_workbench.typeregistry import WindowTypes
 
 
 class FileBrowserWidget(QWidget):

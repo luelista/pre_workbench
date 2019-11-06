@@ -20,10 +20,10 @@ import traceback
 from PyQt5.QtCore import pyqtSignal, QObject, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
 
-from .datasource import DataSourceTypes
-from .datawidgets import DynamicDataWidget
-from .genericwidgets import SettingsGroup, ExpandWidget
-from .typeregistry import WindowTypes
+from pre_workbench.datasource import DataSourceTypes
+from pre_workbench.datawidgets import DynamicDataWidget
+from pre_workbench.genericwidgets import SettingsGroup, ExpandWidget
+from pre_workbench.typeregistry import WindowTypes
 
 
 @WindowTypes.register()

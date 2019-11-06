@@ -21,7 +21,7 @@ import os
 from PyQt5.QtGui import QIcon
 from appdirs import AppDirs
 
-from .structinfo import xdrm
+from pre_workbench.structinfo import xdrm
 from PyQt5.QtCore import QByteArray
 
 def getValue(key, defaultValue=None):

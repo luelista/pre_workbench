@@ -9,7 +9,7 @@ import time
 
 import pyhy
 
-from .structinfo import xdrm
+from pre_workbench.structinfo import xdrm
 
 
 def void(*args):
@@ -442,7 +442,7 @@ def sign_unpack(signed_message):
 
 
 async def main():
-	from . import configs
+	from pre_workbench import configs
 	params = configs.getValue("rpcnet_opt", {})
 
 	cm = ConnectionManager(**params)

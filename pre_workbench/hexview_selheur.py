@@ -19,7 +19,7 @@ import struct
 
 from PyQt5.QtGui import QColor, QPen
 
-from .objects import ByteBuffer
+from pre_workbench.objects import ByteBuffer
 
 
 def extendRange(bbuf, range, amount=16):

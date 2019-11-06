@@ -22,10 +22,10 @@ from math import ceil, floor
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidgetItem
 
-from . import hexdump
+from pre_workbench import hexdump
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
 
-from .guihelper import getClipboardText
+from pre_workbench.guihelper import getClipboardText
 
 
 class ReloadRequired(Exception):

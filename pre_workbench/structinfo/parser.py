@@ -18,9 +18,9 @@ import json
 
 from lark import Transformer
 
-from . import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
+from pre_workbench.structinfo import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
 	FormatInfo, UnionFI, FieldFI, builtinTypes
-from .expr import Expression, fi_parser
+from pre_workbench.structinfo.expr import Expression, fi_parser
 
 
 def make_builtin(name, params):

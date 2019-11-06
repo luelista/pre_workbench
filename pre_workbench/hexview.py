@@ -27,14 +27,14 @@ from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEven
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator, QMessageBox, QAction
 
-from .textfile import showScintillaDialog
-from . import configs
-from . import structinfo
-from .genericwidgets import showSettingsDlg
-from .guihelper import setClipboardText
-from .hexview_selheur import selectionHelpers
-from .objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
-from .typeeditor import showTypeEditorDlg
+from pre_workbench.textfile import showScintillaDialog
+from pre_workbench import configs
+from pre_workbench import structinfo
+from pre_workbench.genericwidgets import showSettingsDlg
+from pre_workbench.guihelper import setClipboardText
+from pre_workbench.hexview_selheur import selectionHelpers
+from pre_workbench.objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
+from pre_workbench.typeeditor import showTypeEditorDlg
 
 
 class InteractiveFormatInfoContainer(structinfo.FormatInfoContainer):

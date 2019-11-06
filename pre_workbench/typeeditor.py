@@ -25,11 +25,11 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDoubleSpinBox, QSpinBox, QTableWidget, QMenu, \
 	QInputDialog, QTreeWidget, QTreeWidgetItem
 
-from .structinfo.expr import Expression
-from .configs import respath
-from .structinfo import xdrm
-from .genericwidgets import MdiFile, makeDlgButtonBox, showWidgetDlg
-from .typeregistry import WindowTypes, DataWidgetTypes
+from pre_workbench.structinfo.expr import Expression
+from pre_workbench.configs import respath
+from pre_workbench.structinfo import xdrm
+from pre_workbench.genericwidgets import MdiFile, makeDlgButtonBox, showWidgetDlg
+from pre_workbench.typeregistry import WindowTypes, DataWidgetTypes
 
 FILE_MAGIC = b"\xde\xca\xf9\x30"
 

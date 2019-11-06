@@ -23,12 +23,12 @@ from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolB
     QTableWidgetItem, QMenu, \
     QAbstractItemView, QTableView
 
-from .structinfo.expr import Expression
-from .genericwidgets import showSettingsDlg
-from .typeeditor import JsonView
-from .hexview import HexView2
-from .objects import ByteBuffer, ByteBufferList
-from .typeregistry import DataWidgetTypes
+from pre_workbench.structinfo.expr import Expression
+from pre_workbench.genericwidgets import showSettingsDlg
+from pre_workbench.typeeditor import JsonView
+from pre_workbench.hexview import HexView2
+from pre_workbench.objects import ByteBuffer, ByteBufferList
+from pre_workbench.typeregistry import DataWidgetTypes
 
 
 class ColumnInfo:

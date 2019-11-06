@@ -7,7 +7,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont, QPalette
 from PyQt5.QtWidgets import QWidget, QTextBrowser, QTabWidget, QFrame, QLabel, QLineEdit
 
-from .guihelper import navigateLink, setControlColors
+from pre_workbench.guihelper import navigateLink, setControlColors
 
 
 def ExpandSysPara(s):

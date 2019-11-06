@@ -20,8 +20,8 @@ import subprocess
 from xml.etree.ElementTree import XMLParser
 import binascii, os, shutil
 
-from . import structinfo
-from .objects import ByteBuffer
+from pre_workbench import structinfo
+from pre_workbench.objects import ByteBuffer
 
 class PdmlToPacketListParser:
 	def __init__(self, destPacketList, parse_context_type=structinfo.ParseContext):

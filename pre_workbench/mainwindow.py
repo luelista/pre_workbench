@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
 import time
 import os
 import sys
@@ -456,12 +455,11 @@ class HexFileWindow(QWidget, MdiFile):
 		self.layout().addWidget(self.dataDisplay)
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())
-		self.setCurrentFile(fileName)
+
 	def saveFile(self, fileName):
 		bin = self.dataDisplay.buffers[0].buffer
 		with open(fileName, "wb") as f:
 			f.write(bin)
-		self.setCurrentFile(fileName)
 		return True
 
 

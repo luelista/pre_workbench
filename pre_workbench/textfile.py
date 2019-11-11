@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import traceback
 
 from PyQt5 import QtCore
 from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerCPP
@@ -37,6 +38,7 @@ class RichEdit(QTextEdit):
 		super().mouseReleaseEvent(e)
 
 	def keyPressEvent(self, e: QKeyEvent):
+		mod = e.modifiers() & ~QtCore.Qt.KeypadModifier
 		if e.key() == QtCore.Qt.Key_F4:
 			cur = self.textCursor()
 			format = QTextFrameFormat()
@@ -45,6 +47,26 @@ class RichEdit(QTextEdit):
 			format.setProperty(QTextFormat.UserProperty + 100, "code-block")
 			frame = cur.insertFrame(format)
 			self.setTextCursor(frame.firstCursorPosition())
+		print(int(mod), e.key())
+		if mod == QtCore.Qt.ControlModifier and e.key() == QtCore.Qt.Key_Return:
+			print("ctr-enter")
+			cur = self.textCursor()
+			fr = cur.currentFrame()
+			print(fr)
+			it = fr.begin()
+			code = ""
+			while not it.atEnd():
+				fragment = it.currentBlock()
+				if fragment.isValid():
+					code += fragment.text() + "\n"
+				it += 1
+			print(code)
+			try:
+				exec(code)
+			except Exception as ex:
+				QMessageBox.warning(self, "Exception in script", traceback.format_exc())
+			return
+
 		super().keyPressEvent(e)
 
 

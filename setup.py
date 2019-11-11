@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import setuptools
+from Cython.Build import cythonize
 
 with open("README.md", "r") as fh:
 	long_description = fh.read()
@@ -50,4 +51,5 @@ setuptools.setup(
 		"Environment :: X11 Applications :: Qt",
 		"Operating System :: OS Independent",
 	],
+	ext_modules = cythonize("pre_workbench/algo/*.pyx"),
 )

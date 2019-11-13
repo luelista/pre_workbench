@@ -5,6 +5,7 @@ class RangeList:
 		self.chunkCount = totalLength // chunkSize + 1
 		self.chunkSize = chunkSize
 		self.chunks = [[] for i in range(self.chunkCount)]
+		cdef int firstChunk, lastChunk, i
 		for el in ranges:
 			firstChunk = el.start // chunkSize
 			lastChunk = el.end // chunkSize
@@ -12,7 +13,7 @@ class RangeList:
 				self.chunks[i].append(el)
 
 	def findMatchingRanges(self, start=None, end=None, contains=None, overlaps=None, **kw):
-		scanChunk = None
+		cdef int scanChunk = -1
 		if start is not None:
 			scanChunk = start // self.chunkSize
 		elif end is not None:
@@ -25,7 +26,7 @@ class RangeList:
 			if firstChunk == lastChunk:
 				scanChunk = firstChunk
 
-		if scanChunk is not None:
+		if scanChunk != -1:
 			if scanChunk >= self.chunkCount: return
 			for el in self.chunks[scanChunk]:
 				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
@@ -39,8 +40,9 @@ class RangeList:
 		return len(self.ranges)
 
 	def append(self, el):
-		firstChunk = el.start // self.chunkSize
-		lastChunk = el.end // self.chunkSize
+		cdef int firstChunk = el.start // self.chunkSize
+		cdef int lastChunk = el.end // self.chunkSize
+		cdef int i
 		while lastChunk >= self.chunkCount:
 			self.chunks.append(list())
 			self.chunkCount += 1

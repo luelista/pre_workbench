@@ -17,6 +17,7 @@
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
+MainWindow = None
 NavigateCommands = dict()
 
 def str_ellipsis(data, length):

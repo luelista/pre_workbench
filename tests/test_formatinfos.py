@@ -52,7 +52,6 @@ def test_repeat_struct_union():
 			{'type': 1, 'aaa': {'x': 0x12345678, 'y': b"\x12\x34\x56\x78"}},
 			{'type': 2, 'aaa': {'x': 0x41424344, 'y': b"ABCD"}},
 			{'type': 3, 'aaa': {'x': 1, 'y': b"\0\0\0\x01"}},
-
 		]
 	)
 

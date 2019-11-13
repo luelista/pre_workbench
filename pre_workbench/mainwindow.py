@@ -32,7 +32,8 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 
 from pre_workbench import configs
 from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
-from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget
+from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
+	StructInfoCodeWidget, DataInspectorWidget
 from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.guihelper import NavigateCommands
@@ -188,6 +189,9 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("Zoom", DynamicDataWidget())
 		self.createDockWnd("Data Source Log", QTextEdit())
 		self.createDockWnd("Window List", MdiWindowListWidget())
+		self.createDockWnd("Format Info Tree", StructInfoTreeWidget())
+		self.createDockWnd("Format Info Code", StructInfoCodeWidget())
+		self.createDockWnd("Data Inspector", DataInspectorWidget())
 
 		self.mdiArea = QMdiArea()
 		configs.registerOption("TabbedView", False, lambda k, v:

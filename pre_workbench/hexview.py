@@ -359,7 +359,10 @@ class HexView2(QWidget):
 		ctx.addSeparator()
 		ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
-		ctx.addAction("Set style", lambda: self.styleSelection())
+		ctx.addAction("Red", lambda: self.styleSelection(color="#aa0000"))
+		ctx.addAction("Green", lambda: self.styleSelection(color="#00aa00"))
+		ctx.addAction("Yellow", lambda: self.styleSelection(color="#aaaa00"))
+		ctx.addAction("Blue", lambda: self.styleSelection(color="#0000aa"))
 		ctx.addSeparator()
 		for d in self.buffers[0].matchRanges(overlaps=self.selRange()):
 			ctx.addAction("Range %d-%d (%s): %s" % (d.start, d.end, d.metadata.get("name"), d.metadata.get("showname")), lambda d=d: self.selectRange(d))
@@ -388,8 +391,15 @@ class HexView2(QWidget):
 	def copySelection(self, style=(" ","%02X")):
 		setClipboardText(self.getRangeString(self.selRange(), style))
 
-	def styleSelection(self):
-		pass
+	def styleSelection(self, **kw):
+		selr = self.selRange()
+		match = self.buffers[0].matchRanges(start=selr.start, end=selr.end)
+		if len(match) > 0:
+			match[0].style.update(kw)
+		else:
+			selr.style.update(kw)
+			self.buffers[0].addRange(selr)
+
 
 
 	################# FI Tree ####################################################

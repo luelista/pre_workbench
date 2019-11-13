@@ -271,19 +271,20 @@ def printsizepolicy(pol):
 
 class MdiFile:
 	sequenceNumber = 1
-	def initMdiFile(self, fileName=None, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
+	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
 		#self.setAttribute(QtWidgets.Qt.WA_DeleteOnClose)
 		self.isUntitled = True
 		self.filePatterns = patterns
 		self.fileDefaultNamePattern = defaultNamePattern
-		if fileName == None:
-			self.newFile()
+		if fileName == None or isUntitled:
+			self.setUntitledFile(fileName)
 		else:
+			self.setCurrentFile(fileName)
 			self.loadFile(fileName)
 
-	def newFile(self):
+	def setUntitledFile(self, fileName=None):
 		self.isUntitled = True
-		self.curFile = self.fileDefaultNamePattern % MdiFile.sequenceNumber
+		self.curFile = fileName or (self.fileDefaultNamePattern % MdiFile.sequenceNumber)
 		MdiFile.sequenceNumber += 1
 		self.setWindowTitle(self.curFile + '[*]')
 
@@ -296,14 +297,15 @@ class MdiFile:
 		self.setWindowModified(False)
 		self.setWindowTitle(QFileInfo(self.curFile).fileName() + "[*]")
 
-
 	def documentWasModified(self, dummy=None):
 		self.setWindowModified(True)
 
 	def save(self):
 		if self.isUntitled:
+			self.setCurrentFile(self.curFile)
 			return self.saveAs()
 		else:
+			self.setCurrentFile(self.curFile)
 			return self.saveFile(self.curFile)
 
 	def saveAs(self):

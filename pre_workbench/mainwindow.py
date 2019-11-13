@@ -455,12 +455,11 @@ class HexFileWindow(QWidget, MdiFile):
 		self.layout().addWidget(self.dataDisplay)
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())
-		self.setCurrentFile(fileName)
+
 	def saveFile(self, fileName):
 		bin = self.dataDisplay.buffers[0].buffer
 		with open(fileName, "wb") as f:
 			f.write(bin)
-		self.setCurrentFile(fileName)
 		return True
 
 

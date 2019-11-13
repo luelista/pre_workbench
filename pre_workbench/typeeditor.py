@@ -482,7 +482,7 @@ class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
 
 
 
-def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options", ok_callback=None):
+def showTypeEditorDlg(schemaFile, typeName, values=None, title="Editor", ok_callback=None):
 	dlg = QDialog()
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
@@ -493,6 +493,23 @@ def showTypeEditorDlg(schemaFile, typeName, values=None, title="Options", ok_cal
 		editor = schemaFile.generateTypeEditorByName(dlg, typeName)
 	else:
 		editor = schemaFile.generateTypeEditor(dlg, typeName)
+	if values != None: editor.set(values)
+	dlg.layout().addWidget(editor)
+	makeDlgButtonBox(dlg, ok_callback, lambda: editor.get())
+	if dlg.exec() == QDialog.Rejected: return None
+	return editor.get()
+
+
+
+def showTreeEditorDlg(schemaFile, typeName, values=None, title="Editor", ok_callback=None):
+	dlg = QDialog()
+	dlg.setWindowTitle(title)
+	dlg.setLayout(QVBoxLayout())
+	dlg.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
+	if not isinstance(schemaFile, TypeEditorSchema):
+		schemaFile = TypeEditorSchema(open(respath(schemaFile),'rb').read())
+	editor = showWidgetDlg(JsonView(jdata=values, schema=schemaFile, rootTypeDefinition=schemaFile.typeDefs[typeName]['def']), title, lambda: None)
+
 	if values != None: editor.set(values)
 	dlg.layout().addWidget(editor)
 	makeDlgButtonBox(dlg, ok_callback, lambda: editor.get())

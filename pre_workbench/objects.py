@@ -362,7 +362,7 @@ class BidiByteBuffer:
 
 	def parse_from_c_arrays(dmp):
 		out = BidiByteBuffer()
-		buf = bytes(); bufheader = None
+		buf = bytes(); bufheader = None 
 		for linum, line in enumerate(dmp.split("\n")):
 			if line.strip()=="": continue
 			header = re.match(r"char peer(\d+)_(\d+)\[\] = { /\* Packet (\d+) \*/", line)

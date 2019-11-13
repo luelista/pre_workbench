@@ -34,7 +34,7 @@ from pre_workbench.genericwidgets import showSettingsDlg
 from pre_workbench.guihelper import setClipboardText, str_ellipsis
 from pre_workbench.hexview_selheur import selectionHelpers
 from pre_workbench.objects import ByteBuffer, Range, parseHexFromClipboard, BidiByteBuffer
-from pre_workbench.typeeditor import showTypeEditorDlg
+from pre_workbench.typeeditor import showTypeEditorDlg, showTreeEditorDlg
 
 
 class InteractiveFormatInfoContainer(structinfo.FormatInfoContainer):
@@ -114,13 +114,14 @@ class RangeTreeWidget(QTreeWidget):
 					ctx.addAction("Remove this field", lambda: self.removeField(parentSource, range.field_name))
 					ctx.addSeparator()
 				ctx.addAction("Edit ...", lambda: self.editField(source))
+				ctx.addAction("Edit tree ...", lambda: self.editField2(source))
 				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
 				ctx.addSeparator()
 
 		ctx.addAction("New format info ...", self.newFormatInfo)
 		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
-		if self.formatInfoContainer.file_name:
+		if self.formatInfoContainer and self.formatInfoContainer.file_name:
 			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
 		ctx.exec(self.mapToGlobal(point))
 
@@ -167,6 +168,15 @@ class RangeTreeWidget(QTreeWidget):
 			self.formatInfoUpdated.emit()
 			self.saveFormatInfo(self.formatInfoContainer.file_name)
 		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback)
+
+
+	def editField2(self, element: structinfo.FormatInfo):
+		def ok_callback(params):
+			element.deserialize(params)
+			self.formatInfoUpdated.emit()
+			self.saveFormatInfo(self.formatInfoContainer.file_name)
+		showTreeEditorDlg("format_info.tes", "AnyFI", element.serialize(), ok_callback=ok_callback)
+
 
 	def repeatField(self, element: structinfo.FormatInfo):
 		def ok_callback(params):

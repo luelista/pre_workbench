@@ -159,4 +159,28 @@ class MdiWindowListWidget(QWidget):
 		ctx.exec(self.list.viewport().mapToGlobal(point))
 
 
+class StructInfoTreeWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self.initUI()
+
+	def initUI(self):
+		pass
+
+class StructInfoCodeWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self.initUI()
+
+	def initUI(self):
+		pass
+
+class DataInspectorWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self.initUI()
+
+	def initUI(self):
+		pass
+
 

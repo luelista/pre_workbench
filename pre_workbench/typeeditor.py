@@ -544,6 +544,14 @@ class TextToTreeItem:
 
 		return titem_list
 
+def getChoiceSubtypeById(typeDef, value):
+	if typeDef is not None and typeDef[0] == Type_Choice and len(value) == 2:
+		try:
+			return next(x for x in typeDef[1]['types'] if x['id'] == value[0])
+		except StopIteration:
+			pass
+	return None
+
 
 @DataWidgetTypes.register(handles=[dict,list])
 class JsonView(QTreeWidget):
@@ -672,12 +680,13 @@ class JsonView(QTreeWidget):
 				self.tree_add_row(key, cc, me, childTypeDefs.pop(key, None))
 			me.setData(1, QtCore.Qt.UserRole + 2, childTypeDefs)
 		elif isinstance(val, list):
-			if typeDef is not None and typeDef[0] == Type_Choice:
-				choiceItem = next(x for x in typeDef[1]['types'] if x['id'] == val[0])
+			choiceItem = getChoiceSubtypeById(typeDef, val)
+			if choiceItem is not None:
 				me.setData(1, QtCore.Qt.UserRole + 2, val[0])
 				print("choiceItem",choiceItem)
 				self.tree_add_row(choiceItem['name'], val[1], me, choiceItem['type'])
 			else:
+				print(typeDef[1])
 				for i, cc in enumerate(val):
 					key = str(i)
 					self.tree_add_row(key, cc, me, typeDef[1]['itemType'] if typeDef is not None else None)

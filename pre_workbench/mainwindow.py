@@ -36,7 +36,7 @@ from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget, St
 	StructInfoCodeWidget, DataInspectorWidget
 from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg
 from pre_workbench.typeeditor import JsonView
-from pre_workbench.guihelper import NavigateCommands
+from pre_workbench.guihelper import NavigateCommands, GlobalEvents
 from pre_workbench.hexview import HexView2
 from pre_workbench.objectwindow import ObjectWindow
 from pre_workbench.typeregistry import WindowTypes
@@ -187,11 +187,15 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("File Browser", FileBrowserWidget())
 		self.dockWidgets["File Browser"].on_open.connect(self.openFile)
 		self.createDockWnd("Zoom", DynamicDataWidget())
-		self.createDockWnd("Data Source Log", QTextEdit())
+		dsLog = QTextEdit()
+		self.createDockWnd("Data Source Log", dsLog)
+		GlobalEvents.on_log.connect(lambda txt: dsLog.append(self.sender().objectName() + ": " + txt + "\n"))
+
 		self.createDockWnd("Window List", MdiWindowListWidget())
 		self.createDockWnd("Format Info Tree", StructInfoTreeWidget())
 		self.createDockWnd("Format Info Code", StructInfoCodeWidget())
 		self.createDockWnd("Data Inspector", DataInspectorWidget())
+
 
 		self.mdiArea = QMdiArea()
 		configs.registerOption("TabbedView", False, lambda k, v:
@@ -400,9 +404,6 @@ class WorkbenchMain(QMainWindow):
 		ow.setConfig(meta)
 		self.showChild(ow)
 		ow.reload()
-
-	def onLog(self, txt):
-		self.dockWidgets["Data Source Log"].append(self.sender().objectName() + ": " + txt + "\n")
 
 	def onZoom(self, cont):
 		self.dockWidgets["Zoom"].setContents(cont)

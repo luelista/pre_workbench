@@ -14,11 +14,21 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from collections import defaultdict
+
+from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 MainWindow = None
 NavigateCommands = dict()
+
+class GlobalEventCls(QObject):
+    on_log = pyqtSignal(str)
+    on_select_bytes = pyqtSignal(object, object)
+
+GlobalEvents = GlobalEventCls()
+
 
 def str_ellipsis(data, length):
     return (data[:length] + '...(%d)'%(len(data))) if len(data) > length+2 else data

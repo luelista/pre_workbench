@@ -38,6 +38,7 @@ class parse_exception(Exception):
 		self.parse_stack = context.stack
 
 
+
 class incomplete(parse_exception):
 	def __init__(self, context, need, got):
 		super().__init__(context, "incomplete: needed %d, got %d bytes" %(need,got))
@@ -62,11 +63,12 @@ class spec_error(parse_exception):
 #def parse_stack_tostr(stack):
 
 class FormatInfoContainer:
-	def __init__(self, definitions=None, load_from_file=None):
+	def __init__(self, definitions=None, load_from_file=None, load_from_string=None):
 		self.definitions = {} if definitions is None else definitions
 		self.main_name = None
 		self.file_name = None
 		if load_from_file is not None: self.load_from_file(load_from_file)
+		if load_from_string is not None: self.load_from_string(load_from_string)
 
 	def to_text(self, indent = 0):
 		return "\n\n".join(name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
@@ -486,9 +488,12 @@ class FormatInfo:
 		except parse_exception as ex:
 			context.log("parse_exception: "+str(ex))
 			context.restore_offset()
+			if context.get_param("ignore_errors", False): return None
 			raise
 		except Exception as ex:
+			context.log("UNHANDLED Exception in FI parse: "+str(ex))
 			context.restore_offset()
+			if context.get_param("ignore_errors", False): return None
 			raise parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex)) from ex
 		#except Exception as ex:
 		#	context.log("UNHANDLED Exception in FI parse: "+str(ex))

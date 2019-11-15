@@ -1,23 +1,5 @@
 import uuid
-from binascii import unhexlify
-
-import pytest
-
-from pre_workbench.structinfo import LoggingParseContext, FormatInfo, FormatInfoContainer, ParseContext, invalid
-
-log = False
-
-def parse_me(definition, hexstring, expected):
-	fic = FormatInfoContainer()
-	fic.load_from_string(definition)
-	if log:
-		pc = LoggingParseContext(fic, unhexlify(hexstring.replace(" ","")))
-	else:
-		pc = ParseContext(fic, unhexlify(hexstring.replace(" ","")))
-	result = pc.parse()
-	#print(result)
-	assert result == expected
-
+from parse_helper import parse_me
 
 def test_repeated_struct():
 	parse_me("""
@@ -231,4 +213,3 @@ def test_ws_bytes():
 				 'uint_bytes': b'\x01\x02\x03\x04\x05',
 				 'uint_string': 'ABCDE'
 	})
-

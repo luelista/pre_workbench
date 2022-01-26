@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import logging
 import traceback
 
 from PyQt5.QtCore import pyqtSignal, QObject, QSize
@@ -116,7 +116,7 @@ class ObjectWindow(QWidget):
 			#        self.loadDataSource()
 
 	def onDataSourceTypeSelected(self):
-		print("dst="+self.params["dataSourceType"])
+		logging.debug("dst="+self.params["dataSourceType"])
 		confFields = []
 		if self.params["dataSourceType"]:
 			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])

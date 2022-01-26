@@ -16,7 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os.path
-import sys
+import sys, platform
+import logging
 
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QSplashScreen, QStyleFactory
@@ -26,10 +27,12 @@ from pre_workbench.configs import SettingsSection
 from pre_workbench.mainwindow import WorkbenchMain
 from pre_workbench.syshelper import load_file_watch
 
-
-print("PYTHONPATH = ",os.environ["PYTHONPATH"])
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True)
 
 def run_app():
+	logging.info("pre_workbench running on %s", " ".join(platform.uname()))
+	logging.info("PYTHONPATH: %s", os.environ.get("PYTHONPATH"))
+
 	from PyQt5.QtWidgets import QApplication
 
 	app = QApplication(sys.argv)

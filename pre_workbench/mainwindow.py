@@ -23,6 +23,7 @@ import os
 import sys
 import traceback
 import uuid
+import logging
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer, QFileSystemWatcher, pyqtSignal)
 from PyQt5.QtGui import QKeySequence, QPixmap
@@ -94,7 +95,7 @@ class WorkbenchMain(QMainWindow):
 			self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
 
 	def updateChildWindowList(self, obj=None):
-		print("updateChildWindowList")
+		logging.debug("updateChildWindowList")
 		wndList = self.mdiArea.subWindowList()
 		self.dockWidgets["Window List"].updateWindowList(wndList)
 
@@ -378,9 +379,9 @@ class WorkbenchMain(QMainWindow):
 	def navigateWindowId(self, Id):
 		#childWnd = self.mdiArea.findChild(QMdiSubWindow, Id)
 		for childWnd in self.mdiArea.subWindowList():
-			print(childWnd.objectName())
+			logging.debug("childWnd object name: %s", childWnd.objectName())
 			if childWnd.objectName() == Id:
-				print(childWnd)
+				logging.debug("childWnd", childWnd)
 				self.setActiveSubWindow(childWnd)
 				childWnd.show()
 				return True
@@ -443,7 +444,7 @@ class WorkbenchMain(QMainWindow):
 		self.on_meta_update.emit(ident, newval)
 
 	def showChild(self, widget):
-		print("showChild", widget)
+		logging.debug("showChild %s", widget)
 		subwnd = self.mdiArea.addSubWindow(widget)
 		widget.child_wnd_meta = dict()
 		try:

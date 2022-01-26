@@ -18,10 +18,12 @@
 import json
 import os.path
 import traceback
+import logging
 
 from lark import Lark, Transformer
 
 grammar_file = os.path.join(os.path.dirname(__file__), "format_info.lark")
+logging.info("grammar_file: %s", grammar_file)
 fi_parser = Lark(open(grammar_file), parser="lalr", start=["start","anytype","expression"])
 
 

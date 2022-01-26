@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import traceback
+import logging
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
@@ -150,7 +151,7 @@ class MdiWindowListWidget(QWidget):
 
 
 	def updateWindowList(self, wndList):
-		print("MdiWindowListWidget.updateWindowList", len(wndList))
+		logging.debug("MdiWindowListWidget.updateWindowList (len=%d)", len(wndList))
 		self.list.clear()
 		for wnd in wndList:
 			wid = wnd.widget()

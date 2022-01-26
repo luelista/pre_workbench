@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import logging
 import traceback
 
 from PyQt5 import QtCore
@@ -21,6 +22,7 @@ from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerCPP
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox, QDialog, QDialogButtonBox
+from pre_workbench import configs, SettingsSection
 
 from pre_workbench.genericwidgets import MdiFile
 from pre_workbench.guihelper import navigateLink, makeDlgButtonBox
@@ -108,6 +110,8 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 
 
 
+configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
+					   "FontFamily", "Font Family", "text", {}, "monospace", None)
 
 class SimplePythonEditor(QsciScintilla):
 	ARROW_MARKER_NUM = 8
@@ -150,16 +154,12 @@ class SimplePythonEditor(QsciScintilla):
 		self.setCaretLineVisible(True)
 		self.setCaretLineBackgroundColor(QColor("#ffe4e4"))
 
-		# Set Python lexer
-		# Set style for Python comments (style number 1) to a fixed-width
-		# courier.
-		#
-
 		#lexer = QsciLexerPython()
 		lexer = QsciLexerFormatinfo()
 		#lexer.setDefaultFont(font)
 		self.setLexer(lexer)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, b'Courier New')
+		fontFamily = configs.getValue("View.Scintilla.FontFamily").encode('utf-8')
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontFamily)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, 11)
 		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)
@@ -187,14 +187,13 @@ class SimplePythonEditor(QsciScintilla):
 	def on_selection_changed(self):
 		pass
 
-	def on_cursor_position_changed(self, a, b):
+	def on_cursor_position_changed(self, line, col):
 		try:
 			pos = self.SendScintilla(QsciScintilla.SCI_GETCURRENTPOS)
-			print(a,b,pos)
 			style = self.SendScintilla(QsciScintilla.SCI_GETSTYLEAT, pos)
-			print(a,b,pos,style)
+			logging.debug("line %d, col %d, pos %d, style %d", line, col, pos,style)
 		except Exception as e:
-			print(e)
+			logging.exception("get style failed")
 
 
 @WindowTypes.register(fileExts=['.txt','.py','.log','.md'])

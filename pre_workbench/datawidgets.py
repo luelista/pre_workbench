@@ -17,6 +17,7 @@
 
 import html
 import itertools
+import logging
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
@@ -84,7 +85,7 @@ class PacketListModel(QAbstractItemModel):
     def onNewPacket(self, count):
         if count < 1: return
         idx = len(self.listObject)
-        print("onNewPacket",idx,count)
+        logging.debug("onNewPacket %d/%d",idx,count)
         self.beginInsertRows(QModelIndex(), idx - count, idx - 1)
         self.endInsertRows()
         if len(self.columns) == 0:

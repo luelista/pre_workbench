@@ -18,7 +18,7 @@ import json
 
 from lark import Transformer
 
-from pre_workbench.structinfo import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
+from pre_workbench.structinfo.format_info import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
 	FormatInfo, UnionFI, FieldFI, builtinTypes
 from pre_workbench.structinfo.expr import Expression, fi_parser
 

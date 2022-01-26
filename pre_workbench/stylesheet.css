@@ -1,0 +1,42 @@
+
+/*QMainWindow { background: #111111; color: #dddddd; }
+QListWidget, QTreeWidget, QTreeView { background: #111111; color: #eeeeee; selection-background-color: #885588; selection-color: white; }
+QListWidget::item:selected, QTreeWidget::item:selected, QTreeView::item:selected { background: #885588; color:white; }
+QTreeWidget::item.highlighed { background: #666666; }
+*/
+/*
+QTabWidget::pane {
+}
+QTabWidget { background: #333333; }
+QTabWidget::tab-bar {
+background: #333333;
+}
+
+QTabBar {
+    padding: 15px; background:#333333;
+
+    left: 0;
+}
+
+
+QTabBar::tab {
+    border: 0 none;
+    background: #333333;
+    padding: 0 10px;
+    border-right: 1px solid #777777;
+    alignment: left;
+    height: 30px;
+}
+
+QTabBar::tab:selected {
+    color: #66eeff;
+}
+
+QTabBar::tab:!selected {
+    color: #bbbbbb;
+}
+
+QTabBar::tab:!selected:hover {
+    color: #66eeaa;
+}
+*/

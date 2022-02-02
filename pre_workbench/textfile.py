@@ -23,6 +23,7 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QMouseEvent, QFont, QFontMetrics, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox, QDialog, QDialogButtonBox
 from pre_workbench import configs, SettingsSection
+from pre_workbench.configs import getIcon
 
 from pre_workbench.genericwidgets import MdiFile
 from pre_workbench.guihelper import navigateLink, makeDlgButtonBox
@@ -80,7 +81,7 @@ class HyperTextFileWindow(QWidget, MdiFile):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PRE Workbench HyperText (*.pht)", "untitled%d.pht")
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PRE Workbench HyperText (*.pht)", "untitled%d.pht", 'document-text-image.png')
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):
@@ -202,7 +203,7 @@ class TextFileWindow(QWidget, MdiFile):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "Text Files (*.txt)", "untitled%d.txt")
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "Text Files (*.txt)", "untitled%d.txt", 'script.png')
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):

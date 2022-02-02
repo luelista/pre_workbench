@@ -19,6 +19,7 @@
 class TypeRegistry:
 	def __init__(self):
 		self.types = list()
+
 	def register(self, **meta):
 		def wrapper(typ):
 			for k,v in meta.items():
@@ -27,17 +28,20 @@ class TypeRegistry:
 			self.types.append([typ, meta])
 			return typ
 		return wrapper
+
 	def find(self, **checkForMeta):
 		for typ, meta in self.types:
 			match = True
 			for key, value in checkForMeta.items():
-				if meta.get(key) != value:
-					if type(meta.get(key)) == list and value in meta.get(key): continue
+				if meta.get(key) == value or (type(meta.get(key)) == list and value in meta.get(key)):
+					pass  # still consider this a match
+				else:
 					match = False
 					break
 			if match:
 				return typ, meta
 		return None, None
+
 	def getSelectList(self, displayMeta):
 		return [("", "")] + [(typ.__name__, meta[displayMeta]) for typ, meta in self.types]
 

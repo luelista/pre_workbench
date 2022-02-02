@@ -75,7 +75,7 @@ class FileDropLineEdit(QLineEdit):
 class ColorSelectLineEdit(QLineEdit):
 	def __init__(self, *__args):
 		super().__init__(*__args)
-		self.colorSelectAction = QAction(getIcon("select.png"), "Select color", self)
+		self.colorSelectAction = QAction(getIcon("folder-open-document.png"), "Select color", self)
 		self.colorSelectAction.triggered.connect(self.selectColor)
 		self.textChanged.connect(self.onTextChanged)
 		self.addAction(self.colorSelectAction, QLineEdit.TrailingPosition)
@@ -274,8 +274,10 @@ def printsizepolicy(pol):
 
 class MdiFile:
 	sequenceNumber = 1
-	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
+	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt", icon="document.png"):
 		#self.setAttribute(QtWidgets.Qt.WA_DeleteOnClose)
+		#self.setWindowIcon(getIcon(icon))
+		self.icon = icon
 		self.isUntitled = True
 		self.filePatterns = patterns
 		self.fileDefaultNamePattern = defaultNamePattern

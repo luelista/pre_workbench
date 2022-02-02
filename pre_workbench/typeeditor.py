@@ -582,7 +582,8 @@ class JsonView(QTreeWidget):
 		if item != None:
 			typ = item.data(1, QtCore.Qt.UserRole)
 			ctx.addAction("Edit ...", lambda: self.editField(item))
-			ctx.addAction("Change type ...", lambda: self.changeType(item))
+			if self.schema is not None:
+				ctx.addAction("Change type ...", lambda: self.changeType(item))
 			parentTyp = None
 			if item.parent() is not None:
 				parentTyp = item.parent().data(1, QtCore.Qt.UserRole)
@@ -599,11 +600,11 @@ class JsonView(QTreeWidget):
 				ctx.addAction("Clear list", lambda: self.clearList(item)).setEnabled(False)
 			if parentTyp is dict:
 				ctx.addSeparator()
-				ctx.addAction("Rename ...", lambda: self.renameField(item, parent)).setEnabled(False)
-				ctx.addAction("Remove this field", lambda: self.removeField(item, range.field_name))
+				ctx.addAction("Rename ...", lambda: self.renameField(item, item.parent())).setEnabled(False)
+				ctx.addAction("Remove this field", lambda: self.removeField(item))
 			if parentTyp is list:
 				ctx.addSeparator()
-				ctx.addAction("Remove this item", lambda: self.removeField(item, range.field_name))
+				ctx.addAction("Remove this item", lambda: self.removeField(item))
 
 		ctx.exec(self.mapToGlobal(point))
 
@@ -650,6 +651,8 @@ class JsonView(QTreeWidget):
 		else:
 			QMessageBox.information(self, "Note", "Editor for data type "+str(type(data))+" not implemented")
 
+	def removeField(self, item):
+		item.parent().removeChild(item)
 
 	def changeType(self, item):
 		typeDef = item.data(1, QtCore.Qt.UserRole + 1)

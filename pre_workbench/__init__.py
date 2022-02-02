@@ -17,7 +17,7 @@
 
 import os.path
 import sys, platform
-import logging, tempfile
+import logging
 
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QMessageBox, QCheckBox
@@ -28,17 +28,15 @@ from pre_workbench.mainwindow import WorkbenchMain
 from pre_workbench.syshelper import load_file_watch
 
 def run_app():
-	logFile = tempfile.gettempdir()+'/pre_workbench.log'
 	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True,
 						handlers=[
 							logging.StreamHandler(),
-							logging.FileHandler(filename=logFile, mode='w'),
+							logging.FileHandler(filename=errorhandler.logFile, mode='w'),
 						])
 	logging.info("pre_workbench running on %s", " ".join(platform.uname()))
 	logging.info("PYTHONPATH: %s", os.environ.get("PYTHONPATH"))
-	logging.info("Writing Logfile: %s", logFile)
+	logging.info("Writing Logfile: %s", errorhandler.logFile)
 
-	errorhandler.logFile = logFile
 	sys.excepthook = errorhandler.excepthook
 
 	from PyQt5.QtWidgets import QApplication

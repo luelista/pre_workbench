@@ -157,7 +157,7 @@ class WorkbenchMain(QMainWindow):
 
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
-		self.openAct = QAction('Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
+		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
 		self.saveAct = QAction("&Save", self,
 				shortcut=QKeySequence.Save,
 				statusTip="Save the document to disk")
@@ -236,7 +236,7 @@ class WorkbenchMain(QMainWindow):
 
 		menubar = self.menuBar()
 		toolbar = self.addToolBar('Main')
-		newTbAct = QToolButton(self, text='New', popupMode=QToolButton.InstantPopup)
+		newTbAct = QToolButton(self, icon=getIcon('application--plus.png'), text='New', popupMode=QToolButton.InstantPopup)
 		newTbMenu = QMenu(newTbAct)
 		newTbAct.setMenu(newTbMenu)
 		fileMenu = menubar.addMenu('&File')
@@ -282,7 +282,7 @@ class WorkbenchMain(QMainWindow):
 		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(jdata=configs.configDict)),
 								   shortcut='Ctrl+Shift+,')
 		toolsMenu.addAction(showConfigAction)
-		editConfigAction = QAction(getIcon("settings.png"), "Preferences ...", self, triggered=lambda: self.onPreferences(),
+		editConfigAction = QAction(getIcon("wrench-screwdriver.png"), "Preferences ...", self, triggered=lambda: self.onPreferences(),
 								   menuRole=QAction.PreferencesRole, shortcut='Ctrl+,')
 		toolsMenu.addAction(editConfigAction)
 		toolsMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.onAboutBox(),
@@ -292,9 +292,7 @@ class WorkbenchMain(QMainWindow):
 		self.updateWindowMenu()
 		self.windowMenu.aboutToShow.connect(self.updateWindowMenu)
 
-		#toolbar.addAction(self.newAct)
 		toolbar.addAction(self.openAct)
-		toolbar.addAction(self.exitAct)
 		toolbar.addAction(editConfigAction)
 
 		self.statusBar().addWidget(MemoryUsageWidget())
@@ -452,6 +450,7 @@ class WorkbenchMain(QMainWindow):
 	def showChild(self, widget):
 		logging.debug("showChild %s", widget)
 		subwnd = self.mdiArea.addSubWindow(widget)
+		subwnd.setWindowIcon(getIcon(widget.icon if hasattr(widget, 'icon') else 'document.png'))
 		widget.child_wnd_meta = dict()
 		try:
 			widget.on_meta_update.connect(self.onMetaUpdate)
@@ -490,7 +489,7 @@ class HexFileWindow(QWidget, MdiFile):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin")
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin", "document-binary.png")
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):

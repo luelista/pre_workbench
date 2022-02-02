@@ -214,17 +214,28 @@ class RangeTreeDockWidget(QWidget):
 
 class DataInspectorWidget(QWidget):
 	defaultdef = """
-	DEFAULT union {
-		uint8_be UINT8(endianness=">")
-		uint16_be UINT16(endianness=">")
-		uint32_be UINT32(endianness=">")
-		int8_be INT8(endianness=">")
-		int16_be INT16(endianness=">")
-		int32_be INT32(endianness=">")
+	DEFAULT union (ignore_errors=true, endianness=">"){
+		uint8 UINT8
+		int8 INT8
+		uint8_bin UINT8(show="{0:b}")
+		BE union (endianness=">"){
+			uint16 UINT16
+			uint32 UINT32
+			int16_be INT16
+			int32_be INT32
+			float FLOAT
+			double DOUBLE
+		}
+		LE union (endianness="<"){
+			uint16 UINT16
+			uint32 UINT32
+			int16 INT16
+			int32 INT32
+			float FLOAT
+			double DOUBLE
+		}
 		ipv4 IPv4
 		ether ETHER
-		float FLOAT
-		double DOUBLE
 	}
 	"""
 	def __init__(self):
@@ -252,7 +263,10 @@ class DataInspectorWidget(QWidget):
 		except parse_exception as ex:
 			QMessageBox.warning(self, "Parse error", str(ex))
 			traceback.print_exc()
-			fi_tree = ex.partial_result
+			try:
+				fi_tree = ex.partial_result
+			except:
+				fi_tree = None
 		self.fiTreeWidget.updateTree(fi_tree)
 
 	def initUI(self):

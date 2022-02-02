@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import time
 import os
 import sys
 import traceback
@@ -31,6 +30,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QFileDialog, QWidget, QVBoxLayout, \
 	QMdiArea, QDockWidget, QMessageBox, QTextEdit, QMdiSubWindow, QStyleFactory, QToolButton, QMenu, QSplashScreen
 
+from pre_workbench.configs import getIcon
 from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget
 from pre_workbench import configs, SettingsSection
 from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
@@ -123,12 +123,13 @@ class WorkbenchMain(QMainWindow):
 		])
 
 
-	def createDockWnd(self, name, widget):
+	def createDockWnd(self, name, widget, area=Qt.RightDockWidgetArea, showFirstRun=False):
 		dw=QDockWidget(name)
 		dw.setObjectName(name)
 		dw.setWidget(widget)
-		self.addDockWidget(Qt.RightDockWidgetArea, dw)
+		self.addDockWidget(area, dw)
 		self.dockWidgets[name] = widget
+		if not showFirstRun: dw.hide()
 
 	def mapChildAction(self, action, funcName):
 		action.setProperty("childFuncName", funcName)
@@ -205,23 +206,23 @@ class WorkbenchMain(QMainWindow):
 		self.setUnifiedTitleAndToolBarOnMac(True)
 		self.setDocumentMode(True)
 		self.dockWidgets = dict()
-		self.createDockWnd("File Browser", FileBrowserWidget())
+		self.createDockWnd("File Browser", FileBrowserWidget(), Qt.LeftDockWidgetArea, showFirstRun=True)
 		self.dockWidgets["File Browser"].on_open.connect(self.openFile)
-		self.createDockWnd("Zoom", DynamicDataWidget())
+		self.createDockWnd("Zoom", DynamicDataWidget(), Qt.BottomDockWidgetArea)
 		dsLog = QTextEdit()
-		self.createDockWnd("Data Source Log", dsLog)
+		self.createDockWnd("Data Source Log", dsLog, Qt.BottomDockWidgetArea)
 		GlobalEvents.on_log.connect(lambda txt: dsLog.append(self.sender().objectName() + ": " + txt + "\n"))
 
-		self.createDockWnd("Window List", MdiWindowListWidget())
+		self.createDockWnd("Window List", MdiWindowListWidget(), Qt.LeftDockWidgetArea)
 		self.createDockWnd("Grammar Definition Tree", StructInfoTreeWidget())
-		self.createDockWnd("Grammar Definition Code", StructInfoCodeWidget())
-		self.createDockWnd("Grammar Parse Result", RangeTreeDockWidget())
-		self.createDockWnd("Data Inspector", DataInspectorWidget())
-		self.createDockWnd("Selected Ranges", RangeListWidget())
+		self.createDockWnd("Grammar Definition Code", StructInfoCodeWidget(), showFirstRun=True)
+		self.createDockWnd("Grammar Parse Result", RangeTreeDockWidget(), showFirstRun=True)
+		self.createDockWnd("Data Inspector", DataInspectorWidget(), Qt.BottomDockWidgetArea, showFirstRun=True)
+		self.createDockWnd("Selected Ranges", RangeListWidget(), showFirstRun=True)
 
 		self.mdiArea = QMdiArea()
 		configs.registerOption(SettingsSection("View", "View", "General", "General"),
-							   "TabbedView", "Tabbed View", "check", {}, False, lambda k, v:
+							   "TabbedView", "Tabbed View", "check", {}, True, lambda k, v:
 			self.mdiArea.setViewMode(QMdiArea.TabbedView if v else QMdiArea.SubWindowView))
 		self.mdiArea.setDocumentMode(True)
 		self.mdiArea.setTabsClosable(True)
@@ -265,12 +266,13 @@ class WorkbenchMain(QMainWindow):
 
 
 		viewMenu = menubar.addMenu('&View')
+		toolWndMenu = viewMenu.addMenu('&Tool Windows')
+		for name in self.dockWidgets.keys():
+			toolWndMenu.addAction(name, lambda name=name: self.dockWidgets[name].parent().show())
+		viewMenu.addSeparator()
 		a = QAction("Zoom In", self, shortcut='Ctrl++'); self.mapChildAction(a, "zoomIn"); viewMenu.addAction(a)
 		a = QAction("Zoom Out", self, shortcut='Ctrl+-'); self.mapChildAction(a, "zoomOut"); viewMenu.addAction(a)
 		a = QAction("Reset", self, shortcut='Ctrl+0'); self.mapChildAction(a, "zoomReset"); viewMenu.addAction(a)
-		viewMenu.addSeparator()
-		for name in self.dockWidgets.keys():
-			viewMenu.addAction(name, lambda name=name: self.dockWidgets[name].parent().show())
 
 		parserMenu = menubar.addMenu('&Parser')
 		parserMenu.addAction(self.openGrammarAct)
@@ -280,9 +282,11 @@ class WorkbenchMain(QMainWindow):
 		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(jdata=configs.configDict)),
 								   shortcut='Ctrl+Shift+,')
 		toolsMenu.addAction(showConfigAction)
-		editConfigAction = QAction("Preferences ...", self, triggered=lambda: self.onPreferences(),
+		editConfigAction = QAction(getIcon("settings.png"), "Preferences ...", self, triggered=lambda: self.onPreferences(),
 								   menuRole=QAction.PreferencesRole, shortcut='Ctrl+,')
 		toolsMenu.addAction(editConfigAction)
+		toolsMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.onAboutBox(),
+								   menuRole=QAction.AboutRole))
 
 		self.windowMenu = menubar.addMenu("&Window")
 		self.updateWindowMenu()
@@ -291,9 +295,11 @@ class WorkbenchMain(QMainWindow):
 		#toolbar.addAction(self.newAct)
 		toolbar.addAction(self.openAct)
 		toolbar.addAction(self.exitAct)
+		toolbar.addAction(editConfigAction)
 
 		self.statusBar().addWidget(MemoryUsageWidget())
 
+		self.setWindowIcon(getIcon("appicon.png"))
 		self.setGeometry(300, 300, 850, 850)
 		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
@@ -507,53 +513,3 @@ class HexFileWindow(QWidget, MdiFile):
 			f.write(bin)
 		return True
 
-
-def excepthook(excType, excValue, tracebackobj):
-	"""
-	Global function to catch unhandled exceptions.
-
-	@param excType exception type
-	@param excValue exception value
-	@param tracebackobj traceback object
-	"""
-	separator = '-' * 80
-	logFile = "pyappcrash.log"
-	notice = \
-		"""An unhandled exception occurred. Please report the problem\n"""\
-		"""using the error reporting dialog.\n"""\
-		"""A log has been written to "%s".\n\nError information:\n""" % \
-		( logFile,)
-	versionInfo="0.0.1"
-	timeString = time.strftime("%Y-%m-%d, %H:%M:%S")
-
-
-	tbinfo = traceback.format_tb(tracebackobj)
-	errmsg = '%s: \n%s' % (str(excType), str(excValue))
-	sections = [separator, timeString, separator, errmsg, separator]+ tbinfo
-	msg = '\n'.join(sections)
-	print(msg)
-	try:
-		f = open(logFile, "w")
-		f.write(msg)
-		f.write(versionInfo)
-		f.close()
-	except IOError:
-		pass
-	errorbox = QMessageBox()
-	errorbox.setIcon(QMessageBox.Critical)
-	errorbox.setWindowTitle("Application Error")
-	errorbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Abort)
-	errorbox.setDefaultButton(QMessageBox.Ok)
-	errorbox.setText(str(notice)+str(msg)+str(versionInfo))
-	try:
-		#TODO for some reason, the exec method fails with the following exception *after* closing the dialog
-		#TypeError: unable to convert a C++ 'QProcess::ExitStatus' instance to a Python object
-		res = errorbox.exec()
-		print("msgbox result",res)
-		if res == QMessageBox.Abort:
-			sys.exit(2)
-	except Exception as e:
-		traceback.print_exc()
-		print(str(e))
-
-sys.excepthook = excepthook

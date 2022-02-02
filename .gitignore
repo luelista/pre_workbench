@@ -199,3 +199,4 @@ dmypy.json
 pyappcrash.log
 /pre_workbench/algo/*.html
 /pre_workbench/algo/*.c
+dist_pyi

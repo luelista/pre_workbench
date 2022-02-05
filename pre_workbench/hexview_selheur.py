@@ -17,7 +17,7 @@
 
 import struct
 
-from PyQt5.QtGui import QColor, QPen
+from PyQt5.QtGui import QColor, QPen, QPainter
 
 from pre_workbench.objects import ByteBuffer
 
@@ -57,10 +57,12 @@ def findInRange(bbuf, ranges, values):
 					return (i, i+l), desc
 	return None, None
 
-def highlightMatch(editor, qp, matchrange, desc, color):
+def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
 	(start,end)=matchrange
+	maxY = qp.device().height()
 	for i in range(start,end):
 		(xHex, xAscii, y, dy) = editor.offsetToClientPos(i)
+		if dy is None: break
 		p = QPen(color)
 		p.setWidth(3)
 		qp.setPen(p)

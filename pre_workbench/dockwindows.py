@@ -31,9 +31,11 @@ from pre_workbench.algo.rangelist import Range
 from pre_workbench.guihelper import navigate, GlobalEvents
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
+from pre_workbench.textfile import SimplePythonEditor
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.typeeditor import JsonView
+from pre_workbench.util import PerfTimer, truncate_str
 
 
 class FileBrowserWidget(QWidget):
@@ -153,11 +155,9 @@ class MdiWindowListWidget(QWidget):
 	def updateWindowList(self, wndList):
 		logging.debug("MdiWindowListWidget.updateWindowList (len=%d)", len(wndList))
 		self.list.clear()
-		for wnd in wndList:
-			wid = wnd.widget()
-			text = wnd.windowTitle() + "|" + type(wid).__name__ + "|" + wid.objectName()
-			listitem = QListWidgetItem(text)
-			listitem.setData(QtCore.Qt.UserRole, wid.objectName())
+		for window in wndList:
+			listitem = QListWidgetItem(window.windowTitle())
+			listitem.setData(QtCore.Qt.UserRole, window.widget().objectName())
 			self.list.addItem(listitem)
 
 
@@ -202,7 +202,12 @@ class StructInfoCodeWidget(QWidget):
 		self.initUI()
 
 	def initUI(self):
-		pass
+		self.editor = SimplePythonEditor()
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.editor)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+		self.editor.show()
 
 class RangeTreeDockWidget(QWidget):
 	def __init__(self):
@@ -210,7 +215,14 @@ class RangeTreeDockWidget(QWidget):
 		self.initUI()
 
 	def initUI(self):
-		pass
+		self.fiTreeWidget = RangeTreeWidget()
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.fiTreeWidget)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+		self.fiTreeWidget.show()
+		#self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
+		#self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 
 class DataInspectorWidget(QWidget):
 	defaultdef = """
@@ -257,17 +269,18 @@ class DataInspectorWidget(QWidget):
 			pass #sometimes it is not connected, probably hideEvent is called multiple times
 
 	def on_select_bytes(self, selbytes):#buffer:ByteBuffer, range:Range):
-		parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, selbytes) #buffer.getBytes(range.start, range.length()))
-		try:
-			fi_tree = parse_context.parse()
-		except parse_exception as ex:
-			QMessageBox.warning(self, "Parse error", str(ex))
-			traceback.print_exc()
+		with PerfTimer("DataInspector parsing"):
+			parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, selbytes) #buffer.getBytes(range.start, range.length()))
 			try:
-				fi_tree = ex.partial_result
-			except:
-				fi_tree = None
-		self.fiTreeWidget.updateTree(fi_tree)
+				fi_tree = parse_context.parse()
+			except parse_exception as ex:
+				QMessageBox.warning(self, "Parse error", str(ex))
+				traceback.print_exc()
+				try:
+					fi_tree = ex.partial_result
+				except:
+					fi_tree = None
+			self.fiTreeWidget.updateTree(fi_tree)
 
 	def initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
@@ -316,20 +329,21 @@ class RangeListWidget(QWidget):
 			pass #sometimes it is not connected, probably hideEvent is called multiple times
 
 	def on_select_hexview_range(self, event_id, sender):
-		if event_id != "hexview_range" or sender is None: return
-		self.treeView.clear()
-		for d in sender.buffers[0].matchRanges(overlaps=sender.selRange()):
-			root = QTreeWidgetItem(self.treeView)
-			root.setText(0, "Range %d-%d" % (d.start, d.end))
-			root.setText(1, "%s" % (d.metadata.get("name"),))
-			root.setText(2, "%s" % (d.metadata.get("showname"),))
-			root.setText(3, "%s" % (d.metadata.get("show"),))
-			for k,v in d.metadata.items():
-				if k != "name" and k != "showname" and k != "show":
-					x = QTreeWidgetItem(root)
-					x.setText(0, k)
-					x.setText(1, str(v))
-			# TODO ...on click: self.selectRange(d)
+		with PerfTimer("RangeListWidget update"):
+			if event_id != "hexview_range" or sender is None: return
+			self.treeView.clear()
+			for d in sender.buffers[0].matchRanges(overlaps=sender.selRange()):
+				root = QTreeWidgetItem(self.treeView)
+				root.setText(0, "Range %d-%d" % (d.start, d.end))
+				root.setText(1, truncate_str(d.metadata.get("name")))
+				root.setText(2, truncate_str(d.metadata.get("showname")))
+				root.setText(3, truncate_str(d.metadata.get("show")))
+				for k,v in d.metadata.items():
+					if k != "name" and k != "showname" and k != "show":
+						x = QTreeWidgetItem(root)
+						x.setText(0, truncate_str(k))
+						x.setText(1, truncate_str(v))
+				# TODO ...on click: self.selectRange(d)
 
 class RpcDockWidget(QWidget):
 	def __init__(self):

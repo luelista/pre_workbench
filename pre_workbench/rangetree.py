@@ -1,3 +1,5 @@
+import logging
+import time
 import traceback
 
 from PyQt5.QtCore import (Qt, pyqtSignal)
@@ -15,6 +17,7 @@ from pre_workbench.structinfo.parsecontext import FormatInfoContainer
 from pre_workbench.structinfo.serialization import deserialize_fi
 from pre_workbench.textfile import showScintillaDialog
 from pre_workbench.typeeditor import showTypeEditorDlg, showTreeEditorDlg
+from pre_workbench.util import PerfTimer
 
 
 class InteractiveFormatInfoContainer(FormatInfoContainer):
@@ -70,13 +73,21 @@ class RangeTreeWidget(QTreeWidget):
 		pass
 
 	def hilightFormatInfoTree(self, range):
+		start_time = time.perf_counter()
+		count = 0
 		iterator = QTreeWidgetItemIterator(self)
+		self.setUpdatesEnabled(False)
 		while iterator.value():
 			item = iterator.value()
 			itemRange = item.data(0, Range.RangeRole)
-			item.setBackground(0, QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff"))
+			bgColor = QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff")
+			with PerfTimer("setBackground"):
+				item.setBackground(0, bgColor)
 			#item.setProperty("class", "highlighted" if itemRange is not None and itemRange.overlaps(range) else "")
 			iterator += 1
+			count += 1
+		self.setUpdatesEnabled(True)
+		logging.debug("hilightFormatInfoTree for %d items", (time.perf_counter() - start_time), count)
 
 	def onCustomContextMenuRequested(self, point):
 		ctx = QMenu("Context menu", self)

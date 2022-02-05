@@ -3,6 +3,8 @@ from collections import defaultdict
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidgetItem
 
+from pre_workbench.util import truncate_str
+
 
 class RangeList:
 	def __init__(self, totalLength, ranges, chunkSize=128):
@@ -18,6 +20,10 @@ class RangeList:
 			lastChunk = el.end // chunkSize
 			for i in range(firstChunk, lastChunk+1):
 				self.chunks[i].append(el)
+
+	def invalidateCaches(self):
+		self.annotationStartCache = dict()
+		self.annotationContainsCache = dict()
 
 	def cacheMetaValuesStart(self, metaKey):
 		indizes = defaultdict(list)
@@ -116,9 +122,9 @@ class Range:
 			text0 += " >> "+theRange.field_name
 			text1 += " >> "+str(theRange.start) + "+" + str(theRange.bytes_size)
 			text2 += " >> "+str(theRange.source_desc)
-		me.setText(0, text0)
-		me.setText(1, text1)
-		me.setText(2, text2)
+		me.setText(0, truncate_str(text0))
+		me.setText(1, truncate_str(text1))
+		me.setText(2, truncate_str(text2))
 		if type(theRange.value) == dict:
 			me.setExpanded(True)
 			for key,item in theRange.value.items():
@@ -129,9 +135,9 @@ class Range:
 				item.addToTree(me)
 		else:
 			try:
-				me.setText(3, theRange.source_desc.formatter(theRange.value))
+				me.setText(3, truncate_str(theRange.source_desc.formatter(theRange.value)))
 			except:
-				me.setText(3, str(theRange.value))
+				me.setText(3, truncate_str(theRange.value))
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def __repr__(self):

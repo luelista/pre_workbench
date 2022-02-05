@@ -68,7 +68,7 @@ class WorkbenchMain(QMainWindow):
 		self.statusTimer.start(1000)
 
 	def onStatusTimer(self):
-		self.statusBar()
+		self.statusBar() # TODO was soll das?
 
 	def restoreChildren(self):
 		for wndInfo in configs.getValue("ChildrenInfo", []):
@@ -366,11 +366,9 @@ class WorkbenchMain(QMainWindow):
 		if window:
 			self.mdiArea.setActiveSubWindow(window)
 
-
 	def onFileNewWindowAction(self, typ):
 		ow = typ()
 		self.showChild(ow)
-
 
 	def onFileOpenAction(self):
 		options = QFileDialog.Options()
@@ -385,7 +383,7 @@ class WorkbenchMain(QMainWindow):
 		for childWnd in self.mdiArea.subWindowList():
 			logging.debug("childWnd object name: %s", childWnd.objectName())
 			if childWnd.objectName() == Id:
-				logging.debug("childWnd", childWnd)
+				logging.debug("switching to childWnd: %s", childWnd)
 				self.setActiveSubWindow(childWnd)
 				childWnd.show()
 				return True
@@ -412,34 +410,17 @@ class WorkbenchMain(QMainWindow):
 		configs.updateMru("MainFileMru", FileName, MRU_MAX)
 		self.updateMruActions()
 
-		root,ext=os.path.splitext(FileName)
+		root,ext = os.path.splitext(FileName)
 		winType, _ = WindowTypes.find(fileExts=ext)
-		if winType != None:
-			try:
-				wnd = winType(fileName=FileName)
-				self.showChild(wnd)
-			except Exception as ex:
-				msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
-				msg.setDetailedText(traceback.format_exc())
-				msg.exec()
-			return
+		if winType is None: winType = HexFileWindow
 
-		if FileName.endswith(".pcap") or FileName.endswith(".pcapng"):
-			meta = {
-				"name": FileName,
-				"dataSourceType": "PcapFileDataSource",
-				"fileName": FileName
-			}
-		else:
-			meta = {
-				"name": FileName,
-				"dataSourceType": "FileDataSource",
-				"fileName": FileName
-			}
-		ow = ObjectWindow(collapseSettings=True)
-		ow.setConfig(meta)
-		self.showChild(ow)
-		ow.reload()
+		try:
+			wnd = winType(fileName=FileName)
+			self.showChild(wnd)
+		except Exception as ex:
+			msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
+			msg.setDetailedText(traceback.format_exc())
+			msg.exec()
 
 	def onMetaUpdate(self, ident, newval):
 		self.sender().child_wnd_meta[ident] = newval
@@ -450,7 +431,7 @@ class WorkbenchMain(QMainWindow):
 	def showChild(self, widget):
 		logging.debug("showChild %s", widget)
 		subwnd = self.mdiArea.addSubWindow(widget)
-		subwnd.setWindowIcon(getIcon(widget.icon if hasattr(widget, 'icon') else 'document.png'))
+		subwnd.setWindowIcon(getIcon(type(widget).icon if hasattr(type(widget), 'icon') else 'document.png'))
 		widget.child_wnd_meta = dict()
 		try:
 			widget.on_meta_update.connect(self.onMetaUpdate)
@@ -466,12 +447,13 @@ class WorkbenchMain(QMainWindow):
 
 
 
-@WindowTypes.register() #fileExts=['.pcapng','.pcap','.cap'])
-class PcapngFileWindow(QWidget):
+@WindowTypes.register(fileExts=['.pcapng','.pcap','.cap'])
+class PcapngFileWindow(QWidget, MdiFile):
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PCAP files (*.pcapng, *.pcap, *.cap)", "untitled%d.pcapng")
 	def saveParams(self):
 		return self.params
 	def sizeHint(self):
@@ -480,16 +462,20 @@ class PcapngFileWindow(QWidget):
 		self.setLayout(QVBoxLayout())
 		self.dataDisplay = PacketListWidget()
 		self.layout().addWidget(self.dataDisplay)
+	def loadFile(self, fileName):
+		pass
+	def saveFile(self, fileName):
+		return False
 
 
-@WindowTypes.register() #fileExts=['.pcapng','.pcap','.cap'])
+@WindowTypes.register(icon="document-binary.png")
 class HexFileWindow(QWidget, MdiFile):
 	on_meta_update = pyqtSignal(str, object)
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin", "document-binary.png")
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin")
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):
@@ -502,6 +488,7 @@ class HexFileWindow(QWidget, MdiFile):
 	def onSelectionChanged(self, selRange):
 		selbytes = self.dataDisplay.buffers[selRange.buffer_idx].getBytes(selRange.start, selRange.length())
 		self.on_meta_update.emit("selected_bytes", selbytes)
+		self.on_meta_update.emit("hexview_range", self.dataDisplay)
 
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())

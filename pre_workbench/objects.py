@@ -22,7 +22,8 @@ from pre_workbench.structinfo import hexdump
 from PyQt5.QtCore import (pyqtSignal, QObject)
 
 from pre_workbench.guihelper import getClipboardText
-from pre_workbench.algo.rangelist import RangeList
+from pre_workbench.algo.rangelist import RangeList, Range
+
 
 class ReloadRequired(Exception):
 	pass
@@ -96,6 +97,9 @@ class ByteBuffer(QObject):
 		end = len(self)
 		if meta:
 			return self.addRange(Range(start, end, meta=meta))
+
+	def invalidateCaches(self):
+		self.ranges.invalidateCaches()
 
 	def getByte(self, i):
 		return self.buffer[i]

@@ -274,10 +274,7 @@ def printsizepolicy(pol):
 
 class MdiFile:
 	sequenceNumber = 1
-	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt", icon="document.png"):
-		#self.setAttribute(QtWidgets.Qt.WA_DeleteOnClose)
-		#self.setWindowIcon(getIcon(icon))
-		self.icon = icon
+	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
 		self.isUntitled = True
 		self.filePatterns = patterns
 		self.fileDefaultNamePattern = defaultNamePattern

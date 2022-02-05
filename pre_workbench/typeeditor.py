@@ -443,12 +443,12 @@ class ListTypeEditorItem(QWidget):
 		self.deleteLater()
 
 
-class TypeEditorSchemaFileWindow(QScrollArea, MdiFile):
+class TypeEditorFileWindow(QScrollArea, MdiFile):
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params["fileName"], params.get("isUntitled", False), type(self).patterns, "untitled%d" + type(self).fileExts[0])
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), type(self).patterns, "untitled%d" + type(self).fileExts[0])
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):
@@ -471,11 +471,11 @@ class TypeEditorSchemaFileWindow(QScrollArea, MdiFile):
 
 
 @WindowTypes.register(fileExts=['.tes'], schema=respath('meta_schema.tes'), typeName='Interface', description='Type Editor Schema', patterns='Type Editor Schema (*.pfi)')
-class TypeEditorSchemaFileWindow(TypeEditorSchemaFileWindow):
+class TypeEditorSchemaFileWindow(TypeEditorFileWindow):
 	pass
 
 @WindowTypes.register(fileExts=['.pfi'], schema=respath('format_info.tes'), typeName='FormatInfoFile', description='Protocol Format Info Specification')
-class ProtocolFormatInfoFileWindow(TypeEditorSchemaFileWindow):
+class ProtocolFormatInfoFileWindow(TypeEditorFileWindow):
 	pass
 
 

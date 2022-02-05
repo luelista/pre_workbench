@@ -27,7 +27,7 @@ from pre_workbench.genericwidgets import SettingsGroup, ExpandWidget
 from pre_workbench.typeregistry import WindowTypes
 
 
-@WindowTypes.register()
+@WindowTypes.register(icon='beaker.png')
 class ObjectWindow(QWidget):
 	on_meta_update = pyqtSignal(str, object)
 	on_log = pyqtSignal(str)

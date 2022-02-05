@@ -27,8 +27,10 @@ from pre_workbench.configs import SettingsSection
 from pre_workbench.mainwindow import WorkbenchMain
 from pre_workbench.syshelper import load_file_watch
 
+import gc; gc.set_debug(gc.DEBUG_STATS)
+
 def run_app():
-	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True,
+	logging.basicConfig(level=10, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True,
 						handlers=[
 							logging.StreamHandler(),
 							logging.FileHandler(filename=errorhandler.logFile, mode='w'),

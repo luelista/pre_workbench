@@ -15,16 +15,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
+import logging
 import sys
+import time
 import traceback
 from math import ceil, floor
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QMessageBox, QAction, QDialog, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QMessageBox, QAction, QDialog, QVBoxLayout, \
+	QInputDialog
 
 from pre_workbench import configs
 from pre_workbench import structinfo
@@ -36,6 +37,7 @@ from pre_workbench.algo.rangelist import Range
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
+from pre_workbench.util import PerfTimer
 
 
 class Helper(QObject):
@@ -79,6 +81,7 @@ class HexView2(QWidget):
 		self.buffers = list()
 		self.firstLine = 0
 		self.scrollY = 0
+		self.partialLineScrollY = 0
 		self.setFocusPolicy(QtCore.Qt.StrongFocus)
 		self.fiTreeWidget = RangeTreeWidget(self)
 		self.fiTreeWidget.show()
@@ -156,12 +159,15 @@ class HexView2(QWidget):
 		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
 		ctx.addAction("Copy selection hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
 		ctx.addSeparator()
-		ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
-		ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
-		ctx.addAction("Red", lambda: self.styleSelection(color="#aa0000"))
-		ctx.addAction("Green", lambda: self.styleSelection(color="#00aa00"))
-		ctx.addAction("Yellow", lambda: self.styleSelection(color="#aaaa00"))
-		ctx.addAction("Blue", lambda: self.styleSelection(color="#0000aa"))
+		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
+		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
+		ctx.addAction("&Red", lambda: self.styleSelection(color="#aa0000"))
+		ctx.addAction("&Green", lambda: self.styleSelection(color="#00aa00"))
+		ctx.addAction("&Yellow", lambda: self.styleSelection(color="#aaaa00"))
+		ctx.addAction("B&lue", lambda: self.styleSelection(color="#0000aa"))
+		ctx.addAction("&Magenta", lambda: self.styleSelection(color="#aa00aa"))
+		ctx.addAction("&Turqoise", lambda: self.styleSelection(color="#00aaaa"))
+		ctx.addAction("&Start Section...", lambda: self.setSectionSelection())
 		ctx.addSeparator()
 
 
@@ -194,6 +200,24 @@ class HexView2(QWidget):
 			self.buffers[0].addRange(selection)
 
 		match.metadata.update(kw)
+		self.redraw()
+
+	def setSectionSelection(self):
+		selection = self.selRange()
+		try:
+			match = next(self.buffers[0].matchRanges(start=selection.start))
+			title = match.metadata.get("section")
+		except StopIteration:
+			match = None
+			title = ""
+
+		newTitle, ok = QInputDialog.getText(self, "Section", "Enter section title:", text=title)
+		if ok:
+			if match is None:
+				match = selection
+				self.buffers[0].addRange(selection)
+			match.metadata.update(section=newTitle)
+			self.redraw()
 
 
 
@@ -239,8 +263,9 @@ class HexView2(QWidget):
 			deltaY = e.pixelDelta().y()
 		if deltaY == 0: return
 		self.scrollY = max(0, min((self.maxLine()-1)*self.dyLine, self.scrollY - deltaY))
-		self.firstLine = ceil(self.scrollY / self.dyLine)
-		print("wheel",deltaY,self.scrollY)
+		self.firstLine = floor(self.scrollY / self.dyLine)
+		self.partialLineScrollY = self.scrollY - (self.dyLine * self.firstLine)
+		logging.debug("wheelEvent deltaY=%d scrollY=%d partial=%d",deltaY,self.scrollY,self.partialLineScrollY)
 		self.redraw()
 
 	def scrollIntoView(self, offset):
@@ -277,7 +302,6 @@ class HexView2(QWidget):
 		if e.button() != Qt.LeftButton: return
 		self.selecting = False
 		self.select(self.selStart, self.selEnd)
-		print("selection changed",self.selStart, self.selEnd, self.lastHit)
 
 	def hitTest(self, point):
 		x, y = point.x(), point.y()
@@ -321,13 +345,16 @@ class HexView2(QWidget):
 			self.scrollIntoView(self.selStart)
 
 		self.redrawSelection()
-		print("selection changed",self.selStart, self.selEnd, self.lastHit)
+		logging.debug("selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
 		r = self.selRange()
-		self.fiTreeWidget.hilightFormatInfoTree(r)
-		#GlobalEvents.on_select_bytes.emit(self.buffers[bufferIdx], r)
-		self.selectionChanged.emit(r)
-		QApplication.postEvent(self, QStatusTipEvent("Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
-			self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
+
+		# XXX removed for performence test   self.fiTreeWidget.hilightFormatInfoTree(r)
+
+		with PerfTimer("selectionChanged event handlers"):
+			self.selectionChanged.emit(r)
+
+			QApplication.postEvent(self, QStatusTipEvent("Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
+				self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
 
 
 	def selectRange(self, rangeObj, scrollIntoView=False):
@@ -431,42 +458,46 @@ class HexView2(QWidget):
 
 	def redraw(self):
 		self.pixmapsInvalid = True
+		for buffer in self.buffers:
+			buffer.invalidateCaches()
 		self.update()
 
 	def drawPixmaps(self):
 		if self.size().height() < 3 or self.size().width() < 3: return
-		if self.size() != self.backgroundPixmap.size():
-			self.backgroundPixmap = QPixmap(self.size())
-			self.textPixmap = QPixmap(self.size())
-		self.backgroundPixmap.fill(QColor("#333333"))
-		self.textPixmap.fill(QColor("#00000000"))
+		with PerfTimer("drawPixmaps"):
+			if self.size() != self.backgroundPixmap.size():
+				self.backgroundPixmap = QPixmap(self.size())
+				self.textPixmap = QPixmap(self.size())
+			self.backgroundPixmap.fill(QColor("#333333"))
+			self.textPixmap.fill(QColor("#00000000"))
 
-		qpBg = QPainter()
-		qpBg.begin(self.backgroundPixmap)
-		qpTxt = QPainter()
-		qpTxt.begin(self.textPixmap)
-		self.drawLines(qpTxt, qpBg)
-		qpBg.end()
-		qpTxt.end()
+			qpBg = QPainter()
+			qpBg.begin(self.backgroundPixmap)
+			qpTxt = QPainter()
+			qpTxt.begin(self.textPixmap)
+			self.drawLines(qpTxt, qpBg)
+			qpBg.end()
+			qpTxt.end()
 		self.pixmapsInvalid = False
 
 	def redrawSelection(self):
 		self.update()
 
 	def paintEvent(self, e):
-		if self.pixmapsInvalid:
-			self.drawPixmaps()
-		qp = QPainter()
-		qp.begin(self)
-		qp.drawPixmap(0, 0, self.backgroundPixmap)
-		self.drawSelection(qp)
-		self.drawHover(qp)
-		qp.drawPixmap(0, 0, self.textPixmap)
-		#self.drawQuicktip(qp)
-		qp.end()
+		with PerfTimer("paintEvent"):
+			if self.pixmapsInvalid:
+				self.drawPixmaps()
+			qp = QPainter()
+			qp.begin(self)
+			qp.drawPixmap(0, 0, self.backgroundPixmap)
+			self.drawSelection(qp)
+			self.drawHover(qp)
+			qp.drawPixmap(0, 0, self.textPixmap)
+			#self.drawQuicktip(qp)
+			qp.end()
 
 	def drawLines(self, qpTxt, qpBg):
-		y=10
+		y = 0 - self.partialLineScrollY
 		canvasHeight = self.size().height()
 		if len(self.buffers) == 0: return
 		buffer = self.buffers[0]
@@ -531,18 +562,20 @@ class HexView2(QWidget):
 		selMax = max(self.selStart, self.selEnd)
 		for i in range(selMin, selMax+1):
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(i)
-			if xHex == 0 and dy == 0: break
+			if dy is None: break
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)
 			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsSel)
 
 		for selHelper in selectionHelpers:
-			selHelper(self, qp, self.buffers[0], (selMin, selMax))
+			with PerfTimer("execution of selectionHelper (%s)", selHelper.__name__):
+				selHelper(self, qp, self.buffers[0], (selMin, selMax))
 
 	def drawHover(self, qp):
-		if (self.lastHit != None):
+		if self.lastHit is not None:
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.lastHit)
-			qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
-			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
+			if dy is not None:
+				qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
+				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
 
 	########### CALCULATION    #########################
 	def lineNumberToByteOffset(self, lineNumber:int):
@@ -557,7 +590,9 @@ class HexView2(QWidget):
 	def offsetToClientPos(self, offset):
 		pos = offset % self.bytesPerLine
 		visibleIdx = offset - self.bytesPerLine*self.firstLine
-		if visibleIdx < 0 or visibleIdx >= len(self.itemY): return (0,0,0,0)
+		if visibleIdx < 0 or visibleIdx >= len(self.itemY):
+			logging.warn("trying to paint outside viewport %r", offset)
+			return (None, None, None, None)
 		y = self.itemY[visibleIdx]
 		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
 

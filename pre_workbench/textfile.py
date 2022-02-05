@@ -75,13 +75,13 @@ class RichEdit(QTextEdit):
 
 
 
-@WindowTypes.register(fileExts=['.pht'])
+@WindowTypes.register(fileExts=['.pht'], icon='document-text-image.png')
 class HyperTextFileWindow(QWidget, MdiFile):
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PRE Workbench HyperText (*.pht)", "untitled%d.pht", 'document-text-image.png')
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PRE Workbench HyperText (*.pht)", "untitled%d.pht")
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):
@@ -176,7 +176,7 @@ class SimplePythonEditor(QsciScintilla):
 		self.SendScintilla(QsciScintilla.SCI_SETHSCROLLBAR, 0)
 
 		# not too small
-		self.setMinimumSize(600, 450)
+		#self.setMinimumSize(600, 450)
 
 	def on_margin_clicked(self, nmargin, nline, modifiers):
 		# Toggle marker for the line the margin was clicked on
@@ -197,13 +197,13 @@ class SimplePythonEditor(QsciScintilla):
 			logging.exception("get style failed")
 
 
-@WindowTypes.register(fileExts=['.txt','.py','.log','.md'])
+@WindowTypes.register(fileExts=['.txt','.py','.log','.md'], icon='script.png')
 class TextFileWindow(QWidget, MdiFile):
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
 		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "Text Files (*.txt)", "untitled%d.txt", 'script.png')
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "Text Files (*.txt)", "untitled%d.txt")
 	def sizeHint(self):
 		return QSize(600,400)
 	def initUI(self):

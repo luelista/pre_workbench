@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QFileInfo, QTimer
-from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor
+from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor, QFont
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
 	QDialogButtonBox, QCompleter, QSpinBox, QFileDialog, \
-	QMessageBox, QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox
+	QMessageBox, QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog
 from pre_workbench.guihelper import showWidgetDlg
 
 from pre_workbench.configs import getIcon, SettingsSection
@@ -87,6 +87,20 @@ class ColorSelectLineEdit(QLineEdit):
 	def onTextChanged(self, newText):
 		self.colorSelectAction.setIcon(filledColorIcon(newText, 16))
 
+class FontSelectLineEdit(QLineEdit):
+	def __init__(self, *__args):
+		super().__init__(*__args)
+		self.fontSelectAction = QAction(getIcon("folder-open-document.png"), "Select font", self)
+		self.fontSelectAction.triggered.connect(self.selectFont)
+		self.addAction(self.fontSelectAction, QLineEdit.TrailingPosition)
+		self.setReadOnly(True)
+	def selectFont(self):
+		initial = QFont(); initial.fromString(self.text())
+		result, ok = QFontDialog.getFont(initial, self)
+		print(result, result.toString())
+		if ok:
+			self.setText(result.toString())
+
 
 
 def filledColorIcon(color, size):
@@ -129,6 +143,9 @@ class SettingsGroup(QGroupBox):
 					field.addAction(act, QLineEdit.TrailingPosition)
 			elif d.fieldType == "color":
 				field = ColorSelectLineEdit()
+				field.textChanged.connect(self.textChanged)
+			elif d.fieldType == "font":
+				field = FontSelectLineEdit()
 				field.textChanged.connect(self.textChanged)
 			elif d.fieldType == "select":
 				field = QComboBox()
@@ -336,6 +353,12 @@ class MdiFile:
 				return False
 
 		return True
+
+	def closeEvent(self, e: QtGui.QCloseEvent) -> None:
+		if self.maybeSave():
+			e.accept()
+		else:
+			e.ignore()
 
 	def reloadFile(self):
 		self.loadFile(self.curFile)

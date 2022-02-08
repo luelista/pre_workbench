@@ -1,4 +1,4 @@
-
+import datetime
 import uuid
 
 from pre_workbench.structinfo import display_styles, FITypes
@@ -235,6 +235,29 @@ def _parse_signed_int(c, n):
 	return c.peek_int(n, signed=True)
 def _parse_unsigned_int(c, n):
 	return c.peek_int(n, signed=False)
+
+
+def guess_timestamp_unit(num):
+	if num >= 500000000000000.0:
+		return 'us'
+	elif num >= 500000000000.0:
+		return 'ms'
+	else:
+		return 's'
+
+
+def _parse_unsigned_int_timestamp(c, n):
+	num = c.peek_int(n, signed=False)
+	unit = c.get_param('unit',raise_if_missing=None)
+	if unit is None:
+		unit = guess_timestamp_unit(num)
+	if unit == 'us':
+		num /= 1000000.0
+	elif unit == 'ms':
+		num /= 1000.0
+	elif unit != 's':
+		raise spec_error(c, f'invalid time unit "{unit}" provided, use "us", "ms" or "s"')
+	return datetime.datetime.fromtimestamp(num)
 def _parse_stringz(c, n):
 	for i in range(c.buf_offset, c.remaining_bytes() + c.buf_offset):
 		if c.buf[i] == 0:
@@ -275,7 +298,7 @@ builtinTypes = {
 	"IEEE_11073_FLOAT": (4, None, ),   	#
 	"FLOAT": 	(4, lambda c,n: c.peek_structformat("f")[0],  ), 			#
 	"DOUBLE": 	(8, lambda c,n: c.peek_structformat("d")[0], ),   			#
-	#"ABSOLUTE_TIME": (NOT_IMPL, None, ),   		#
+	"ABSOLUTE_TIME": (EXPR_LEN, _parse_unsigned_int_timestamp, ),   		#
 	#"RELATIVE_TIME": (NOT_IMPL, None, ),   		#
 	"STRING": 	(EXPR_LEN, lambda c,n: c.peek_bytes(n).decode(c.get_param('charset')), ),   	#
 	"STRINGZ": 	(DYN_LEN, _parse_stringz, ),   	#	/* for use with proto_tree_add_item() */

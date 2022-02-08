@@ -57,6 +57,7 @@ class FileBrowserWidget(QWidget):
 		self.tree.sortByColumn(0, 0)
 		self.tree.setColumnWidth(0, 200)
 		self.tree.setDragEnabled(True)
+		self.tree.setAcceptDrops(True)
 
 		self.tree.setWindowTitle("Dir View")
 		self.tree.resize(640, 480)
@@ -80,7 +81,7 @@ class FileBrowserWidget(QWidget):
 			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
 			if file.isDir():
 				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
-			if not file.isDir():
+			else:
 				for wndTyp, meta in WindowTypes.types:
 					text = 'Open with '+meta.get('displayName', meta['name'])
 					print(wndTyp, meta)
@@ -101,7 +102,6 @@ class FileBrowserWidget(QWidget):
 		self.rootFolder = dir
 		self.model.setRootPath(dir)
 		self.tree.setRootIndex(self.model.index(dir))
-
 
 	def onDblClick(self, index):
 		if index.isValid():
@@ -229,7 +229,7 @@ class DataInspectorWidget(QWidget):
 	DEFAULT union (ignore_errors=true, endianness=">"){
 		uint8 UINT8
 		int8 INT8
-		uint8_bin UINT8(show="{0:b}")
+		uint8_bin UINT8(show="{0:08b}")
 		BE union (endianness=">"){
 			uint16 UINT16
 			uint32 UINT32

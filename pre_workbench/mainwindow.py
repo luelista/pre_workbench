@@ -204,6 +204,7 @@ class WorkbenchMain(QMainWindow):
 
 	def initUI(self):
 		self.setUnifiedTitleAndToolBarOnMac(True)
+		self.setAcceptDrops(True)
 		self.setDocumentMode(True)
 		self.dockWidgets = dict()
 		self.createDockWnd("File Browser", FileBrowserWidget(), Qt.LeftDockWidgetArea, showFirstRun=True)
@@ -371,15 +372,12 @@ class WorkbenchMain(QMainWindow):
 		self.showChild(ow)
 
 	def onFileOpenAction(self):
-		options = QFileDialog.Options()
-		#options |= QFileDialog.DontUseNativeDialog
-		fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", configs.getValue("lastOpenFile",""),"All Files (*);;Python Files (*.py)", options=options)
+		fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", configs.getValue("lastOpenFile",""))
 		if fileName:
 			configs.setValue("lastOpenFile", fileName)
 			self.openFile(fileName)
 
 	def navigateWindowId(self, Id):
-		#childWnd = self.mdiArea.findChild(QMdiSubWindow, Id)
 		for childWnd in self.mdiArea.subWindowList():
 			logging.debug("childWnd object name: %s", childWnd.objectName())
 			if childWnd.objectName() == Id:

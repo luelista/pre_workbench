@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
+import re
 import sys
 import time
 import traceback
@@ -45,31 +46,35 @@ class Helper(QObject):
 HV2Helper = Helper()
 
 group = SettingsSection('HexView2', 'Hex Editor', 'address', 'Address Styles')
-configs.registerOption(group, 'FontFamily', 'Address FontFamily', 'text', {}, 'monospace', HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'FontSize', 'Address FontSize', 'int', {'min': 1, 'max': 1024}, 10, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10', HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'Color', 'Address Color', 'color', {}, '#888888',HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'Format', 'Address Format', 'text', {}, '{:08x}',HV2Helper.onOptionUpdated.emit)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'hex', 'Hex Styles')
-configs.registerOption(group, 'FontFamily', 'Hex FontFamily', 'text', {}, 'monospace',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'FontSize', 'Hex FontSize', 'int', {'min': 1, 'max': 1024}, 10, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'Color', 'Hex Color', 'color', {}, '#ffffff', HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'SpaceAfter', 'Hex SpaceAfter', 'int', {'min': 1, 'max': 1024}, 8, HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'SpaceWidth', 'Hex SpaceWidth', 'int', {'min': 1, 'max': 1024}, 8, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Format', 'Hex Format', 'select', {'options':[
+	('{:02x}', "Hexadecimal"),
+	('{:08b}', "Binary"),
+	('{:04o}', "Octal"),
+	('{:03d}', "Decimal"),
+]}, '{:02x}',HV2Helper.onOptionUpdated.emit)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'ascii', 'ASCII Styles')
-configs.registerOption(group, 'FontFamily', 'ASCII FontFamily', 'text', {}, 'monospace',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'FontSize', 'ASCII FontSize', 'int', {'min': 1, 'max': 1024}, 10, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'Color', 'ASCII Color', 'color', {}, '#bbffbb', HV2Helper.onOptionUpdated.emit)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'section', 'Section Styles')
-configs.registerOption(group, 'FontFamily', 'Section FontFamily', 'text', {}, 'serif',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'FontSize', 'Section FontSize', 'int', {'min': 1, 'max': 1024}, 8, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial, 10',HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', HV2Helper.onOptionUpdated.emit)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'general', 'General')
 configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.1, HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 'max': 1024}, 16, HV2Helper.onOptionUpdated.emit)
+
+pattern_heading = re.compile("[#]{0,6}")
 
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
@@ -111,25 +116,33 @@ class HexView2(QWidget):
 
 
 	def loadOptions(self, *dummy):
-
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
 		self.addressFormat = configs.getValue('HexView2.address.Format')
+		self.hexFormat = configs.getValue('HexView2.hex.Format')
 
 		self.xAddress = 5
-		self.fontAddress = QFont(configs.getValue('HexView2.address.FontFamily'), configs.getValue('HexView2.address.FontSize'), QFont.Light)
+		self.fontAddress = QFont()
+		self.fontAddress.fromString(configs.getValue('HexView2.address.Font'))
 		self.fsAddress = QColor(configs.getValue('HexView2.address.Color'))
 
 		self.xHex = QFontMetrics(self.fontAddress).width(self.addressFormat.format(0)) + 15
-		self.fontHex = QFont(configs.getValue('HexView2.hex.FontFamily'), configs.getValue('HexView2.hex.FontSize'), QFont.Light)
-		self.fsHex = QColor(configs.getValue('HexView2.hex.Color'));	self.dxHex = QFontMetrics(self.fontHex).width("00")+4
+		self.fontHex = QFont()
+		self.fontHex.fromString(configs.getValue('HexView2.hex.Font'))
+		self.fsHex = QColor(configs.getValue('HexView2.hex.Color'));	self.dxHex = QFontMetrics(self.fontHex).width(self.hexFormat.format(0))+4
 		self.hexSpaceAfter = configs.getValue('HexView2.hex.SpaceAfter'); self.hexSpaceWidth = configs.getValue('HexView2.hex.SpaceWidth')
 
 		self.xAscii = self.xHex + self.dxHex*self.bytesPerLine+(ceil(self.bytesPerLine/self.hexSpaceAfter)-1)*self.hexSpaceWidth+15
-		self.fontAscii = QFont(configs.getValue('HexView2.ascii.FontFamily'), configs.getValue('HexView2.ascii.FontSize'), QFont.Light)
+		self.fontAscii = QFont()
+		self.fontAscii.fromString(configs.getValue('HexView2.ascii.Font'))
 		self.fsAscii = QColor(configs.getValue('HexView2.ascii.Color')); self.dxAscii = QFontMetrics(self.fontAscii).width("W")
 
 		self.fsSel = QColor("#7fff9bff");  self.fsHover = QColor("#7f9b9bff")
-		self.fontSection = QFont(configs.getValue('HexView2.section.FontFamily'), configs.getValue('HexView2.section.FontSize'), QFont.Light)
+		sectionFont = QFont(); sectionFont.fromString(configs.getValue('HexView2.section.Font'))
+		self.fontSection = []
+		for i in [0,10,8,6,4,2]:
+			f = QFont(sectionFont)
+			f.setPointSize(f.pointSize() + i)
+			self.fontSection.append(f)
 		self.fsSection = QColor(configs.getValue('HexView2.section.Color'));
 
 		self.dyLine = max(QFontMetrics(self.fontAddress).height(), QFontMetrics(self.fontHex).height()) * configs.getValue('HexView2.general.lineHeight')
@@ -194,7 +207,7 @@ class HexView2(QWidget):
 	def styleSelection(self, **kw):
 		selection = self.selRange()
 		try:
-			match = next(self.buffers[0].matchRanges(start=selection.start, end=selection.end))
+			match = next(self.buffers[0].matchRanges(start=selection.start, end=selection.end, doesntHaveMetaKey='_sdef_ref'))
 		except StopIteration:
 			match = selection
 			self.buffers[0].addRange(selection)
@@ -205,7 +218,7 @@ class HexView2(QWidget):
 	def setSectionSelection(self):
 		selection = self.selRange()
 		try:
-			match = next(self.buffers[0].matchRanges(start=selection.start))
+			match = next(self.buffers[0].matchRanges(start=selection.start, doesntHaveMetaKey='_sdef_ref'))
 			title = match.metadata.get("section")
 		except StopIteration:
 			match = None
@@ -225,9 +238,12 @@ class HexView2(QWidget):
 
 	def applyFormatInfo(self):
 		if self.fiTreeWidget.formatInfoContainer != None:
-			# TODO clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
 			try:
 				self.formatInfoUpdated.emit()
+
+				# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
+				self.buffers[0].setRanges(self.buffers[0].matchRanges(doesntHaveMetaKey='_sdef_ref'))
+
 				parse_context = BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
 				parse_context.on_new_subflow_category = self.newSubflowCategory
 				self.buffers[0].fi_tree = parse_context.parse()
@@ -244,9 +260,9 @@ class HexView2(QWidget):
 
 
 	def fiTreeItemSelected(self, item, previous):
-		if item == None: return
+		if item is None: return
 		range = item.data(0, Range.RangeRole)
-		if range != None:
+		if range is not None:
 			self.selectRange(range, scrollIntoView=True)
 		#source = item.data(0, Range.SourceDescRole)
 		#if isinstance(source, structinfo.AbstractFI):
@@ -348,7 +364,7 @@ class HexView2(QWidget):
 		logging.debug("selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
 		r = self.selRange()
 
-		# XXX removed for performence test   self.fiTreeWidget.hilightFormatInfoTree(r)
+		self.fiTreeWidget.hilightFormatInfoTree(r)
 
 		with PerfTimer("selectionChanged event handlers"):
 			self.selectionChanged.emit(r)
@@ -478,7 +494,6 @@ class HexView2(QWidget):
 			self.drawLines(qpTxt, qpBg)
 			qpBg.end()
 			qpTxt.end()
-		self.pixmapsInvalid = False
 
 	def redrawSelection(self):
 		self.update()
@@ -486,15 +501,22 @@ class HexView2(QWidget):
 	def paintEvent(self, e):
 		with PerfTimer("paintEvent"):
 			if self.pixmapsInvalid:
-				self.drawPixmaps()
-			qp = QPainter()
-			qp.begin(self)
-			qp.drawPixmap(0, 0, self.backgroundPixmap)
-			self.drawSelection(qp)
-			self.drawHover(qp)
-			qp.drawPixmap(0, 0, self.textPixmap)
-			#self.drawQuicktip(qp)
-			qp.end()
+				try:
+					self.drawPixmaps()
+				except:
+					logging.exception("Failed to draw bg/text pixmaps")
+				self.pixmapsInvalid = False
+			try:
+				qp = QPainter()
+				qp.begin(self)
+				qp.drawPixmap(0, 0, self.backgroundPixmap)
+				self.drawSelection(qp)
+				self.drawHover(qp)
+				qp.drawPixmap(0, 0, self.textPixmap)
+				#self.drawQuicktip(qp)
+				qp.end()
+			except:
+				logging.exception("Failed to render HexView")
 
 	def drawLines(self, qpTxt, qpBg):
 		y = 0 - self.partialLineScrollY
@@ -513,7 +535,6 @@ class HexView2(QWidget):
 		offset = self.lineNumberToByteOffset(lineNumber)
 		end = min(len(buffer), offset + self.bytesPerLine)
 		ii = 0
-		lastSection=[]
 		for i in range(offset, end):
 			theByte = buffer.getByte(i)
 
@@ -522,23 +543,24 @@ class HexView2(QWidget):
 			sectionAnnotations = buffer.ranges.getMetaValuesStartingAt(i, "section")
 			if len(sectionAnnotations) != 0:
 				if (ii != 0): y += self.dyLine;
-				qpTxt.setFont(self.fontSection)
-				qpTxt.setPen(self.fsSection);
+				qpTxt.setPen(self.fsSection)
 				for row in sectionAnnotations:
-					qpTxt.drawText(5, y+TXT_DY, row)
-					y += self.dyLine;
+					bangs = len(pattern_heading.match(row).group())
+					qpTxt.setFont(self.fontSection[bangs])
+					qpTxt.drawText(self.xHex, y+self.fontSection[bangs].pointSize() * 1.7, row)
+					y += self.fontSection[bangs].pointSize() * 2
 				qpTxt.setFont(self.fontAddress)
-				qpTxt.setPen(QColor("#555555"));
+				qpTxt.setPen(QColor("#555555"))
 				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(i));
 
 			if (ii == 0):  #//print address for first byte in line
 				qpTxt.setFont(self.fontAddress)
-				qpTxt.setPen(self.fsAddress);
-				qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(offset));
+				qpTxt.setPen(self.fsAddress)
+				qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(offset))
 
 			#// if specified, draw background color from style attribute
-			bg = buffer.getStyle(i, "color", None);
-			fg = buffer.getStyle(i, "textcolor", None);
+			bg = buffer.getStyle(i, "color", None)
+			fg = buffer.getStyle(i, "textcolor", None)
 			if (bg):
 				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg))
 				qpBg.fillRect(self.xAscii + ii * self.dxAscii, y+1, self.dxAscii, self.dyLine-2, QColor(bg))
@@ -548,10 +570,10 @@ class HexView2(QWidget):
 
 			#// print HEX and ASCII representation of this byte
 			qpTxt.setFont(self.fontHex)
-			qpTxt.setPen( self.fsHex if fg is None else QColor(fg))
-			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+TXT_DY, "%02x"%(theByte));
+			qpTxt.setPen( self.fsHex if not fg else QColor(fg))
+			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+TXT_DY, self.hexFormat.format(theByte));
 			qpTxt.setFont(self.fontAscii)
-			qpTxt.setPen(self.fsAscii if fg is None else QColor(fg))
+			qpTxt.setPen(self.fsAscii if not fg else QColor(fg))
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
 			qpTxt.drawText(self.xAscii + ii * self.dxAscii, y+TXT_DY, asciichar);
 			ii += 1
@@ -595,6 +617,10 @@ class HexView2(QWidget):
 			return (None, None, None, None)
 		y = self.itemY[visibleIdx]
 		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
+
+	def visibleRange(self):
+		firstVisibleOffset = self.bytesPerLine*self.firstLine
+		return (firstVisibleOffset, firstVisibleOffset + len(self.itemY))
 
 
 def showHexView2Dialog(parent, title, content, ok_callback):

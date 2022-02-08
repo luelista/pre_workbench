@@ -40,6 +40,21 @@ class RichEdit(QTextEdit):
 				navigateLink(anchor)
 		super().mouseReleaseEvent(e)
 
+	def getCodeBlockUnderCursor(self):
+		cur = self.textCursor()
+		fr = cur.currentFrame()
+		print(fr)
+		it = fr.begin()
+		code = ""
+		while not it.atEnd():
+			fragment = it.currentBlock()
+			if fragment.isValid():
+				code += fragment.text() + "\n"
+			it += 1
+
+		return code
+
+
 	def keyPressEvent(self, e: QKeyEvent):
 		mod = e.modifiers() & ~QtCore.Qt.KeypadModifier
 		if e.key() == QtCore.Qt.Key_F4:
@@ -48,23 +63,20 @@ class RichEdit(QTextEdit):
 			format.setBorder(2.0)
 			format.setBorderBrush(QColor(255,0,255))
 			format.setProperty(QTextFormat.UserProperty + 100, "code-block")
+			format.setPadding(5.0)
 			frame = cur.insertFrame(format)
 			self.setTextCursor(frame.firstCursorPosition())
+			monospace = QFont("monospace", 12)
+			monospace.setStyleHint(QFont.Monospace)
+			self.setCurrentFont(monospace)
 		print(int(mod), e.key())
 		if mod == QtCore.Qt.ControlModifier and e.key() == QtCore.Qt.Key_Return:
 			print("ctr-enter")
-			cur = self.textCursor()
-			fr = cur.currentFrame()
-			print(fr)
-			it = fr.begin()
-			code = ""
-			while not it.atEnd():
-				fragment = it.currentBlock()
-				if fragment.isValid():
-					code += fragment.text() + "\n"
-				it += 1
+			code = self.getCodeBlockUnderCursor()
 			print(code)
 			try:
+				def alert(msg):
+					QMessageBox.information(self, "Script alert", str(msg))
 				exec(code)
 			except Exception as ex:
 				QMessageBox.warning(self, "Exception in script", traceback.format_exc())
@@ -89,6 +101,7 @@ class HyperTextFileWindow(QWidget, MdiFile):
 		self.dataDisplay = RichEdit()
 		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
+		self.dataDisplay.textChanged.connect(self.documentWasModified)
 	def loadFile(self, fileName):
 		self.dataDisplay.setHtml(open(fileName,"r").read())
 		self.setCurrentFile(fileName)
@@ -141,6 +154,7 @@ class SimplePythonEditor(QsciScintilla):
 		self.marginClicked.connect(self.on_margin_clicked)
 		self.selectionChanged.connect(self.on_selection_changed)
 		self.cursorPositionChanged.connect(self.on_cursor_position_changed)
+
 		self.markerDefine(QsciScintilla.RightArrow,
 			self.ARROW_MARKER_NUM)
 		self.setMarkerBackgroundColor(QColor("#ee1111"),
@@ -211,6 +225,7 @@ class TextFileWindow(QWidget, MdiFile):
 		self.dataDisplay = SimplePythonEditor()
 		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
+		self.dataDisplay.textChanged.connect(self.documentWasModified)
 	def loadFile(self, fileName):
 		self.dataDisplay.setText(open(fileName,"r").read())
 		self.setCurrentFile(fileName)

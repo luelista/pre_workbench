@@ -152,18 +152,17 @@ class Range:
 	def overlaps(self, other):
 		return self.contains(other.start) or self.contains(other.end-1) or other.contains(self.start) or other.contains(self.end-1)
 
-	def matches(self, start=None, end=None, contains=None, hasMetaKey=None,
+	def matches(self, start=None, end=None, contains=None, hasMetaKey=None, doesntHaveMetaKey=None,
 				#hasStyleKey=None,
 				overlaps=None, **kw):
-		if start != None and start != self.start: return False
-		if end != None and end != self.end: return False
-		if contains != None and not self.contains(contains): return False
-		if overlaps != None and not self.overlaps(overlaps): return False
-		if hasMetaKey != None and not hasMetaKey in self.metadata: return False
-		#if hasStyleKey != None and not hasStyleKey in self.style: return False
+		if start is not None and start != self.start: return False
+		if end is not None and end != self.end: return False
+		if contains is not None and not self.contains(contains): return False
+		if overlaps is not None and not self.overlaps(overlaps): return False
+		if hasMetaKey is not None and hasMetaKey not in self.metadata: return False
+		if doesntHaveMetaKey is not None and doesntHaveMetaKey in self.metadata: return False
 		for k,v in kw.items():
 			if self.metadata.get(k) == v: continue
-			#if self.style.get(k) == v: continue
 			return False
 		return True
 

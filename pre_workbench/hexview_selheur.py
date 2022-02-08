@@ -54,31 +54,27 @@ def findInRange(bbuf, ranges, values):
 			l = len(val)
 			for i in range(start, end-l+1):
 				if bbuf.buffer[i:i+l] == val:
-					return (i, i+l), desc
-	return None, None
+					yield (i, i+l), desc
 
 def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
 	(start,end)=matchrange
-	maxY = qp.device().height()
 	for i in range(start,end):
 		(xHex, xAscii, y, dy) = editor.offsetToClientPos(i)
 		if dy is None: break
 		p = QPen(color)
 		p.setWidth(3)
 		qp.setPen(p)
-		qp.drawLine(xHex+2, y+dy-2, xHex+editor.dxHex-4, y+dy-2)
-		qp.drawLine(xAscii+1, y+dy-2, xAscii+editor.dxAscii-2, y+dy-2)
+		qp.drawLine(xHex+3, y+dy+1, xHex+editor.dxHex-3, y+dy+1)
+		qp.drawLine(xAscii+1, y+dy+1, xAscii+editor.dxAscii-2, y+dy+1)
 
 
 def selectionLengthMatcher(editor, qp, bbuf, sel):
 	(start, end) = sel
 	sellen = end - start + 1
 	if sellen == 0: return
-	match, desc = findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen))
-	if match != None:
+	for match, desc in findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen)):
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
-	match, desc = findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen+1, sellen+2, sellen+4))
-	if match != None:
+	for match, desc in findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen+1, sellen+2, sellen+4)):
 		highlightMatch(editor, qp, match,desc,QColor("#993399"))
 
 def debug_highlightMatchRange(editor, qp, bbuf, sel):
@@ -97,8 +93,16 @@ def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
 		highlightMatch(editor, qp, (end, end+val), "", QColor("#555555"))
 		return
 
+def highlightRepetitions(editor, qp, bbuf, sel):
+	(start, end) = sel
+	sellen = end - start + 1
+	if sellen == 0: return
+	for match, desc in findInRange(bbuf, [editor.visibleRange()], [(bbuf.getBytes(start, sellen), "")]):
+		highlightMatch(editor, qp, match, desc, QColor("#009999"))
+
 selectionHelpers = [
 	#debug_highlightMatchRange,
 	highlightSelectionAsLength,
-	selectionLengthMatcher
+	selectionLengthMatcher,
+	highlightRepetitions,
 ]

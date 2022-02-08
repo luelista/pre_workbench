@@ -90,6 +90,8 @@ class ByteBuffer(QObject):
 		return r
 	def clearRanges(self):
 		self.ranges = RangeList(len(self), list())
+	def setRanges(self, ranges):
+		self.ranges = RangeList(len(self), list(ranges))
 
 	def appendBytes(self, newBytes, meta=None):
 		start = len(self)
@@ -136,18 +138,18 @@ class ByteBuffer(QObject):
 			lst.add(ByteBuffer(buf))
 	
 	def toHexDump(self, offset=0, length=None):
-		if length==None:
+		if length is None:
 			b=self.buffer[offset:]
 		else:
 			b=self.buffer[offset:offset+length]
 		return hexdump.hexdump(b, result='return')
+
 	def toHex(self, offset=0, length=None, joiner="", format="%02x"):
-		if length==None:
+		if length is None:
 			b=self.buffer[offset:]
 		else:
 			b=self.buffer[offset:offset+length]
 		return joiner.join(format % c for c in b)
-
 
 	def parse_from_hexdump(dmp):
 		bbuf = ByteBuffer()

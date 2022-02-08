@@ -2,6 +2,7 @@ import logging
 import time
 import traceback
 
+from PyQt5 import QtGui
 from PyQt5.QtCore import (Qt, pyqtSignal)
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QMenu, QFileDialog, QTreeWidget, QTreeWidgetItem, \
@@ -57,6 +58,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.formatInfoContainer = None
 		self.optionsConfigKey = "RangeTree"
 		self.setMouseTracking(True)
+		self.setAcceptDrops(True)
 
 	formatInfoUpdated = pyqtSignal()
 
@@ -87,7 +89,12 @@ class RangeTreeWidget(QTreeWidget):
 			iterator += 1
 			count += 1
 		self.setUpdatesEnabled(True)
-		logging.debug("hilightFormatInfoTree for %d items", (time.perf_counter() - start_time), count)
+		logging.debug("hilightFormatInfoTree took %f sec for %d items", (time.perf_counter() - start_time), count)
+
+
+	################################################
+	#region Context Menu
+	################################################
 
 	def onCustomContextMenuRequested(self, point):
 		ctx = QMenu("Context menu", self)
@@ -131,7 +138,7 @@ class RangeTreeWidget(QTreeWidget):
 			self.formatInfoUpdated.emit()
 			self.saveFormatInfo(self.formatInfoContainer.file_name)
 
-		params = showTypeEditorDlg("format_info.tes", typeName, ok_callback=ok)
+		showTypeEditorDlg("format_info.tes", typeName, ok_callback=ok)
 
 
 	def removeField(self, parent, field_name):
@@ -186,6 +193,12 @@ class RangeTreeWidget(QTreeWidget):
 
 		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
 
+	#endregion
+
+	################################################
+	#region File Handling
+	################################################
+
 	def newFormatInfo(self):
 		def ok_callback(params):
 			fileName, _ = QFileDialog.getSaveFileName(self, "Save format info",
@@ -217,3 +230,22 @@ class RangeTreeWidget(QTreeWidget):
 
 	def saveFormatInfo(self, fileName):
 		self.formatInfoContainer.write_file(fileName)
+
+	def dragEnterEvent(self, e: QtGui.QDragEnterEvent) -> None:
+		self.dragMoveEvent(e)
+
+	def dragMoveEvent(self, e: QtGui.QDragMoveEvent) -> None:
+		if e.mimeData().hasUrls():
+			e.acceptProposedAction()
+
+	def dropEvent(self, e: QtGui.QDropEvent) -> None:
+		logging.debug("dropEvent %s %r", e, e.mimeData().formats())
+		if e.mimeData().hasUrls():
+			fileName = e.mimeData().urls()[0].toLocalFile()
+			logging.debug("dropEvent %s %r", fileName, e.mimeData().urls())
+			self.loadFormatInfo(load_from_file=fileName)
+			e.setDropAction(Qt.CopyAction)
+			e.accept()
+
+	#endregion
+

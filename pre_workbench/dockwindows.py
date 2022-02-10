@@ -14,27 +14,26 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import inspect
+import logging
 import os
 import traceback
-import logging
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
-	QAction, QListWidget, QListWidgetItem, QTableWidget, QTreeWidget, QMessageBox, QTreeWidgetItem
+	QAction, QListWidget, QListWidgetItem, QTreeWidget, QMessageBox, QTreeWidgetItem, QTextEdit
 
 from pre_workbench import configs
-from pre_workbench import structinfo
-from pre_workbench.objects import ByteBuffer
-from pre_workbench.algo.rangelist import Range
-from pre_workbench.guihelper import navigate, GlobalEvents
+from pre_workbench.genericwidgets import filledColorIcon
+from pre_workbench.guihelper import navigate
+from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
 from pre_workbench.textfile import SimplePythonEditor
-from pre_workbench.typeregistry import WindowTypes
-from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.typeeditor import JsonView
+from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.util import PerfTimer, truncate_str
 
 
@@ -149,8 +148,7 @@ class MdiWindowListWidget(QWidget):
 
 	def gotoItem(self, item):
 		windowId = item.data(QtCore.Qt.UserRole)
-		navigate("WINDOW-ID","Id="+windowId)
-
+		navigate("WINDOW-ID", "Id="+windowId)
 
 	def updateWindowList(self, wndList):
 		logging.debug("MdiWindowListWidget.updateWindowList (len=%d)", len(wndList))
@@ -158,8 +156,8 @@ class MdiWindowListWidget(QWidget):
 		for window in wndList:
 			listitem = QListWidgetItem(window.windowTitle())
 			listitem.setData(QtCore.Qt.UserRole, window.widget().objectName())
+			listitem.setIcon(window.windowIcon())
 			self.list.addItem(listitem)
-
 
 	def onCustomContextMenuRequested(self, point):
 		item = self.list.itemAt(point)
@@ -209,6 +207,7 @@ class StructInfoCodeWidget(QWidget):
 		self.setLayout(windowLayout)
 		self.editor.show()
 
+
 class RangeTreeDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -223,6 +222,7 @@ class RangeTreeDockWidget(QWidget):
 		self.fiTreeWidget.show()
 		#self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
 		#self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
+
 
 class DataInspectorWidget(QWidget):
 	defaultdef = """
@@ -344,6 +344,42 @@ class RangeListWidget(QWidget):
 						x.setText(0, truncate_str(k))
 						x.setText(1, truncate_str(v))
 				# TODO ...on click: self.selectRange(d)
+
+
+class SelectionHeuristicsConfigWidget(QWidget):
+	HELPER_ROLE = QtCore.Qt.UserRole + 100
+
+	def __init__(self):
+		super().__init__()
+		self.initUI()
+
+	def initUI(self):
+		self.listView = QListWidget()
+		self.infoBox = QTextEdit()
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.listView)
+		windowLayout.addWidget(self.infoBox)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+		self.listView.itemChanged.connect(self.itemChanged)
+		self.listView.currentItemChanged.connect(self.currentItemChanged)
+
+		from pre_workbench.hexview_selheur import SelectionHelpers
+		for helper, meta in SelectionHelpers.types:
+			item = QListWidgetItem(helper.__name__ )
+			item.setData(self.HELPER_ROLE, helper)
+			item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+			item.setCheckState(QtCore.Qt.Checked if configs.getValue("SelHeur."+helper.__name__+".enabled", meta.get("defaultEnabled",False)) else QtCore.Qt.Unchecked)
+			item.setIcon(filledColorIcon(configs.getValue("SelHeur."+helper.__name__+".color", meta.get("color","#000000")), 16))
+			self.listView.addItem(item)
+
+	def currentItemChanged(self, current, previous):
+		print(current)
+		self.infoBox.setText(inspect.cleandoc(current.data(self.HELPER_ROLE).__doc__) if current is not None else "")
+
+	def itemChanged(self, item):
+		configs.setValue("SelHeur." + item.data(self.HELPER_ROLE).__name__ + ".enabled", item.checkState() == QtCore.Qt.Checked)
+
 
 class RpcDockWidget(QWidget):
 	def __init__(self):

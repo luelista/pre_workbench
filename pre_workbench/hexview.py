@@ -32,7 +32,7 @@ from pre_workbench import configs
 from pre_workbench import structinfo
 from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import setClipboardText, str_ellipsis, GlobalEvents, showWidgetDlg
-from pre_workbench.hexview_selheur import selectionHelpers
+from pre_workbench.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
 from pre_workbench.algo.rangelist import Range
 from pre_workbench.rangetree import RangeTreeWidget
@@ -71,7 +71,7 @@ configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial, 10',HV2Helper.
 configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', HV2Helper.onOptionUpdated.emit)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'general', 'General')
-configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.1, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.3, HV2Helper.onOptionUpdated.emit)
 configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 'max': 1024}, 16, HV2Helper.onOptionUpdated.emit)
 
 pattern_heading = re.compile("[#]{0,6}")
@@ -120,20 +120,23 @@ class HexView2(QWidget):
 		self.addressFormat = configs.getValue('HexView2.address.Format')
 		self.hexFormat = configs.getValue('HexView2.hex.Format')
 
+		self.fontAddress = self.fontHex = self.fontAscii = QFont()
+		self.fontHex.fromString(configs.getValue('HexView2.hex.Font'))
+
 		self.xAddress = 5
-		self.fontAddress = QFont()
-		self.fontAddress.fromString(configs.getValue('HexView2.address.Font'))
+		#self.fontAddress = QFont()
+		#self.fontAddress.fromString(configs.getValue('HexView2.address.Font'))
 		self.fsAddress = QColor(configs.getValue('HexView2.address.Color'))
 
 		self.xHex = QFontMetrics(self.fontAddress).width(self.addressFormat.format(0)) + 15
-		self.fontHex = QFont()
-		self.fontHex.fromString(configs.getValue('HexView2.hex.Font'))
+		#self.fontHex = QFont()
+		#self.fontHex.fromString(configs.getValue('HexView2.hex.Font'))
 		self.fsHex = QColor(configs.getValue('HexView2.hex.Color'));	self.dxHex = QFontMetrics(self.fontHex).width(self.hexFormat.format(0))+4
 		self.hexSpaceAfter = configs.getValue('HexView2.hex.SpaceAfter'); self.hexSpaceWidth = configs.getValue('HexView2.hex.SpaceWidth')
 
 		self.xAscii = self.xHex + self.dxHex*self.bytesPerLine+(ceil(self.bytesPerLine/self.hexSpaceAfter)-1)*self.hexSpaceWidth+15
-		self.fontAscii = QFont()
-		self.fontAscii.fromString(configs.getValue('HexView2.ascii.Font'))
+		#self.fontAscii = QFont()
+		#self.fontAscii.fromString(configs.getValue('HexView2.ascii.Font'))
 		self.fsAscii = QColor(configs.getValue('HexView2.ascii.Color')); self.dxAscii = QFontMetrics(self.fontAscii).width("W")
 
 		self.fsSel = QColor("#7fff9bff");  self.fsHover = QColor("#7f9b9bff")
@@ -145,7 +148,11 @@ class HexView2(QWidget):
 			self.fontSection.append(f)
 		self.fsSection = QColor(configs.getValue('HexView2.section.Color'));
 
-		self.dyLine = max(QFontMetrics(self.fontAddress).height(), QFontMetrics(self.fontHex).height()) * configs.getValue('HexView2.general.lineHeight')
+		self.charHeight = QFontMetrics(self.fontHex).height()
+		self.dyLine = ceil(self.charHeight * configs.getValue('HexView2.general.lineHeight'))
+		self.fontAscent = ceil(QFontMetrics(self.fontHex).ascent())
+		self.linePadding = ceil(max(0, self.charHeight * (configs.getValue('HexView2.general.lineHeight') - 1) / 2))
+		print(self.charHeight, self.dyLine, self.fontAscent, self.linePadding)
 
 		self.fiTreeWidget.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, 10)
 		self.redraw()
@@ -350,7 +357,7 @@ class HexView2(QWidget):
 		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd)+1, buffer_idx=self.selBuffer)
 
 	def clipPosition(self, bufferIdx, pos):
-		return max(0, min(len(self.buffers[bufferIdx]), pos))
+		return max(0, min(len(self.buffers[bufferIdx]) - 1, pos))
 
 	def select(self, start:int, end:int, bufferIdx=0, scrollIntoView=False):
 		#TODO ensure that start, end are in valid range
@@ -397,9 +404,9 @@ class HexView2(QWidget):
 			arrow = self.selEnd + self.bytesPerLine
 
 		#print("hexView Key Press %d 0x%x %d"%(e.key(), int(e.modifiers()), arrow))
-		if arrow and mod == QtCore.Qt.ShiftModifier:
+		if arrow is not None and mod == QtCore.Qt.ShiftModifier:
 			self.select(self.selStart, arrow)
-		elif arrow and mod == QtCore.Qt.NoModifier:
+		elif arrow is not None and mod == QtCore.Qt.NoModifier:
 			self.select(arrow, arrow)
 
 		if mod == QtCore.Qt.ControlModifier:
@@ -412,22 +419,15 @@ class HexView2(QWidget):
 			elif e.key() == QtCore.Qt.Key_F5:
 				self.applyFormatInfo()
 			elif e.key() == QtCore.Qt.Key_Plus:
-				configs.setValue('HexView2.addressFontSize', configs.getValue("HexView2.addressFontSize") + 1)
-				configs.setValue('HexView2.hexFontSize', configs.getValue("HexView2.hexFontSize") + 1)
-				configs.setValue('HexView2.asciiFontSize', configs.getValue("HexView2.asciiFontSize") + 1)
-				configs.setValue('HexView2.sectionFontSize', configs.getValue("HexView2.sectionFontSize") + 1)
-
+				self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
+				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 			elif e.key() == QtCore.Qt.Key_Minus:
-				configs.setValue('HexView2.addressFontSize', configs.getValue("HexView2.addressFontSize") - 1)
-				configs.setValue('HexView2.hexFontSize', configs.getValue("HexView2.hexFontSize") - 1)
-				configs.setValue('HexView2.asciiFontSize', configs.getValue("HexView2.asciiFontSize") - 1)
-				configs.setValue('HexView2.sectionFontSize', configs.getValue("HexView2.sectionFontSize") - 1)
+				self.fontHex.setPointSize(self.fontHex.pointSize() - 1)
+				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 
 			elif e.key() == QtCore.Qt.Key_0:
-				configs.setValue('HexView2.addressFontSize', 10)
-				configs.setValue('HexView2.hexFontSize', 10)
-				configs.setValue('HexView2.asciiFontSize', 10)
-				configs.setValue('HexView2.sectionFontSize', 8)
+				self.fontHex.setPointSize(10)
+				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 
 
 		if mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
@@ -531,7 +531,8 @@ class HexView2(QWidget):
 			lineNumber+=1
 	
 	def drawLine(self, qpTxt, qpBg, lineNumber, y, buffer):
-		TXT_DY = 14
+		TXT_DY = self.fontAscent + self.linePadding #floor(self.dyLine*0.8)
+		#qpTxt.set
 		offset = self.lineNumberToByteOffset(lineNumber)
 		end = min(len(buffer), offset + self.bytesPerLine)
 		ii = 0
@@ -588,9 +589,10 @@ class HexView2(QWidget):
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)
 			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsSel)
 
-		for selHelper in selectionHelpers:
-			with PerfTimer("execution of selectionHelper (%s)", selHelper.__name__):
-				selHelper(self, qp, self.buffers[0], (selMin, selMax))
+		for helper, meta in SelectionHelpers.types:
+			if configs.getValue("SelHeur." + helper.__name__ + ".enabled", meta.get("defaultEnabled", False)):
+				with PerfTimer("execution of selectionHelper (%s)", helper.__name__):
+					helper(self, qp, self.buffers[0], (selMin, selMax))
 
 	def drawHover(self, qp):
 		if self.lastHit is not None:
@@ -601,7 +603,7 @@ class HexView2(QWidget):
 
 	########### CALCULATION    #########################
 	def lineNumberToByteOffset(self, lineNumber:int):
-		return lineNumber * self.bytesPerLine;
+		return lineNumber * self.bytesPerLine
 
 	def maxLine(self):
 		return ceil(len(self.buffers[0]) / self.bytesPerLine);
@@ -616,7 +618,7 @@ class HexView2(QWidget):
 			logging.warn("trying to paint outside viewport %r", offset)
 			return (None, None, None, None)
 		y = self.itemY[visibleIdx]
-		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y,self.dyLine)
+		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y+floor(self.linePadding*0.5),ceil(self.charHeight*1.2))
 
 	def visibleRange(self):
 		firstVisibleOffset = self.bytesPerLine*self.firstLine

@@ -31,7 +31,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
 	QMdiArea, QDockWidget, QMessageBox, QTextEdit, QMdiSubWindow, QStyleFactory, QToolButton, QMenu, QSplashScreen
 
 from pre_workbench.configs import getIcon
-from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget
+from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget
 from pre_workbench import configs, SettingsSection
 from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
 from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
@@ -201,7 +201,6 @@ class WorkbenchMain(QMainWindow):
 		self.mapChildAction(self.openGrammarAct, "openGrammar")
 
 
-
 	def initUI(self):
 		self.setUnifiedTitleAndToolBarOnMac(True)
 		self.setAcceptDrops(True)
@@ -220,6 +219,7 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("Grammar Parse Result", RangeTreeDockWidget(), showFirstRun=True)
 		self.createDockWnd("Data Inspector", DataInspectorWidget(), Qt.BottomDockWidgetArea, showFirstRun=True)
 		self.createDockWnd("Selected Ranges", RangeListWidget(), showFirstRun=True)
+		self.createDockWnd("Selection Heuristics", SelectionHeuristicsConfigWidget(), showFirstRun=True)
 
 		self.mdiArea = QMdiArea()
 		configs.registerOption(SettingsSection("View", "View", "General", "General"),

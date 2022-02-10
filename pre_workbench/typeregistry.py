@@ -25,7 +25,7 @@ class TypeRegistry:
 			for k,v in meta.items():
 				setattr(typ, k, v)
 			meta["name"] = typ.__name__
-			self.types.append([typ, meta])
+			self.types.append((typ, meta))
 			return typ
 		return wrapper
 

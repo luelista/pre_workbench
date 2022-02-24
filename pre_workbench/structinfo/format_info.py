@@ -1,12 +1,16 @@
 import datetime
 import uuid
+from math import ceil, floor
+
+from bitstring import BitStream
 
 from pre_workbench.structinfo import display_styles, FITypes
 from pre_workbench.structinfo.exceptions import *
+from pre_workbench.structinfo.expr import deserialize_expr
 from pre_workbench.structinfo.parsecontext import ParseContext
 from pre_workbench.structinfo.serialization import recursive_serialize, deserialize_fi
 from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
-from pre_workbench.structinfo.expr import deserialize_expr
+
 
 class FormatInfo:
 	def __init__(self, info=None, typeRef=None, params=None):
@@ -398,6 +402,34 @@ class UnionFI:
 		context.buf_offset = end
 		return context.pack_value(o)
 
+
+@FITypes.register(type_id=9)
+class BitStructFI:
+	def init(self, children, **kw):
+		print(children)
+		self.children = [(str(name), bitlength) for (name, bitlength) in children]
+		self.size = ceil(sum(bits for (name, bits) in self.children) / 8)
+
+	def _to_text(self, indent, refs, all_params):
+		x = "bits "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		for (name, bits) in self.children:
+			x += "\t"*(1+indent) + name + " : " + str(bits) + "\n"
+		return x + "\t"*indent+"}"
+
+	def _parse(self, context):
+		o = {}
+		context.set_top_value(o)
+		raw_data = context.peek_bytes(self.size)
+		stream = BitStream(raw_data)
+		pos = context.buf_offset * 8
+		for key, len in self.children:
+			context.buf_offset = floor(pos / 8)
+			context.push(desc=context.stack[-1][0], id=key)
+			o[key] = context.pack_value(stream.read(len).uint)
+			context.pop()
+			pos += len
+		context.buf_offset = ceil(pos / 8)
+		return context.pack_value(o)
 
 
 def params_to_text(indent, refs, params, ignore=['children','def_name'], before="(", after=")"):

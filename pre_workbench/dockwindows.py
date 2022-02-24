@@ -21,11 +21,12 @@ import traceback
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtGui import QDesktopServices, QColor, QFont
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QMessageBox, QTreeWidgetItem, QTextEdit
 
-from pre_workbench import configs
+from pre_workbench import configs, guihelper
+from pre_workbench.errorhandler import ConsoleWindowLogHandler
 from pre_workbench.genericwidgets import filledColorIcon
 from pre_workbench.guihelper import navigate
 from pre_workbench.rangetree import RangeTreeWidget
@@ -45,8 +46,6 @@ class FileBrowserWidget(QWidget):
 
 	def initUI(self):
 		self.model = QFileSystemModel()
-		self.rootFolder = ''
-		self.model.setRootPath(self.rootFolder)
 		self.tree = QTreeView()
 		self.tree.setModel(self.model)
 
@@ -117,7 +116,7 @@ class FileBrowserWidget(QWidget):
 		try:
 			self.setRoot(state["root"])
 		except:
-			pass
+			self.setRoot(guihelper.CurrentProject.projectFolder)
 		try:
 			idx = self.model.index(state["sel"])
 			if idx.isValid():
@@ -274,12 +273,8 @@ class DataInspectorWidget(QWidget):
 			try:
 				fi_tree = parse_context.parse()
 			except parse_exception as ex:
-				QMessageBox.warning(self, "Parse error", str(ex))
-				traceback.print_exc()
-				try:
-					fi_tree = ex.partial_result
-				except:
-					fi_tree = None
+				logging.exception("Failed to apply format info")
+				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
 			self.fiTreeWidget.updateTree(fi_tree)
 
 	def initUI(self):
@@ -334,6 +329,8 @@ class RangeListWidget(QWidget):
 			self.treeView.clear()
 			for d in sender.buffers[0].matchRanges(overlaps=sender.selRange()):
 				root = QTreeWidgetItem(self.treeView)
+				if "color" in d.metadata:
+					root.setIcon(1, filledColorIcon(QColor(d.metadata["color"]), 16))
 				root.setText(0, "Range %d-%d" % (d.start, d.end))
 				root.setText(1, truncate_str(d.metadata.get("name")))
 				root.setText(2, truncate_str(d.metadata.get("showname")))
@@ -388,3 +385,42 @@ class RpcDockWidget(QWidget):
 
 	def initUI(self):
 		pass
+
+
+class LogWidget(QWidget):
+	def __init__(self, logger_name = ""):
+		super().__init__()
+		self.initUI()
+		self.logger = logging.getLogger(logger_name)
+		self.handler = ConsoleWindowLogHandler()
+		self.handler.sigLog.connect(self.logEvent)
+
+	def initUI(self):
+		self.textBox = QTextEdit()
+		font = QFont("monospace")
+		font.setStyleHint(QFont.Monospace)
+		self.textBox.setFont(font)
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.textBox)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def showEvent(self, QShowEvent):
+		self.logger.addHandler(self.handler)
+
+	def hideEvent(self, QHideEvent):
+		try:
+			self.logger.removeHandler(self.handler)
+		except:
+			pass #sometimes it is not connected, probably hideEvent is called multiple times
+
+	def logEvent(self, level, message):
+		if level in ["ERROR", "WARNING"]:
+			self.textBox.setTextColor(QColor("red"))
+		elif level == "INFO":
+			self.textBox.setTextColor(QColor("blue"))
+		else:
+			self.textBox.setTextColor(QColor("black"))
+
+		self.textBox.append(message)
+

@@ -15,64 +15,54 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import json
 import logging
 import re
 import sys
-import time
-import traceback
 from math import ceil, floor
 
 from PyQt5 import QtCore
-from PyQt5.QtCore import (Qt, QSize, pyqtSignal, QObject)
-from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QMessageBox, QAction, QDialog, QVBoxLayout, \
-	QInputDialog
+from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QComboBox
+from pre_workbench.algo.rangelist import Range
 
-from pre_workbench import configs
-from pre_workbench import structinfo
+from pre_workbench import configs, guihelper
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import setClipboardText, str_ellipsis, GlobalEvents, showWidgetDlg
+from pre_workbench.guihelper import setClipboardText, GlobalEvents, showWidgetDlg
 from pre_workbench.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
-from pre_workbench.algo.rangelist import Range
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
 from pre_workbench.util import PerfTimer
 
-
-class Helper(QObject):
-	onOptionUpdated = pyqtSignal(str, object)
-HV2Helper = Helper()
-
 group = SettingsSection('HexView2', 'Hex Editor', 'address', 'Address Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10', HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'Color', 'Address Color', 'color', {}, '#888888',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'Format', 'Address Format', 'text', {}, '{:08x}',HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Color', 'Address Color', 'color', {}, '#888888',None)
+configs.registerOption(group, 'Format', 'Address Format', 'text', {}, '{:08x}',None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'hex', 'Hex Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'Color', 'Hex Color', 'color', {}, '#ffffff', HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'SpaceAfter', 'Hex SpaceAfter', 'int', {'min': 1, 'max': 1024}, 8, HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'SpaceWidth', 'Hex SpaceWidth', 'int', {'min': 1, 'max': 1024}, 8, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',None)
+configs.registerOption(group, 'Color', 'Hex Color', 'color', {}, '#ffffff', None)
+configs.registerOption(group, 'SpaceAfter', 'Hex SpaceAfter', 'int', {'min': 1, 'max': 1024}, 8, None)
+configs.registerOption(group, 'SpaceWidth', 'Hex SpaceWidth', 'int', {'min': 1, 'max': 1024}, 8, None)
 configs.registerOption(group, 'Format', 'Hex Format', 'select', {'options':[
 	('{:02x}', "Hexadecimal"),
 	('{:08b}', "Binary"),
 	('{:04o}', "Octal"),
 	('{:03d}', "Decimal"),
-]}, '{:02x}',HV2Helper.onOptionUpdated.emit)
+]}, '{:02x}', None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'ascii', 'ASCII Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'Color', 'ASCII Color', 'color', {}, '#bbffbb', HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Color', 'ASCII Color', 'color', {}, '#bbffbb', None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'section', 'Section Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial, 10',HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial, 10',None)
+configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'general', 'General')
-configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.3, HV2Helper.onOptionUpdated.emit)
-configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 'max': 1024}, 16, HV2Helper.onOptionUpdated.emit)
+configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.3, None)
+configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 'max': 1024}, 16, None)
 
 pattern_heading = re.compile("[#]{0,6}")
 
@@ -81,20 +71,29 @@ class HexView2(QWidget):
 	formatInfoUpdated = pyqtSignal()
 	selectionChanged = pyqtSignal(object)
 
-	def __init__(self, byteBuffer=None, options=dict(), optionsConfigKey="HexViewParams"):
+	userStyles = [
+		("R", "Red", {"color": "#aa0000"}),
+		("G", "Green", {"color": "#00aa00"}),
+		("Y", "Yellow", {"color": "#aaaa00"}),
+		("L", "Blue", {"color": "#0000aa"}),
+		("M", "Magenta", {"color": "#aa00aa"}),
+		("T", "Turqoise", {"color": "#00aaaa"}),
+	]
+
+	def __init__(self, byteBuffer=None, annotationDefaultName="", options=dict(), optionsConfigKey="HexViewParams"):
 		super().__init__()
+		self.annotationDefaultName = annotationDefaultName
 		self.buffers = list()
 		self.firstLine = 0
 		self.scrollY = 0
 		self.partialLineScrollY = 0
 		self.setFocusPolicy(QtCore.Qt.StrongFocus)
-		self.fiTreeWidget = RangeTreeWidget(self)
-		self.fiTreeWidget.show()
-		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
-		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
+
+		self.initUI()
+
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
-		HV2Helper.onOptionUpdated.connect(self.loadOptions)
+		GlobalEvents.on_config_change.connect(self.loadOptions)
 		self.loadOptions()
 
 		self.pixmapsInvalid = True
@@ -113,7 +112,19 @@ class HexView2(QWidget):
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+	def initUI(self):
+		self.fiTreeWidget = RangeTreeWidget(self)
+		self.fiTreeWidget.show()
+		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
+		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 
+		self.annotationSelect = QComboBox(self)
+		self.annotationSelect.show()
+		self.annotationSelect.addItems([self.annotationDefaultName] + guihelper.CurrentProject.getAnnotationSetNames())
+		self.annotationSelect.currentTextChanged.connect(self.loadAnnotations)
+		#self.loadAnnotations(self.annotationDefaultName)
+		self.fiSelect = QComboBox(self)
+		self.fiSelect.show()
 
 	def loadOptions(self, *dummy):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
@@ -162,9 +173,8 @@ class HexView2(QWidget):
 
 	def onCustomContextMenuRequested(self, point):
 		hit = self.hitTest(point)
-		ctxMenu = None
 		ctxMenu = QMenu("Context menu", self)
-		if hit != None:
+		if hit is not None:
 			if hit < self.selStart or hit > self.selEnd:
 				self.selStart = self.selEnd = hit
 				self.selecting = False
@@ -178,24 +188,51 @@ class HexView2(QWidget):
 		ctx.addAction(QAction("Copy selection hex\tCtrl-C", ctx, triggered=lambda: self.copySelection(), shortcut="Ctrl+C"))
 		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
 		ctx.addAction("Copy selection hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
+		#ctx.addAction("Copy selected annotations", lambda: self.copySelection("hexdump"))
 		ctx.addSeparator()
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
-		ctx.addAction("&Red", lambda: self.styleSelection(color="#aa0000"))
-		ctx.addAction("&Green", lambda: self.styleSelection(color="#00aa00"))
-		ctx.addAction("&Yellow", lambda: self.styleSelection(color="#aaaa00"))
-		ctx.addAction("B&lue", lambda: self.styleSelection(color="#0000aa"))
-		ctx.addAction("&Magenta", lambda: self.styleSelection(color="#aa00aa"))
-		ctx.addAction("&Turqoise", lambda: self.styleSelection(color="#00aaaa"))
+		try:
+			match = next(
+				self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
+
+			ctx.addAction("&Delete selected style\tX", lambda: self.deleteSelectedStyle())
+
+			ctx.addSeparator()
+		except StopIteration:
+			pass
+		for key, name, style in HexView2.userStyles:
+			ctx.addAction(name+"\t"+key, lambda: self.styleSelection(**style))
+		ctx.addSeparator()
 		ctx.addAction("&Start Section...", lambda: self.setSectionSelection())
 		ctx.addSeparator()
 
 
 	def buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
-
+		ctx.addSeparator()
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		ctx.addAction("Clear ranges", lambda: self.clearRanges())
+
+
+	def setDefaultAnnotationSet(self, name):
+		self.annotationDefaultName = name
+		self.annotationSelect.setItemText(0, name)
+		self.loadAnnotations(name)
+
+	def loadAnnotations(self, set_name):
+		self.buffers[0].setRanges(self.buffers[0].matchRanges(hasMetaKey='_sdef_ref'))
+		annotations = guihelper.CurrentProject.getAnnotations(set_name)
+		for rowid, start, end, meta_str in annotations:
+			meta = json.loads(meta_str)
+			if meta.get("deleted"): continue
+			meta['rowid'] = rowid
+			self.buffers[0].addRange(Range(start=start, end=end, meta=meta))
+		self.redraw()
+
+	def storeAnnotaton(self, range):
+		if not self.annotationSelect.currentText(): return
+		guihelper.CurrentProject.storeAnnotation(self.annotationSelect.currentText(), range)
 
 
 	def clearRanges(self):
@@ -204,7 +241,7 @@ class HexView2(QWidget):
 
 	def getRangeString(self, range, style=(" ","%02X")):
 		if isinstance(style, tuple):
-			return self.buffers[0].toHex(range.start, range.length(), " ", "%02X")
+			return self.buffers[0].toHex(range.start, range.length(), style[0], style[1])
 		elif style=="hexdump":
 			return self.buffers[0].toHexDump(range.start, range.length())
 
@@ -214,12 +251,13 @@ class HexView2(QWidget):
 	def styleSelection(self, **kw):
 		selection = self.selRange()
 		try:
-			match = next(self.buffers[0].matchRanges(start=selection.start, end=selection.end, doesntHaveMetaKey='_sdef_ref'))
+			match = next(self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
 		except StopIteration:
 			match = selection
 			self.buffers[0].addRange(selection)
 
 		match.metadata.update(kw)
+		self.storeAnnotaton(match)
 		self.redraw()
 
 	def setSectionSelection(self):
@@ -237,8 +275,19 @@ class HexView2(QWidget):
 				match = selection
 				self.buffers[0].addRange(selection)
 			match.metadata.update(section=newTitle)
+			self.storeAnnotaton(match)
 			self.redraw()
 
+	def deleteSelectedStyle(self):
+		try:
+			match = next(
+				self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
+			self.buffers[0].removeRange(match)
+			match.metadata["deleted"] = True
+			self.storeAnnotaton(match)
+			self.redraw()
+		except StopIteration:
+			pass
 
 
 	################# FI Tree ####################################################
@@ -257,8 +306,9 @@ class HexView2(QWidget):
 				self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
 				self.redraw()
 			except parse_exception as ex:
-				traceback.print_exc()
-				QMessageBox.warning(self, "Failed to apply format info", str(ex))
+				logging.exception("Failed to apply format info")
+				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
+				#QMessageBox.warning(self, "Failed to apply format info", str(ex))
 
 
 	def newSubflowCategory(self, category, parse_context, **kv):
@@ -326,6 +376,15 @@ class HexView2(QWidget):
 		self.selecting = False
 		self.select(self.selStart, self.selEnd)
 
+	def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:
+		if e.button() != Qt.LeftButton: return
+
+		try:
+			match = next(self.buffers[0].matchRanges(contains=self.selFirst(), doesntHaveMetaKey='_sdef_ref'))
+			self.select(match.start, match.end-1)
+		except StopIteration:
+			pass
+
 	def hitTest(self, point):
 		x, y = point.x(), point.y()
 		linePos = None
@@ -351,6 +410,8 @@ class HexView2(QWidget):
 
 	def selFirst(self):
 		return min(self.selStart, self.selEnd)
+	def selLast(self):
+		return max(self.selStart, self.selEnd)
 	def selLength(self):
 		return max(self.selStart, self.selEnd) - self.selFirst() + 1
 	def selRange(self):
@@ -430,21 +491,32 @@ class HexView2(QWidget):
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 
 
-		if mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
+		elif mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
 			if e.key() == QtCore.Qt.Key_C:
 				self.copySelection("hexdump")
 			elif e.key() == QtCore.Qt.Key_I:
 				self.fiTreeWidget.fileOpenFormatInfo()
 
 
+		elif mod == QtCore.Qt.NoModifier:
+			if e.key() == QtCore.Qt.Key_X:
+				self.deleteSelectedStyle()
+
+			if QtCore.Qt.Key_A <= e.key() <= QtCore.Qt.Key_Z:
+				letter = chr(e.key() - QtCore.Qt.Key_A + 0x41)
+				info = next((x for x in HexView2.userStyles if x[0] == letter), None)
+				if info:
+					self.styleSelection(**info[2])
+
+
+
 	#################  data setters   ##########################################
+	def getBytes(self):
+		return self.buffers[0].buffer
+
 	def setBytes(self, buf : bytes):
-		#abuf = ByteBuffer();
-		#abuf.setBytes(0, buf, undefined, undefined);
 		abuf = ByteBuffer(buf)
-		self.buffers = [ abuf ];
-		self.firstLine = 0;
-		self.redraw();
+		self.setBuffer(abuf)
 	
 	def setBuffer(self, bbuf):
 		if isinstance(bbuf, BidiByteBuffer):
@@ -458,16 +530,17 @@ class HexView2(QWidget):
 		if self.fiTreeWidget.formatInfoContainer is None:
 			self.fiTreeWidget.formatInfoContainer = self.buffers[0].fi_container
 		self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
-		if self.buffers[0].fi_tree == None: self.applyFormatInfo()
-
-	def getBytes(self):
-		return self.buffers[0].buffer
+		if self.buffers[0].fi_tree is None: self.applyFormatInfo()
 
 	############ RENDERING ############################################################
 
 	def resizeEvent(self, e):
 		self.redraw();
-		self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-20)
+		self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
+		self.annotationSelect.move(10, self.height() - 28)
+		self.fiSelect.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, self.height() - 28)
+		self.annotationSelect.setFixedWidth(self.xAscii + self.dxAscii*self.bytesPerLine-10)
+		self.fiSelect.setFixedWidth(self.width() - self.fiTreeWidget.pos().x()-10)
 
 	def sizeHint(self):
 		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)

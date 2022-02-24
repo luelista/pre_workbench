@@ -19,7 +19,7 @@ import json
 from lark import Transformer
 
 from pre_workbench.structinfo.format_info import VariantStructFI, StructFI, RepeatStructFI, SwitchFI, NamedFI, \
-	FormatInfo, UnionFI, FieldFI, builtinTypes
+	FormatInfo, UnionFI, FieldFI, builtinTypes, BitStructFI
 from pre_workbench.structinfo.expr import Expression, fi_parser
 
 
@@ -63,6 +63,8 @@ class MainTrans(Transformer):
 	field = tuple
 	variantchildren = list
 	structfields = list
+	bitstructfields = list
+	bitstructfield = tuple
 	switchcases = list
 	switchcase = tuple
 
@@ -106,6 +108,11 @@ class MainTrans(Transformer):
 		params['expr'] = expr
 		params['children'] = cases
 		return FormatInfo(typeRef=SwitchFI, params=params)
+
+	def bitstructfi(self, node):
+		params, children = node
+		params['children'] = children
+		return FormatInfo(typeRef=BitStructFI, params=params)
 
 	def expr_value(self, node):
 		return Expression(expr_tree=node[0])

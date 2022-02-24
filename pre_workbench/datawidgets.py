@@ -107,7 +107,7 @@ class PacketListModel(QAbstractItemModel):
         item = self.listObject.buffers[index.row()]
         col_info = self.columns[index.column()]
         try:
-            return col_info.extract(item)
+            return str(col_info.extract(item))
         except Exception as ex:
             return "ERROR: "+str(ex)
 
@@ -226,10 +226,10 @@ class PacketListWidget(QWidget):
             ctx.addSeparator()
         addIdx = None if index == -1 else index
         ctx.addAction("Add column ...", lambda: self.onAddColumn(addIdx))
-        for key in self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False):
+        for key in sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False)):
             ctx.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
         ctx.addSeparator()
-        for key in self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True):
+        for key in sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True)):
             ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo(key), addIdx))
 
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
@@ -245,7 +245,7 @@ class PacketListWidget(QWidget):
     def onAddColumn(self, insertBefore):
         par = showSettingsDlg(self.getColumnInfoDefinition())
         if par is not None:
-            if par["title"] == "": par["title"] = par["key"]
+            if par["title"] == "": par["title"] = par["expr_str"]
             self.packetlistmodel.addColumn(ColumnInfo(**par), insertBefore)
 
     def onEditColumn(self, index):
@@ -328,7 +328,7 @@ class ByteBufferWidget(QWidget):
         widget = PacketListWidget()
         widget.setContents(parse_context.subflow_categories[category])
         self.tabWidget.addTab(widget, category)
-        widget.on_data_selected.connect(lambda bbuf: self.on_meta_update("zoom", bbuf))
+        widget.on_meta_update.connect(self.on_meta_update.emit)
 
     def onNewData(self):
         #self.textbox.showHex(bufObj.buffer)
@@ -369,7 +369,7 @@ class DynamicDataWidget(QWidget):
             else:
                 self.metadataWidget.setContents(None)
             widgetTyp, _ = DataWidgetTypes.find(handles=typ)
-            if widgetTyp == None:
+            if widgetTyp is None:
                 self.setErrMes("Unknown data type "+str(typ))
             else:
                 self.loadChildType(widgetTyp)

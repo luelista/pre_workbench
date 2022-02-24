@@ -7,7 +7,7 @@ import time
 import traceback
 import urllib.request
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QMessageBox, QCheckBox, QInputDialog
 
 logFile = tempfile.gettempdir()+'/pre_workbench.log'
@@ -81,3 +81,22 @@ def excepthook(excType, excValue, tracebackobj):
 		traceback.print_exc()
 		print(str(e))
 
+
+class ConsoleWindowLogHandler(logging.Handler, QObject):
+	sigLog = pyqtSignal(str, str)
+	def __init__(self):
+		logging.Handler.__init__(self)
+		QObject.__init__(self)
+		self.formatter = logging.Formatter('%(asctime)s %(module)18s:%(lineno)-4s [%(levelname)s] %(message)s')
+
+	def emit(self, log_record):
+		message = self.formatter.format(log_record)
+		self.sigLog.emit(log_record.levelname, message)
+
+
+def initLogging():
+	logging.basicConfig(level=10, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True,
+						handlers=[
+							logging.StreamHandler(),
+							logging.FileHandler(filename=logFile, mode='w'),
+						])

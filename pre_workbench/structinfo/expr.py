@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import binascii
 import json
 import os.path
 import traceback
@@ -86,6 +86,17 @@ class Evaluator(Transformer):
 		elif node[1] == "&&":
 			return node[0] and node[2]
 
+	def fun_expr(self, node):
+		name, param = node
+		if name == "hex":
+			if type(param) in (bytes, bytearray):
+				return binascii.hexlify(param).decode('ascii')
+			else:
+				return hex(param)
+		elif name == "snip":
+			return str(param)[:32]
+		else:
+			raise Exception("Call to unknown function '"+name+"'")
 
 class ParseContextEvaluator(Evaluator):
 	def __init__(self, parse_context):
@@ -126,6 +137,8 @@ class ParseContextEvaluator(Evaluator):
 				return 0
 			else:
 				return param - (len % param)
+		else:
+			super().fun_expr(node)
 
 def generic_unpack_value(packed_value):
 	while hasattr(packed_value, 'value'):
@@ -153,6 +166,8 @@ class ByteBufferEvaluator(Evaluator):
 
 	def anyfield_expr(self, node):
 		id = node[0]
+		if id == "payload":
+			return self.bbuf.buffer
 		frame = generic_unpack_value(self.bbuf.fi_tree)
 		if frame is not None and id in frame:
 			return generic_unpack_value(frame[id])

@@ -7,7 +7,6 @@ class parse_exception(Exception):
 		self.parse_stack = context.stack
 
 
-
 class incomplete(parse_exception):
 	def __init__(self, context, need, got):
 		super().__init__(context, "incomplete: needed %d, got %d bytes" %(need,got))

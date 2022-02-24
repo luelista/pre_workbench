@@ -86,7 +86,6 @@ class ObjectWindow(QWidget):
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)
 
-
 		self.dataDisplay = DynamicDataWidget()
 		self.dataDisplay.on_meta_update.connect(self.on_meta_update.emit)
 		metadataVisAction.toggled.connect(self.dataDisplay.setMetadataVisible)

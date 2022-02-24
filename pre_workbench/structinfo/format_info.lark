@@ -29,13 +29,17 @@ parampair: IDENTIFIER "=" value
     | unionfi
     | explicitnamedfi
     | namedfi
+    | bitstructfi
 
 variantfi: "variant" params "{" variantchildren "}"
 variantchildren: anytype+
 structfi: "struct" params "{" structfields "}"
+bitstructfi: "bits" params "{" bitstructfields "}"
 unionfi: "union" params "{" structfields "}"
 structfields: field*
 field: IDENTIFIER anytype ";"?
+bitstructfields: bitstructfield*
+bitstructfield: IDENTIFIER ":" number ";"?
 
 switchfi: "switch" expr_value params "{" switchcases "}"
 switchcases: switchcase*

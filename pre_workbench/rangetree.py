@@ -62,6 +62,10 @@ class RangeTreeWidget(QTreeWidget):
 
 	formatInfoUpdated = pyqtSignal()
 
+	def wheelEvent(self, a0: QtGui.QWheelEvent) -> None:
+		super().wheelEvent(a0)
+		a0.accept()
+
 	def updateTree(self, fi_tree):
 		self.clear()
 		if fi_tree is not None:
@@ -200,18 +204,15 @@ class RangeTreeWidget(QTreeWidget):
 	################################################
 
 	def newFormatInfo(self):
-		def ok_callback(params):
-			fileName, _ = QFileDialog.getSaveFileName(self, "Save format info",
-													  configs.getValue(self.optionsConfigKey + "_lastOpenFile", ""),
-													  "Format Info files (*.pfi *.txt)")
-			if not fileName: return
-			self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
-			self.formatInfoContainer.main_name = "DEFAULT"
-			self.formatInfoContainer.definitions["DEFAULT"] = deserialize_fi(params)
-			self.formatInfoContainer.file_name = fileName
-			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainer.file_name)
-		showTypeEditorDlg("format_info.tes", "AnyFI", ok_callback=ok_callback)
+		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info",
+												  configs.getValue(self.optionsConfigKey + "_lastOpenFile", ""),
+												  "Format Info files (*.pfi *.txt)")
+		if not fileName: return
+		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
+		self.formatInfoContainer.load_from_string("DEFAULT struct(endianness="<") {}")
+		self.formatInfoContainer.file_name = fileName
+		self.formatInfoUpdated.emit()
+		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	def fileOpenFormatInfo(self):
 		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")

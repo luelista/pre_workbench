@@ -88,6 +88,8 @@ class ByteBuffer(QObject):
 		self.ranges.append(r)
 		if "name" in r.metadata: self.fields[r.metadata["name"]] = r
 		return r
+	def removeRange(self, r):
+		self.ranges.remove(r)
 	def clearRanges(self):
 		self.ranges = RangeList(len(self), list())
 	def setRanges(self, ranges):

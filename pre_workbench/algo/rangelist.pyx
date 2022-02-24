@@ -28,7 +28,7 @@ class RangeList:
 	def cacheMetaValuesStart(self, metaKey):
 		indizes = defaultdict(list)
 		for el in self.ranges:
-			if metaKey in el.metadata:
+			if el.metadata.get(metaKey) is not None:
 				indizes[el.start].append(el.metadata[metaKey])
 		self.annotationStartCache[metaKey] = indizes
 
@@ -40,7 +40,7 @@ class RangeList:
 		cdef int index
 		indizes = defaultdict(list)
 		for el in self.ranges:
-			if metaKey in el.metadata:
+			if el.metadata.get(metaKey) is not None:
 				for index in range(el.start, el.end):
 					indizes[index].append(el.metadata[metaKey])
 		self.annotationContainsCache[metaKey] = indizes
@@ -87,8 +87,18 @@ class RangeList:
 			self.chunks[i].append(el)
 		self.ranges.append(el)
 
+	def remove(self, el):
+		cdef int firstChunk = el.start // self.chunkSize
+		cdef int lastChunk = el.end // self.chunkSize
+		cdef int i
+		for i in range(firstChunk, lastChunk+1):
+			self.chunks[i].remove(el)
+		self.ranges.remove(el)
+
+
 
 class Range:
+	__slots__ = ('value', 'source_desc', 'field_name', 'start', 'end', 'bytes_size', 'metadata', 'buffer_idx', 'exception')
 	RangeRole = QtCore.Qt.UserRole
 	BytesOffsetRole = QtCore.Qt.UserRole+1
 	BytesSizeRole = QtCore.Qt.UserRole+2
@@ -100,7 +110,7 @@ class Range:
 		self.start = start
 		self.end = end
 		self.bytes_size = end - start
-		self.metadata = dict()
+		self.metadata = {}
 		self.buffer_idx = buffer_idx
 		self.exception = None
 		if meta: self.metadata.update(meta)
@@ -108,36 +118,35 @@ class Range:
 
 	def addToTree(self, parent):
 		me = QTreeWidgetItem(parent)
-		theRange = self
-		me.setData(0, Range.RangeRole, theRange)
-		me.setData(0, Range.BytesOffsetRole, theRange.start)
-		me.setData(0, Range.BytesSizeRole, theRange.bytes_size)
-		me.setData(0, Range.SourceDescRole, theRange.source_desc)
-		text0 = theRange.field_name
-		text1 = str(theRange.start) + "+" + str(theRange.bytes_size)
-		text2 = str(theRange.source_desc)
-		while type(theRange.value) == Range:
-			theRange = theRange.value
-			me.setData(0, Range.SourceDescRole, theRange.source_desc)
-			text0 += " >> "+theRange.field_name
-			text1 += " >> "+str(theRange.start) + "+" + str(theRange.bytes_size)
-			text2 += " >> "+str(theRange.source_desc)
+		me.setData(0, Range.RangeRole, self)
+		me.setData(0, Range.BytesOffsetRole, self.start)
+		me.setData(0, Range.BytesSizeRole, self.bytes_size)
+		me.setData(0, Range.SourceDescRole, self.source_desc)
+		text0 = self.field_name
+		text1 = str(self.start) + "+" + str(self.bytes_size)
+		text2 = str(self.source_desc)
+		while type(self.value) == Range:
+			self = self.value
+			me.setData(0, Range.SourceDescRole, self.source_desc)
+			text0 += " >> "+self.field_name
+			text1 += " >> "+str(self.start) + "+" + str(self.bytes_size)
+			text2 += " >> "+str(self.source_desc)
 		me.setText(0, truncate_str(text0))
 		me.setText(1, truncate_str(text1))
 		me.setText(2, truncate_str(text2))
-		if type(theRange.value) == dict:
+		if type(self.value) == dict:
 			me.setExpanded(True)
-			for key,item in theRange.value.items():
+			for key,item in self.value.items():
 				item.addToTree(me)
-		elif type(theRange.value) == list:
+		elif type(self.value) == list:
 			me.setExpanded(True)
-			for item in theRange.value:
+			for item in self.value:
 				item.addToTree(me)
 		else:
 			try:
-				me.setText(3, truncate_str(theRange.source_desc.formatter(theRange.value)))
+				me.setText(3, truncate_str(self.source_desc.formatter(self.value)))
 			except:
-				me.setText(3, truncate_str(theRange.value))
+				me.setText(3, truncate_str(self.value))
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]"%(self.start,self.end,self.field_name,self.value,self.source_desc)
 	def __repr__(self):

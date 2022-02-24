@@ -1,12 +1,12 @@
+import logging
 import struct
-import traceback
 
-from pre_workbench.objects import ByteBufferList, ByteBuffer
 from pre_workbench.algo.rangelist import Range
 
-from pre_workbench.structinfo.hexdump import hexdump
+from pre_workbench.objects import ByteBufferList, ByteBuffer
 from pre_workbench.structinfo.exceptions import *
 from pre_workbench.structinfo.expr import Expression
+from pre_workbench.structinfo.hexdump import hexdump
 
 
 class FormatInfoContainer:
@@ -66,13 +66,13 @@ class ParseContext:
 		self.buf = bytes()
 		self.on_new_subflow_category = None
 		self.subflow_categories = dict()
-		if buf != None:
+		if buf is not None:
 			self.feed_bytes(buf)
 
 	def hexdump_context(self, ptr, context=16):
 		start = ptr - (ptr%16) - context
 		end = start + 2*context
-		return hexdump(self.buf[start - self.display_offset_delta : end - self.display_offset_delta], result='return', addr_offset=start, addr_ptr=ptr)
+		return hexdump(self.buf[start - self.display_offset_delta : end - self.display_offset_delta], result='return', addr_offset=start, addr_ptr=ptr-start)
 
 	def get_fi_by_def_name(self, def_name):
 		try:
@@ -220,7 +220,7 @@ class ParseContext:
 	def build_subflow_key(self, param):
 		meta = {}
 		category = param[0]
-		subflow_key = list()
+		subflow_key = []
 		for expr in param[1:]:
 			if isinstance(expr, Expression):
 				key, value = expr.expr_str, expr.evaluate(self)
@@ -231,15 +231,14 @@ class ParseContext:
 		return category, meta, tuple(subflow_key)
 
 class LoggingParseContext(ParseContext):
+	logger = logging.getLogger("DataSource")
 	def log(self, *dat):
 		#print("\t"*len(self.stack) + self.get_path(), end=": ")
-		print( self.get_path(), end=": ")
 		try:
-			print(*dat)
+			LoggingParseContext.logger._log(logging.INFO, "%s: %s", (self.get_path(), "\t".join(str(x) for x in dat)))
 		except Exception as ex:
-			print("!!!EXCEPTION in log print!!!")
-			print(str(ex))
-			traceback.print_exc()
+			LoggingParseContext.logger.exception( self.get_path() + ": EXCEPTION IN LOGGING")
+
 
 	def pack_value(self, value):
 		self.log("pack(L)",type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length())#, value)

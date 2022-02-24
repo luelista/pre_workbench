@@ -21,6 +21,7 @@ from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete
+from pre_workbench.structinfo.parsecontext import FormatInfoContainer
 from pre_workbench.structinfo.serialization import bin_serialize_fi
 from pre_workbench.typeregistry import TypeRegistry
 from pre_workbench.tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
@@ -85,11 +86,12 @@ class PcapFileDataSource(DataSource):
 	def startFetch(self):
 		with open(self.params['fileName'], "rb") as f:
 			from pre_workbench.structinfo.parsecontext import LoggingParseContext
-			pcapfile = PcapFile.read_from_buffer(LoggingParseContext(f.read()))
+			ctx = LoggingParseContext(PcapFormats, f.read())
+			pcapfile = ctx.parse()
 			plist = ByteBufferList()
-			plist.metadata.update(pcapfile['file_header'])
+			plist.metadata.update(pcapfile['header'])
 			for packet in pcapfile['packets']:
-				plist.add(ByteBuffer(packet['payload'], metadata=packet['header']))
+				plist.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
 
 		self.on_finished.emit()
 		return plist
@@ -189,7 +191,7 @@ class LivePcapCaptureDataSource(DataSource):
 		return self.plist
 
 	def tryParseHeader(self):
-		for headerFI, packetFI in PcapVariants:
+		for headerFI, packetFI in PcapFormats:
 			try:
 				header = headerFI.read_from_buffer(self.ctx)
 				self.packetFI = packetFI
@@ -226,71 +228,89 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.waitForFinished(500)
 		self.process.kill()
 		pass
-"""
-PcapHeader = structinfo.StructFI(def_name="pcap_header", children=[
-	("magic_number",  structinfo.FixedFieldFI(format="I", 	description="'A1B2C3D4' means the endianness is correct", magic=0xa1b2c3d4)),
-	("version_major", structinfo.FixedFieldFI(format="H", 	description="major number of the file format")),
-	("version_minor", structinfo.FixedFieldFI(format="H", 	description="minor number of the file format")),
-	("thiszone", 	  structinfo.FixedFieldFI(format="i", 	description="correction time in seconds from UTC to local time (0)")),
-	("sigfigs", 	  structinfo.FixedFieldFI(format="I", 	description="accuracy of time stamps in the capture (0)")),
-	("snaplen", 	  structinfo.FixedFieldFI(format="I", 	description="max length of captured packed (65535)")),
-	("network", 	  structinfo.FixedFieldFI(format="I", 	description="type of data link (1 = ethernet)")),
-])
-PcapPacket = structinfo.StructFI(def_name="pcap_packet", children=[
-	("header", structinfo.StructFI(children=[
-		("ts_sec", 		structinfo.FixedFieldFI(format="I",  description="timestamp seconds")),
-		("ts_usec", 	structinfo.FixedFieldFI(format="I",  description="timestamp microseconds")),
-		("incl_len", 	structinfo.FixedFieldFI(format="I",  description="number of octets of packet saved in file")),
-		("orig_len", 	structinfo.FixedFieldFI(format="I",  description="actual length of packet")),
-	])),
-	("payload", 	structinfo.VarByteFieldFI(size_expr="header.incl_len")),
-])
-PcapVariants = [
-	(structinfo.VariantStructFI(children=[PcapHeader], endianness="<"), structinfo.VariantStructFI(children=[PcapPacket], endianness="<")),
-	(structinfo.VariantStructFI(children=[PcapHeader], endianness=">"), structinfo.VariantStructFI(children=[PcapPacket], endianness=">")),
-	]
-PcapFile = structinfo.VariantStructFI(def_name="pcap_file", children=[
-	structinfo.StructFI(children=[
-		("file_header", PcapHeader),
-		("packets", structinfo.RepeatStructFI(children=PcapPacket)),
-	], endianness=en)
-	for en in ["<",">"]
-])
-"""
 
-#PcapFormats = structinfo.FormatInfoContainer(load_from_string="""
-#""")
 
-"""
+PcapFormats = FormatInfoContainer(load_from_string="""
 
-	@RpcMethod(iface="pft",name="parse_pcap_file_with_scapy")
-	def parse_pcap_file_with_scapy(self, pcap_filename, script_filename):
-		fd, tmpout = tempfile.mkstemp(".cbor")
-		result = subprocess.run([python_exec, "wrapper.py", "data/" + script_filename, "data/" + pcap_filename, tmpout], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-		tmpfile = os.fdopen(fd, "rb")
-		out = tmpfile.read()
-		tmpfile.close()
-		os.unlink(tmpout)
-		return [result.returncode, out, result.stdout.decode("utf8")]
+pcap_file variant {
+	struct (endianness="<", section="pcap file, little endian"){
+		header pcap_header
+		packets repeat pcap_packet
+	}
+	struct (endianness=">", section="pcap file, big endian"){
+		header pcap_header
+		packets repeat pcap_packet
+	}
+	repeat(endianness="<", section="pcapNG file, little endian") pcapng_block
+	repeat(endianness=">", section="pcapNG file, big endian") pcapng_block
+}
 
-	def _readerthread(self, fh, buffer):
-		buffer.append(fh.read())
-		fh.close()
-"""
-"""
-	@RpcMethod(iface="pft",name="parse_pcap_file_with_scapy2")
-	async def parse_pcap_file_with_scapy2(self, pcap_filename, script_filename):
-		read_fd, write_fd = os.pipe()
-		proc = subprocess.Popen([python_exec, "wrapper.py", "data/" + script_filename, "data/" + pcap_filename, str(write_fd)], 
-			stdout=subprocess.PIPE,stderr=subprocess.PIPE, pass_fds=[write_fd])
-		mypipe_buff = []
-		mypipe = os.fdopen(read_fd, "rb")
-		mypipe_thread = threading.Thread(target=self._readerthread, args=(mypipe, mypipe_buff), daemon=True)
-		mypipe_thread.start()
-		stdout, stderr = proc.communicate(timeout=5000)
+pcap_header struct (section="pcap file header"){
+	magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)
+	version_major UINT16(description="major number of the file format")
+	version_minor UINT16(description="minor number of the file format")
+	thiszone INT32(description="correction time in seconds from UTC to local time (0)")
+	sigfigs UINT32(description="accuracy of time stamps in the capture (0)")
+	snaplen UINT32(description="max length of captured packed (65535)")
+	encap_proto UINT32(description="type of data link (1 = ethernet)")
+}
 
-		return [result.returncode, result.stdout, result.stderr.decode("utf8")]
-	"""
+pcap_packet struct {
+	pheader struct (section="pcap packet header"){
+		ts_sec UINT32(description="timestamp seconds")
+		ts_usec UINT32(description="timestamp microseconds")
+		incl_len UINT32(description="number of octets of packet saved in file")
+		orig_len UINT32(description="actual length of packet")
+	}
+	payload BYTES(size=(pheader.incl_len))
+}
+
+pcapng_block struct (section="pcapNG block"){
+	block_type UINT32(color="#999900", show="0x%08X")
+	block_length UINT32(color="#666600")
+	block_payload BYTES(size=(block_length - 12), parse_with=pcapng_block_payload)
+	block_length2 UINT32(color="#666600")
+}
+
+pcapng_block_payload switch block_type {
+	case 0x0A0D0D0A: pcapng_SHB
+	case 1: pcapng_IDB
+	case 6: pcapng_EPB
+}
+
+pcapng_SHB struct {
+	byte_order_magic UINT32(magic=439041101, color="green", show="0x%08X")
+	version_major UINT16
+	version_minor UINT16
+	section_length INT64
+	options pcapng_options
+}
+
+pcapng_IDB struct {
+	linktype UINT16
+	reserved UINT16
+	snaplen UINT32
+	options pcapng_options
+}
+
+pcapng_EPB struct {
+	interface_id UINT32
+	timestamp UINT64
+	cap_length UINT32
+	orig_length UINT32
+	payload BYTES(size="cap_length", parse_with=ether)
+	payload_padding BYTES(size="3-((cap_length-1)&3)", textcolor="#888888")
+}
+
+pcapng_options repeat struct {
+		code UINT16(color="#660666")
+		length UINT16
+		value BYTES(size=(length), textcolor="#d3ebff")
+		padding BYTES(size=(pad(4)), textcolor="#666")
+	}
+""")
+
+
 """
 	@RpcMethod(iface="pft",name="parse_pcap_file_with_tshark")
 	def parse_pcap_file_with_tshark(self, pcap_filename):

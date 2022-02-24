@@ -225,15 +225,17 @@ class TextFileWindow(QWidget, MdiFile):
 		self.dataDisplay = SimplePythonEditor()
 		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
-		self.dataDisplay.textChanged.connect(self.documentWasModified)
+		self.dataDisplay.modificationChanged.connect(self.setWindowModified)
 	def loadFile(self, fileName):
 		self.dataDisplay.setText(open(fileName,"r").read())
 		self.setCurrentFile(fileName)
+		self.dataDisplay.setModified(False)
 	def saveFile(self, fileName):
 		bin = self.dataDisplay.text()
 		with open(fileName, "w") as f:
 			f.write(bin)
 		self.setCurrentFile(fileName)
+		self.dataDisplay.setModified(False)
 		return True
 
 

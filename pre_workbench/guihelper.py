@@ -14,8 +14,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from collections import defaultdict
-
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
@@ -24,50 +22,51 @@ MainWindow = None
 NavigateCommands = dict()
 
 class GlobalEventCls(QObject):
-    on_log = pyqtSignal(str)
     on_config_change = pyqtSignal()
 
 GlobalEvents = GlobalEventCls()
 
+CurrentProject = None
+
 
 def str_ellipsis(data, length):
-    return (data[:length] + '...(%d)'%(len(data))) if len(data) > length+2 else data
+	return (data[:length] + '...(%d)'%(len(data))) if len(data) > length+2 else data
 
 def setClipboardText(txt):
-    cb = QApplication.clipboard()
-    cb.clear(mode=cb.Clipboard )
-    cb.setText(txt, mode=cb.Clipboard)
+	cb = QApplication.clipboard()
+	cb.clear(mode=cb.Clipboard )
+	cb.setText(txt, mode=cb.Clipboard)
 
 def getClipboardText():
-    cb = QApplication.clipboard()
-    return cb.text(mode=cb.Clipboard)
+	cb = QApplication.clipboard()
+	return cb.text(mode=cb.Clipboard)
 
 def splitNavArgs(args):
-    start = None
-    for i in range(len(args)):
-        if not "=" in args[i]:
-            if start is not None:
-                yield args[start:i]
-            start = i
-    if start is not None:
-        yield args[start:]
+	start = None
+	for i in range(len(args)):
+		if "=" not in args[i]:
+			if start is not None:
+				yield args[start:i]
+			start = i
+	if start is not None:
+		yield args[start:]
 
 
 def navigate(*args):
-    for item in splitNavArgs(args):
-        navigateSingle(*item)
+	for item in splitNavArgs(args):
+		navigateSingle(*item)
 
 def navigateSingle(cmd, *args):
-    fun = NavigateCommands[cmd]
-    params = dict()
-    for arg in args:
-        key, value = arg.split("=", 2)
-        params[key] = value
-    fun(**params)
+	fun = NavigateCommands[cmd]
+	params = {}
+	for arg in args:
+		key, value = arg.split("=", 2)
+		params[key] = value
+	fun(**params)
 
 def navigateLink(link):
-    if QMessageBox.question(None, "Open from anchor?", str(link)) == QMessageBox.Yes:
-        navigate("OPEN", "FileName=" + link)
+	if QMessageBox.question(None, "Open from anchor?", str(link)) == QMessageBox.Yes:
+		navigate("OPEN", f'FileName={link}')
 
 """
 
@@ -83,13 +82,13 @@ def navigateLink(link):
 """
 
 def setControlColors(ctrl, bg, fg=None):
-    pal = ctrl.palette()
-    if bg is not None: pal.setColor(ctrl.backgroundRole(), QColor(bg))
-    if fg is not None: pal.setColor(QPalette.WindowText, QColor(fg))
-    ctrl.setPalette(pal)
+	pal = ctrl.palette()
+	if bg is not None: pal.setColor(ctrl.backgroundRole(), QColor(bg))
+	if fg is not None: pal.setColor(QPalette.WindowText, QColor(fg))
+	ctrl.setPalette(pal)
 
 def qApp():
-    return QApplication.instance()
+	return QApplication.instance()
 
 
 def makeDlgButtonBox(dlg, ok_callback, retval_callback):

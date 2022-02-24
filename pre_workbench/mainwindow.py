@@ -18,33 +18,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
 import os
 import sys
 import traceback
 import uuid
-import logging
 
-from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer, QFileSystemWatcher, pyqtSignal)
-from PyQt5.QtGui import QKeySequence, QPixmap
-from PyQt5.QtWidgets import QMainWindow, QAction, QApplication, \
-	QFileDialog, QWidget, QVBoxLayout, \
-	QMdiArea, QDockWidget, QMessageBox, QTextEdit, QMdiSubWindow, QStyleFactory, QToolButton, QMenu, QSplashScreen
+from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer, pyqtSignal)
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QVBoxLayout, \
+	QMdiArea, QDockWidget, QMessageBox, QToolButton, QMenu
 
+from pre_workbench.guihelper import NavigateCommands, GlobalEvents
+from pre_workbench import configs, SettingsSection, guihelper
+# noinspection PyUnresolvedReferences
+from pre_workbench import textfile
+# noinspection PyUnresolvedReferences
+from pre_workbench import typeeditor
 from pre_workbench.configs import getIcon
-from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget
-from pre_workbench import configs, SettingsSection
 from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
 from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget
-from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showSettingsDlg, showPreferencesDlg
-from pre_workbench.typeeditor import JsonView
-from pre_workbench.guihelper import NavigateCommands, GlobalEvents
+from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
+from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showPreferencesDlg
 from pre_workbench.hexview import HexView2
+from pre_workbench.objects import ByteBufferList, ByteBuffer
+# noinspection PyUnresolvedReferences
 from pre_workbench.objectwindow import ObjectWindow
+from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
-
-from pre_workbench import typeeditor
-from pre_workbench import textfile
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -53,8 +55,9 @@ class WorkbenchMain(QMainWindow):
 	on_grammar_update = pyqtSignal(object)
 	on_meta_update = pyqtSignal(str, object)
 
-	def __init__(self):
+	def __init__(self, project):
 		super().__init__()
+		self.project = project
 		self.mappedChildActions = list()
 		self.curChildMeta = dict()
 		self.initUI()
@@ -71,7 +74,7 @@ class WorkbenchMain(QMainWindow):
 		self.statusBar() # TODO was soll das?
 
 	def restoreChildren(self):
-		for wndInfo in configs.getValue("ChildrenInfo", []):
+		for wndInfo in self.project.getValue("ChildrenInfo", []):
 			clz, _ = WindowTypes.find(name=wndInfo["clz"])
 			try:
 				wnd = clz(**wndInfo["par"])
@@ -91,7 +94,7 @@ class WorkbenchMain(QMainWindow):
 					sys.exit(13)
 				if res == 0:
 					self.showChild(JsonView(jdata=wndInfo))
-		for wndInfo in configs.getValue("DockWidgetStates", []):
+		for wndInfo in self.project.getValue("DockWidgetStates", []):
 			self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
 
 	def updateChildWindowList(self, obj=None):
@@ -106,7 +109,7 @@ class WorkbenchMain(QMainWindow):
 		super().closeEvent(e)
 
 	def saveChildren(self):
-		configs.setValue("ChildrenInfo", [
+		self.project.setValue("ChildrenInfo", [
 			{
 				"id": wnd.widget().objectName(),
 				"clz": type(wnd.widget()).__name__,
@@ -116,7 +119,7 @@ class WorkbenchMain(QMainWindow):
 			for wnd in self.mdiArea.subWindowList(QMdiArea.StackingOrder)
 			if hasattr(wnd.widget(), "saveParams")
 		])
-		configs.setValue("DockWidgetStates", [
+		self.project.setValue("DockWidgetStates", [
 			{ "id": name, "par": widget.saveState() }
 			for name, widget in self.dockWidgets.items()
 			if hasattr(widget, "saveState")
@@ -158,12 +161,12 @@ class WorkbenchMain(QMainWindow):
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
 		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
-		self.saveAct = QAction("&Save", self,
+		self.saveAct = QAction(getIcon('disk.png'), "&Save", self,
 				shortcut=QKeySequence.Save,
 				statusTip="Save the document to disk")
 		self.mapChildAction(self.saveAct, "save")
 
-		self.saveAsAct = QAction("Save &As...", self,
+		self.saveAsAct = QAction(getIcon('disk-rename.png'), "Save &As...", self,
 				shortcut=QKeySequence.SaveAs,
 				statusTip="Save the document under a new name")
 		self.mapChildAction(self.saveAsAct, "saveAs")
@@ -205,13 +208,14 @@ class WorkbenchMain(QMainWindow):
 		self.setUnifiedTitleAndToolBarOnMac(True)
 		self.setAcceptDrops(True)
 		self.setDocumentMode(True)
-		self.dockWidgets = dict()
+		self.dockWidgets = {}
 		self.createDockWnd("File Browser", FileBrowserWidget(), Qt.LeftDockWidgetArea, showFirstRun=True)
 		self.dockWidgets["File Browser"].on_open.connect(self.openFile)
-		self.createDockWnd("Zoom", DynamicDataWidget(), Qt.BottomDockWidgetArea)
-		dsLog = QTextEdit()
-		self.createDockWnd("Data Source Log", dsLog, Qt.BottomDockWidgetArea)
-		GlobalEvents.on_log.connect(lambda txt: dsLog.append(self.sender().objectName() + ": " + txt + "\n"))
+		self.zoomWindow = DynamicDataWidget()
+		self.zoomWindow.on_meta_update.connect(self.onMetaUpdateRaw)
+		self.createDockWnd("Zoom", self.zoomWindow, Qt.BottomDockWidgetArea)
+		self.on_zoom_update.connect(lambda content: self.zoomWindow.setContents(content))
+		self.createDockWnd("Data Source Log", LogWidget("DataSource"), Qt.BottomDockWidgetArea)
 
 		self.createDockWnd("Window List", MdiWindowListWidget(), Qt.LeftDockWidgetArea)
 		self.createDockWnd("Grammar Definition Tree", StructInfoTreeWidget())
@@ -256,8 +260,8 @@ class WorkbenchMain(QMainWindow):
 		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
-		self.mruActions = list()
-		for i in range(MRU_MAX):
+		self.mruActions = []
+		for _ in range(MRU_MAX):
 			a = fileMenu.addAction("-")
 			a.triggered.connect(self.onMruClicked)
 			self.mruActions.append(a)
@@ -268,12 +272,18 @@ class WorkbenchMain(QMainWindow):
 
 		viewMenu = menubar.addMenu('&View')
 		toolWndMenu = viewMenu.addMenu('&Tool Windows')
-		for name in self.dockWidgets.keys():
+		for name in self.dockWidgets:
 			toolWndMenu.addAction(name, lambda name=name: self.dockWidgets[name].parent().show())
 		viewMenu.addSeparator()
-		a = QAction("Zoom In", self, shortcut='Ctrl++'); self.mapChildAction(a, "zoomIn"); viewMenu.addAction(a)
-		a = QAction("Zoom Out", self, shortcut='Ctrl+-'); self.mapChildAction(a, "zoomOut"); viewMenu.addAction(a)
-		a = QAction("Reset", self, shortcut='Ctrl+0'); self.mapChildAction(a, "zoomReset"); viewMenu.addAction(a)
+		a = QAction("Zoom In", self, shortcut='Ctrl++')
+		self.mapChildAction(a, "zoomIn")
+		viewMenu.addAction(a)
+		a = QAction("Zoom Out", self, shortcut='Ctrl+-')
+		self.mapChildAction(a, "zoomOut")
+		viewMenu.addAction(a)
+		a = QAction("Reset", self, shortcut='Ctrl+0')
+		self.mapChildAction(a, "zoomReset")
+		viewMenu.addAction(a)
 
 		parserMenu = menubar.addMenu('&Parser')
 		parserMenu.addAction(self.openGrammarAct)
@@ -294,6 +304,8 @@ class WorkbenchMain(QMainWindow):
 		self.windowMenu.aboutToShow.connect(self.updateWindowMenu)
 
 		toolbar.addAction(self.openAct)
+		toolbar.addAction(self.saveAct)
+		toolbar.addAction(self.saveAsAct)
 		toolbar.addAction(editConfigAction)
 
 		self.statusBar().addWidget(MemoryUsageWidget())
@@ -302,7 +314,7 @@ class WorkbenchMain(QMainWindow):
 		self.setGeometry(300, 300, 850, 850)
 		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
-		self.setWindowTitle('PRE Workbench')
+		self.setWindowTitle(f'PRE Workbench - {self.project.projectFolder}')
 		self.show()
 
 	def onPreferences(self):
@@ -310,6 +322,7 @@ class WorkbenchMain(QMainWindow):
 		if res is not None:
 			for k,v in res.items():
 				configs.setValue(k,v)
+		GlobalEvents.on_config_change.emit()
 
 	def onMruClicked(self):
 		self.openFile(self.sender().data())
@@ -420,7 +433,11 @@ class WorkbenchMain(QMainWindow):
 			msg.setDetailedText(traceback.format_exc())
 			msg.exec()
 
-	def onMetaUpdate(self, ident, newval):
+	def onMetaUpdateRaw(self, ident, newval):
+		if hasattr(self, "on_"+ident+"_update"): getattr(self, "on_"+ident+"_update").emit(newval)
+		self.on_meta_update.emit(ident, newval)
+
+	def onMetaUpdateChild(self, ident, newval):
 		self.sender().child_wnd_meta[ident] = newval
 		self.curChildMeta[ident] = newval
 		if hasattr(self, "on_"+ident+"_update"): getattr(self, "on_"+ident+"_update").emit(newval)
@@ -432,7 +449,7 @@ class WorkbenchMain(QMainWindow):
 		subwnd.setWindowIcon(getIcon(type(widget).icon if hasattr(type(widget), 'icon') else 'document.png'))
 		widget.child_wnd_meta = dict()
 		try:
-			widget.on_meta_update.connect(self.onMetaUpdate)
+			widget.on_meta_update.connect(self.onMetaUpdateChild)
 		except: pass
 		try:
 			widget.on_log.connect(self.onLog)
@@ -447,6 +464,7 @@ class WorkbenchMain(QMainWindow):
 
 @WindowTypes.register(fileExts=['.pcapng','.pcap','.cap'])
 class PcapngFileWindow(QWidget, MdiFile):
+	on_meta_update = pyqtSignal(str, object)
 	def __init__(self, **params):
 		super().__init__()
 		self.params = params
@@ -459,9 +477,22 @@ class PcapngFileWindow(QWidget, MdiFile):
 	def initUI(self):
 		self.setLayout(QVBoxLayout())
 		self.dataDisplay = PacketListWidget()
+		self.dataDisplay.on_meta_update.connect(self.on_meta_update.emit)
 		self.layout().addWidget(self.dataDisplay)
+		self.packetList = ByteBufferList()
+		self.dataDisplay.setContents(self.packetList)
 	def loadFile(self, fileName):
-		pass
+		with open(fileName, "rb") as f:
+			from pre_workbench.structinfo.parsecontext import LoggingParseContext
+			from pre_workbench.datasource import PcapFormats
+			ctx = LoggingParseContext(PcapFormats, f.read())
+			pcapfile = ctx.parse()
+			self.packetList.metadata.update(pcapfile['header'])
+			self.packetList.beginUpdate()
+			for packet in pcapfile['packets']:
+				self.packetList.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
+			self.packetList.endUpdate()
+
 	def saveFile(self, fileName):
 		return False
 
@@ -490,10 +521,11 @@ class HexFileWindow(QWidget, MdiFile):
 
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())
+		self.dataDisplay.setDefaultAnnotationSet(guihelper.CurrentProject.getRelativePath(self.params.get("fileName")))
 
 	def saveFile(self, fileName):
-		bin = self.dataDisplay.buffers[0].buffer
-		with open(fileName, "wb") as f:
-			f.write(bin)
+		#bin = self.dataDisplay.buffers[0].buffer
+		#with open(fileName, "wb") as f:
+		#	f.write(bin)
 		return True
 

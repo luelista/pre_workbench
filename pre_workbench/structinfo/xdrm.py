@@ -19,6 +19,7 @@ import json
 import sys
 import xdrlib
 from uuid import UUID
+import logging
 
 XDRM_inlong = 0b000  # rest: value
 XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false, 0x1005 = UUID
@@ -47,7 +48,7 @@ def unpack_xdrm(unpacker):
 		return unpacker.unpack_hyper()
 	elif type == XDRM_number and rest == 0x0802:
 		return unpacker.unpack_double()
-	elif type == XDRM_number and (rest == 0x0010 or rest == 0x0011):
+	elif type == XDRM_number and rest in [0x0010, 0x0011]:
 		return None
 	elif type == XDRM_number and rest == 0x0012:
 		return True
@@ -60,13 +61,11 @@ def unpack_xdrm(unpacker):
 	elif type == XDRM_bytes:
 		return unpacker.unpack_fopaque(rest)
 	elif type == XDRM_array:
-		result = []
-		for i in range(rest):
-			result.append(unpack_xdrm(unpacker))
+		result = [unpack_xdrm(unpacker) for _ in range(rest)]
 		return result
 	elif type == XDRM_map:
-		result = dict()
-		for i in range(rest):
+		result = {}
+		for _ in range(rest):
 			key = unpack_xdrm(unpacker)
 			result[key] = unpack_xdrm(unpacker)
 		return result
@@ -111,11 +110,11 @@ def pack_xdrm(packer, data):
 		packer.pack_fopaque(0x10, data.bytes)
 	else:
 		if hasattr(data, "serialize"):
-			print("WARNING: calling serialize on "+str(typ)+" ")
+			logging.warning("WARNING: calling serialize on "+str(typ)+" ")
 			pack_xdrm(packer, data.serialize())
 			return
 		#raise Exception("can't pack "+str(typ))
-		print("WARNING: packing "+str(typ)+" as str")
+		logging.warning("WARNING: packing "+str(typ)+" as str")
 		bin = str(data).encode("utf-8",'surrogateescape')
 		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
 		packer.pack_fopaque(len(bin), bin)

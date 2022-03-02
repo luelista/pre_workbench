@@ -161,6 +161,9 @@ class WorkbenchMain(QMainWindow):
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
 		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
+		self.loadProjectAct = QAction(getIcon('application--plus.png'), 'Open project...', self, shortcut='Ctrl+O',
+							   statusTip='Open project...', triggered=self.onProjectOpenAction)
+
 		self.saveAct = QAction(getIcon('disk.png'), "&Save", self,
 				shortcut=QKeySequence.Save,
 				statusTip="Save the document to disk")
@@ -209,8 +212,8 @@ class WorkbenchMain(QMainWindow):
 		self.setAcceptDrops(True)
 		self.setDocumentMode(True)
 		self.dockWidgets = {}
-		self.createDockWnd("File Browser", FileBrowserWidget(), Qt.LeftDockWidgetArea, showFirstRun=True)
-		self.dockWidgets["File Browser"].on_open.connect(self.openFile)
+		self.createDockWnd("Project Files", FileBrowserWidget(self.project.projectFolder), Qt.LeftDockWidgetArea, showFirstRun=True)
+		self.dockWidgets["Project Files"].on_open.connect(self.openFile)
 		self.zoomWindow = DynamicDataWidget()
 		self.zoomWindow.on_meta_update.connect(self.onMetaUpdateRaw)
 		self.createDockWnd("Zoom", self.zoomWindow, Qt.BottomDockWidgetArea)
@@ -241,7 +244,7 @@ class WorkbenchMain(QMainWindow):
 
 		menubar = self.menuBar()
 		toolbar = self.addToolBar('Main')
-		newTbAct = QToolButton(self, icon=getIcon('application--plus.png'), text='New', popupMode=QToolButton.InstantPopup)
+		newTbAct = QToolButton(self, icon=getIcon('document--plus.png'), text='New', popupMode=QToolButton.InstantPopup)
 		newTbMenu = QMenu(newTbAct)
 		newTbAct.setMenu(newTbMenu)
 		fileMenu = menubar.addMenu('&File')

@@ -342,7 +342,6 @@ class Expression:
 			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
 
 
-
 if __name__ == "__main__":
 	from pre_workbench import ParseContext
 	import sys

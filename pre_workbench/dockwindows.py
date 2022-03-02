@@ -40,9 +40,10 @@ from pre_workbench.util import PerfTimer, truncate_str
 
 class FileBrowserWidget(QWidget):
 	on_open = pyqtSignal(str)
-	def __init__(self):
+	def __init__(self, rootFolder):
 		super().__init__()
 		self.initUI()
+		self.setRoot(rootFolder)
 
 	def initUI(self):
 		self.model = QFileSystemModel()
@@ -87,14 +88,8 @@ class FileBrowserWidget(QWidget):
 											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
 				ctx.addSeparator()
 
-		ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
-		ctx.exec(self.tree.viewport().mapToGlobal(point))
-
-	def selectRootFolder(self, preselect=None):
-		if preselect == None: preselect = self.rootFolder
-		dir = QFileDialog.getExistingDirectory(self,"Set root folder", preselect)
-		if dir != None:
-			self.setRoot(dir)
+			#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
+			ctx.exec(self.tree.viewport().mapToGlobal(point))
 
 	def setRoot(self, dir):
 		self.rootFolder = dir
@@ -113,10 +108,6 @@ class FileBrowserWidget(QWidget):
 			return { "sel": info.absoluteFilePath(), "root": self.rootFolder, "hs": self.tree.header().saveState() }
 
 	def restoreState(self, state):
-		try:
-			self.setRoot(state["root"])
-		except:
-			self.setRoot(guihelper.CurrentProject.projectFolder)
 		try:
 			idx = self.model.index(state["sel"])
 			if idx.isValid():

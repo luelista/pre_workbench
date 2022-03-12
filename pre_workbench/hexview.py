@@ -463,7 +463,14 @@ class HexView2(QWidget):
 			arrow = self.selEnd - self.bytesPerLine
 		elif e.key() == QtCore.Qt.Key_Down:
 			arrow = self.selEnd + self.bytesPerLine
+		elif e.key() == QtCore.Qt.Key_PageUp:
+			arrow = self.selEnd - self.bytesPerLine * floor(self.height() / self.dyLine * 0.9)
+		elif e.key() == QtCore.Qt.Key_PageDown:
+			arrow = self.selEnd + self.bytesPerLine * floor(self.height() / self.dyLine * 0.9)
 
+		if arrow is not None:
+			arrow = self.clipPosition(0, arrow)
+			self.scrollIntoView(arrow)
 		#print("hexView Key Press %d 0x%x %d"%(e.key(), int(e.modifiers()), arrow))
 		if arrow is not None and mod == QtCore.Qt.ShiftModifier:
 			self.select(self.selStart, arrow)

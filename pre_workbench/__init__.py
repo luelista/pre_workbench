@@ -33,15 +33,18 @@ from pre_workbench.syshelper import load_file_watch
 gc.set_debug(gc.DEBUG_STATS)
 
 def find_project():
-	if len(sys.argv) >= 2 and os.path.isfile(os.path.join(sys.argv[2], ".pre_workbench")):
-		return sys.argv[2]
+	preventAutoOpen = len(sys.argv) > 1 and sys.argv[1] == "--choose-project"
 
-	if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
-		return os.getcwd()
+	if not preventAutoOpen:
+		if len(sys.argv) > 1 and os.path.isfile(os.path.join(sys.argv[1], ".pre_workbench")):
+			return sys.argv[1]
 
-	last_prj = configs.getValue("LastProjectDir", None)
-	if last_prj and os.path.isfile(os.path.join(last_prj, ".pre_workbench")):
-		return last_prj
+		if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
+			return os.getcwd()
+
+		last_prj = configs.getValue("LastProjectDir", None)
+		if last_prj and os.path.isfile(os.path.join(last_prj, ".pre_workbench")):
+			return last_prj
 
 	dlg = QFileDialog()
 	dlg.setFileMode(QFileDialog.DirectoryOnly)
@@ -56,6 +59,7 @@ def run_app():
 	logging.info("pre_workbench running on %s", " ".join(platform.uname()))
 	logging.info("PYTHONPATH: %s", os.environ.get("PYTHONPATH"))
 	logging.info("Writing Logfile: %s", errorhandler.logFile)
+	logging.info("Argv: %r", sys.argv)
 
 	sys.excepthook = errorhandler.excepthook
 

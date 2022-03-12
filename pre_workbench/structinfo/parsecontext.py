@@ -209,6 +209,7 @@ class ParseContext:
 
 			except Exception as ex:
 				raise parse_exception(self, "while adding bytes to reassembly buffer: "+ str(ex))
+
 		return value
 
 	def pack_error(self, ex):

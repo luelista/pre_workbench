@@ -95,7 +95,10 @@ class WorkbenchMain(QMainWindow):
 				if res == 0:
 					self.showChild(JsonView(jdata=wndInfo))
 		for wndInfo in self.project.getValue("DockWidgetStates", []):
-			self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
+			try:
+				self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])
+			except:
+				logging.exception("Failed to restore dock widget state for %r", wndInfo["id"])
 
 	def updateChildWindowList(self, obj=None):
 		logging.debug("updateChildWindowList")
@@ -160,7 +163,10 @@ class WorkbenchMain(QMainWindow):
 
 	def createActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=self.close)
-		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O', statusTip='Open file', triggered=self.onFileOpenAction)
+
+		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O',
+							   statusTip='Open file', triggered=self.onFileOpenAction)
+
 		self.loadProjectAct = QAction(getIcon('application--plus.png'), 'Open project...', self, shortcut='Ctrl+O',
 							   statusTip='Open project...', triggered=self.onProjectOpenAction)
 
@@ -258,6 +264,8 @@ class WorkbenchMain(QMainWindow):
 		toolbar.addWidget(newTbAct)
 		fileMenu.addSeparator()
 		#fileMenu.addAction(self.newAct)
+
+		fileMenu.addAction(self.loadProjectAct)
 		fileMenu.addAction(self.openAct)
 		fileMenu.addAction(self.saveAct)
 		fileMenu.addAction(self.saveAsAct)
@@ -382,6 +390,10 @@ class WorkbenchMain(QMainWindow):
 	def setActiveSubWindow(self, window):
 		if window:
 			self.mdiArea.setActiveSubWindow(window)
+
+	def onProjectOpenAction(self):
+		import subprocess
+		subprocess.Popen([sys.executable, sys.argv[0], "--choose-project"])
 
 	def onFileNewWindowAction(self, typ):
 		ow = typ()

@@ -76,6 +76,25 @@ class FileDataSource(DataSource):
 		# cancel reading file
 		pass
 
+def read_pcap_file(f):
+	from pre_workbench.structinfo.parsecontext import ParseContext
+	ctx = ParseContext(PcapFormats, f.read())
+	pcapfile = ctx.parse()
+	plist = ByteBufferList()
+	if 'header' in pcapfile:
+		#pcap classic
+		plist.metadata.update(pcapfile['header'])
+		for packet in pcapfile['packets']:
+			plist.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
+	else:
+		#pcapNG
+		for block_wrapper in pcapfile:
+			block = block_wrapper['block_payload']
+			if 'payload' in block:
+				meta = {k: v for (k, v) in block.items() if k in ['interface_id', 'timestamp', 'cap_length', 'orig_length',]}
+				plist.add(ByteBuffer(block['payload'], metadata=meta))
+	return plist
+
 @DataSourceTypes.register(DisplayName = "PCAP file")
 class PcapFileDataSource(DataSource):
 	@staticmethod
@@ -85,13 +104,7 @@ class PcapFileDataSource(DataSource):
 		]
 	def startFetch(self):
 		with open(self.params['fileName'], "rb") as f:
-			from pre_workbench.structinfo.parsecontext import LoggingParseContext
-			ctx = LoggingParseContext(PcapFormats, f.read())
-			pcapfile = ctx.parse()
-			plist = ByteBufferList()
-			plist.metadata.update(pcapfile['header'])
-			for packet in pcapfile['packets']:
-				plist.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
+			plist = read_pcap_file(f)
 
 		self.on_finished.emit()
 		return plist
@@ -298,7 +311,7 @@ pcapng_EPB struct {
 	timestamp UINT64
 	cap_length UINT32
 	orig_length UINT32
-	payload BYTES(size="cap_length", parse_with=ether)
+	payload BYTES(size="cap_length")
 	payload_padding BYTES(size="3-((cap_length-1)&3)", textcolor="#888888")
 }
 

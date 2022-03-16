@@ -19,6 +19,7 @@ import json
 import logging
 import re
 import sys
+from collections import namedtuple
 from math import ceil, floor
 
 from PyQt5 import QtCore
@@ -66,6 +67,8 @@ configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 
 
 pattern_heading = re.compile("[#]{0,6}")
 
+HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset'])
+
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
 	formatInfoUpdated = pyqtSignal()
@@ -80,9 +83,10 @@ class HexView2(QWidget):
 		("T", "Turqoise", {"color": "#00aaaa"}),
 	]
 
-	def __init__(self, byteBuffer=None, annotationDefaultName="", options=dict(), optionsConfigKey="HexViewParams"):
+	def __init__(self, byteBuffer=None, annotationSetDefaultName="", options=dict(), optionsConfigKey="HexViewParams"):
 		super().__init__()
-		self.annotationDefaultName = annotationDefaultName
+		self.annotationSetDefaultName = annotationSetDefaultName
+		self.annotationSetName = None
 		self.buffers = list()
 		self.firstLine = 0
 		self.scrollY = 0
@@ -118,13 +122,6 @@ class HexView2(QWidget):
 		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
 		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 
-		self.annotationSelect = QComboBox(self)
-		self.annotationSelect.show()
-		self.annotationSelect.addItems([self.annotationDefaultName] + guihelper.CurrentProject.getAnnotationSetNames())
-		self.annotationSelect.currentTextChanged.connect(self.loadAnnotations)
-		#self.loadAnnotations(self.annotationDefaultName)
-		self.fiSelect = QComboBox(self)
-		self.fiSelect.show()
 
 	def loadOptions(self, *dummy):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
@@ -175,8 +172,9 @@ class HexView2(QWidget):
 		hit = self.hitTest(point)
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
-			if hit < self.selStart or hit > self.selEnd:
-				self.selStart = self.selEnd = hit
+			if hit.offset < self.selStart or hit.offset > self.selEnd or hit.buffer != self.selBuffer:
+				self.selStart = self.selEnd = hitOffset
+				self.selBuffer = hit.buffer
 				self.selecting = False
 				self.redrawSelection()
 			self.buildSelectionContextMenu(ctxMenu)
@@ -194,7 +192,7 @@ class HexView2(QWidget):
 		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		try:
 			match = next(
-				self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
+				self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
 
 			ctx.addAction("&Delete selected style\tX", lambda: self.deleteSelectedStyle())
 
@@ -207,6 +205,11 @@ class HexView2(QWidget):
 		ctx.addAction("&Start Section...", lambda: self.setSectionSelection())
 		ctx.addSeparator()
 
+		menu = ctx.addMenu( "Apply annotation set for selection")
+		for name in guihelper.CurrentProject.getAnnotationSetNames():
+			#TODO implement this
+			menu.addAction(name, lambda name=name: print(name))
+
 
 	def buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
@@ -214,10 +217,13 @@ class HexView2(QWidget):
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		ctx.addAction("Clear ranges", lambda: self.clearRanges())
 
+		menu = ctx.addMenu("Load annotation set")
+		for name in guihelper.CurrentProject.getAnnotationSetNames():
+			menu.addAction(name, lambda name=name: self.loadAnnotations(name))
+
 
 	def setDefaultAnnotationSet(self, name):
-		self.annotationDefaultName = name
-		self.annotationSelect.setItemText(0, name)
+		self.annotationSetDefaultName = name
 		self.loadAnnotations(name)
 
 	def loadAnnotations(self, set_name):
@@ -229,11 +235,11 @@ class HexView2(QWidget):
 			meta['rowid'] = rowid
 			self.buffers[0].addRange(Range(start=start, end=end, meta=meta))
 		self.redraw()
+		self.annotationSetName = set_name
 
 	def storeAnnotaton(self, range):
-		if not self.annotationSelect.currentText(): return
-		guihelper.CurrentProject.storeAnnotation(self.annotationSelect.currentText(), range)
-
+		if not self.annotationSetName: return
+		guihelper.CurrentProject.storeAnnotation(self.annotationSetName, range)
 
 	def clearRanges(self):
 		self.buffers[0].clearRanges()
@@ -241,9 +247,9 @@ class HexView2(QWidget):
 
 	def getRangeString(self, range, style=(" ","%02X")):
 		if isinstance(style, tuple):
-			return self.buffers[0].toHex(range.start, range.length(), style[0], style[1])
+			return self.buffers[range.buffer_idx].toHex(range.start, range.length(), style[0], style[1])
 		elif style=="hexdump":
-			return self.buffers[0].toHexDump(range.start, range.length())
+			return self.buffers[range.buffer_idx].toHexDump(range.start, range.length())
 
 	def copySelection(self, style=(" ","%02X")):
 		setClipboardText(self.getRangeString(self.selRange(), style))
@@ -251,10 +257,10 @@ class HexView2(QWidget):
 	def styleSelection(self, **kw):
 		selection = self.selRange()
 		try:
-			match = next(self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
+			match = next(self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
 		except StopIteration:
 			match = selection
-			self.buffers[0].addRange(selection)
+			self.buffers[self.selBuffer].addRange(selection)
 
 		match.metadata.update(kw)
 		self.storeAnnotaton(match)
@@ -263,7 +269,7 @@ class HexView2(QWidget):
 	def setSectionSelection(self):
 		selection = self.selRange()
 		try:
-			match = next(self.buffers[0].matchRanges(start=selection.start, doesntHaveMetaKey='_sdef_ref'))
+			match = next(self.buffers[self.selBuffer].matchRanges(start=selection.start, doesntHaveMetaKey='_sdef_ref'))
 			title = match.metadata.get("section")
 		except StopIteration:
 			match = None
@@ -273,7 +279,7 @@ class HexView2(QWidget):
 		if ok:
 			if match is None:
 				match = selection
-				self.buffers[0].addRange(selection)
+				self.buffers[self.selBuffer].addRange(selection)
 			match.metadata.update(section=newTitle)
 			self.storeAnnotaton(match)
 			self.redraw()
@@ -281,8 +287,8 @@ class HexView2(QWidget):
 	def deleteSelectedStyle(self):
 		try:
 			match = next(
-				self.buffers[0].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
-			self.buffers[0].removeRange(match)
+				self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
+			self.buffers[self.selBuffer].removeRange(match)
 			match.metadata["deleted"] = True
 			self.storeAnnotaton(match)
 			self.redraw()
@@ -357,24 +363,25 @@ class HexView2(QWidget):
 
 	def mouseMoveEvent(self, e):
 		hit = self.hitTest(e.pos())
-		if (hit == self.lastHit): return
+		if hit == self.lastHit: return
 		self.lastHit = hit
-		if (self.selecting and hit != None): self.selEnd = hit
+		if self.selecting and hit is not None and hit.buffer == self.selBuffer: self.selEnd = hit.offset
 		self.redrawSelection()
 
 	def mousePressEvent(self, e):
 		if e.button() != Qt.LeftButton: return
 		hit = self.hitTest(e.pos())
-		if (hit == None): return
+		if hit is None: return
 		self.lastHit = hit
-		self.selStart = self.selEnd = hit
+		self.selStart = self.selEnd = hit.offset
+		self.selBuffer = hit.buffer
 		self.selecting = True
 		self.redrawSelection()
 		
 	def mouseReleaseEvent(self, e):
 		if e.button() != Qt.LeftButton: return
 		self.selecting = False
-		self.select(self.selStart, self.selEnd)
+		self.select(self.selStart, self.selEnd, self.selBuffer)
 
 	def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:
 		if e.button() != Qt.LeftButton: return
@@ -402,8 +409,9 @@ class HexView2(QWidget):
 
 		for i in range(linePos, len(self.itemY), self.bytesPerLine):
 			#//console.log(i,self.itemY[i],y,self.itemY[i] <= y , y <= self.itemY[i]+self.dyLine)
-			if (self.itemY[i] <= y and y <= self.itemY[i]+self.dyLine):
-				return self.lineNumberToByteOffset(self.firstLine) + i;
+			bufIdx, bufOffset, itemY = self.itemY[i]
+			if itemY is not None and itemY <= y and y <= itemY+self.dyLine:
+				return HitTestResult(bufIdx, bufOffset)
 
 		return None
 
@@ -418,6 +426,7 @@ class HexView2(QWidget):
 		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd)+1, buffer_idx=self.selBuffer)
 
 	def clipPosition(self, bufferIdx, pos):
+		if bufferIdx >= len(self.buffers): return 0
 		return max(0, min(len(self.buffers[bufferIdx]) - 1, pos))
 
 	def select(self, start:int, end:int, bufferIdx=0, scrollIntoView=False):
@@ -435,10 +444,11 @@ class HexView2(QWidget):
 		self.fiTreeWidget.hilightFormatInfoTree(r)
 
 		with PerfTimer("selectionChanged event handlers"):
-			self.selectionChanged.emit(r)
+			if self.selBuffer < len(self.buffers):
+				self.selectionChanged.emit(r)
 
-			QApplication.postEvent(self, QStatusTipEvent("Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
-				self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
+			QApplication.postEvent(self, QStatusTipEvent("Buffer #%d  Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
+				self.selBuffer, self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
 
 
 	def selectRange(self, rangeObj, scrollIntoView=False):
@@ -529,25 +539,27 @@ class HexView2(QWidget):
 		if isinstance(bbuf, BidiByteBuffer):
 			self.buffers = bbuf.buffers
 		elif isinstance(bbuf, ByteBuffer):
-			self.buffers = [ bbuf ];
+			self.buffers = [ bbuf ]
+		elif isinstance(bbuf, list) and all(isinstance(item, ByteBuffer) for item in bbuf):
+			self.buffers = bbuf
 		else:
 			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
-		self.firstLine = 0;
+		self.firstLine = 0
+		self.selStart = 0
+		self.selEnd = 0
+		self.selBuffer = 0
 		self.redraw()
-		if self.fiTreeWidget.formatInfoContainer is None:
-			self.fiTreeWidget.formatInfoContainer = self.buffers[0].fi_container
-		self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
-		if self.buffers[0].fi_tree is None: self.applyFormatInfo()
+		if len(self.buffers) > 0:
+			if self.fiTreeWidget.formatInfoContainer is None:
+				self.fiTreeWidget.formatInfoContainer = self.buffers[0].fi_container
+			self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
+			if self.buffers[0].fi_tree is None: self.applyFormatInfo()
 
 	############ RENDERING ############################################################
 
 	def resizeEvent(self, e):
 		self.redraw();
 		self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
-		self.annotationSelect.move(10, self.height() - 28)
-		self.fiSelect.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, self.height() - 28)
-		self.annotationSelect.setFixedWidth(self.xAscii + self.dxAscii*self.bytesPerLine-10)
-		self.fiSelect.setFixedWidth(self.width() - self.fiTreeWidget.pos().x()-10)
 
 	def sizeHint(self):
 		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)
@@ -601,19 +613,26 @@ class HexView2(QWidget):
 	def drawLines(self, qpTxt, qpBg):
 		y = 0 - self.partialLineScrollY
 		canvasHeight = self.size().height()
-		if len(self.buffers) == 0: return
-		buffer = self.buffers[0]
-		maxLine = self.maxLine()
 		self.itemY = list()
+		if len(self.buffers) == 0: return
+		maxLine = self.maxLine()
 		lineNumber = self.firstLine
 		while y < canvasHeight and lineNumber < maxLine:
-			y = self.drawLine(qpTxt, qpBg, lineNumber, y, buffer)
+			while len(self.itemY) % self.bytesPerLine != 0:
+				self.itemY.append((None, None, None))
+
+			y = self.drawLine(qpTxt, qpBg, lineNumber, y)
 			lineNumber+=1
 	
-	def drawLine(self, qpTxt, qpBg, lineNumber, y, buffer):
+	def drawLine(self, qpTxt, qpBg, lineNumber, y):
 		TXT_DY = self.fontAscent + self.linePadding #floor(self.dyLine*0.8)
 		#qpTxt.set
-		offset = self.lineNumberToByteOffset(lineNumber)
+		bufIdx, offset = self.lineNumberToByteOffset(lineNumber)
+		buffer = self.buffers[bufIdx]
+		print(bufIdx, offset)
+		if bufIdx > 0 and offset == 0:
+			# draw buffer separator
+			qpBg.fillRect(2,y,100,1,QColor("red"))
 		end = min(len(buffer), offset + self.bytesPerLine)
 		ii = 0
 		for i in range(offset, end):
@@ -646,8 +665,8 @@ class HexView2(QWidget):
 				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg))
 				qpBg.fillRect(self.xAscii + ii * self.dxAscii, y+1, self.dxAscii, self.dyLine-2, QColor(bg))
 
-			#// store item's Y position
-			self.itemY.append(y)
+			#// store item's Y position and buffer pos
+			self.itemY.append((bufIdx, i, y))
 
 			#// print HEX and ASCII representation of this byte
 			qpTxt.setFont(self.fontHex)
@@ -658,13 +677,17 @@ class HexView2(QWidget):
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
 			qpTxt.drawText(self.xAscii + ii * self.dxAscii, y+TXT_DY, asciichar);
 			ii += 1
+
+
 		return y + self.dyLine
 
 	def drawSelection(self, qp):
-		selMin = max(self.firstLine*self.bytesPerLine, min(self.selStart, self.selEnd))
+		if len(self.buffers) == 0: return
+
+		selMin = max(self.itemY[0][1], min(self.selStart, self.selEnd))
 		selMax = max(self.selStart, self.selEnd)
 		for i in range(selMin, selMax+1):
-			(xHex, xAscii, y, dy) = self.offsetToClientPos(i)
+			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.selBuffer, i)
 			if dy is None: break
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)
 			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsSel)
@@ -672,37 +695,45 @@ class HexView2(QWidget):
 		for helper, meta in SelectionHelpers.types:
 			if configs.getValue("SelHeur." + helper.__name__ + ".enabled", meta.get("defaultEnabled", False)):
 				with PerfTimer("execution of selectionHelper (%s)", helper.__name__):
-					helper(self, qp, self.buffers[0], (selMin, selMax))
+					helper(self, qp, self.buffers[self.selBuffer], (self.selBuffer, selMin, selMax))
 
 	def drawHover(self, qp):
 		if self.lastHit is not None:
-			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.lastHit)
+			(xHex, xAscii, y, dy) = self.offsetToClientPos(*self.lastHit)
 			if dy is not None:
 				qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
 				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
 
 	########### CALCULATION    #########################
 	def lineNumberToByteOffset(self, lineNumber:int):
-		return lineNumber * self.bytesPerLine
+		bufOffset = lineNumber * self.bytesPerLine
+		bufIdx = 0
+		while bufIdx < len(self.buffers) and bufOffset >= len(self.buffers[bufIdx]):
+			bufOffset -= ceil(len(self.buffers[bufIdx]) / self.bytesPerLine) * self.bytesPerLine
+			bufIdx += 1
+		return HitTestResult(bufIdx, bufOffset)
 
 	def maxLine(self):
-		return ceil(len(self.buffers[0]) / self.bytesPerLine);
+		return sum(ceil(len(buffer) / self.bytesPerLine) for buffer in self.buffers);
 
 	def maxVisibleLine(self):
 		return self.firstLine + ceil(len(self.itemY)/self.bytesPerLine)
 
-	def offsetToClientPos(self, offset):
-		pos = offset % self.bytesPerLine
-		visibleIdx = offset - self.bytesPerLine*self.firstLine
-		if visibleIdx < 0 or visibleIdx >= len(self.itemY):
-			logging.warn("trying to paint outside viewport %r", offset)
-			return (None, None, None, None)
-		y = self.itemY[visibleIdx]
-		return (self.xHex + pos * self.dxHex + int(pos/self.hexSpaceAfter)*self.hexSpaceWidth, self.xAscii + self.dxAscii*pos,y+floor(self.linePadding*0.5),ceil(self.charHeight*1.2))
+	def offsetToClientPos(self, buffer, offset):
+		column = offset % self.bytesPerLine
+		for bufIdx, bufOffset, itemY in self.itemY:
+			if bufIdx == buffer and bufOffset == offset:
+				return (self.xHex + column * self.dxHex + int(column / self.hexSpaceAfter) * self.hexSpaceWidth,
+						self.xAscii + self.dxAscii * column,
+						itemY + floor(self.linePadding * 0.5),
+						ceil(self.charHeight * 1.2))
+		logging.warning("trying to paint outside viewport %r", offset)
+		return (None, None, None, None)
 
 	def visibleRange(self):
-		firstVisibleOffset = self.bytesPerLine*self.firstLine
-		return (firstVisibleOffset, firstVisibleOffset + len(self.itemY))
+		firstBuf, firstOffset, firstY = self.itemY[0]
+		lastBuf, lastOffset, lastY = self.itemY[-1]
+		return ((firstBuf, firstOffset), (lastBuf, lastOffset))
 
 
 def showHexView2Dialog(parent, title, content, ok_callback):

@@ -548,7 +548,7 @@ def getChoiceSubtypeById(typeDef, value):
 	return None
 
 
-@DataWidgetTypes.register(handles=[dict,list])
+@DataWidgetTypes.register(handles=[dict,])
 class JsonView(QTreeWidget):
 	updated = pyqtSignal(str)
 	def __init__(self, parent=None, schema : "TypeEditorSchema"=None, rootTypeDefinition =None, jdata=None):

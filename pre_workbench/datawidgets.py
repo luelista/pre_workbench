@@ -57,14 +57,14 @@ def get_wireshark_colset():
             ColumnInfo("Payload", key="tcp.payload", show="hex")]
 
 class PacketListModel(QAbstractItemModel):
-    def __init__(self, plist=None, parent=None):
+    def __init__(self, plist: ByteBufferList = None, parent = None):
         super().__init__(parent)
         self.columns = []
         self.listObject = None
         self.setList(plist)
         #self.rootItem = TreeItem(("Model", "Status","Location"))
 
-    def setList(self, plist):
+    def setList(self, plist: ByteBufferList):
         self.beginResetModel()
         if self.listObject is not None:
             self.listObject.on_new_packet.disconnect(self.onNewPacket)
@@ -135,7 +135,7 @@ class PacketListModel(QAbstractItemModel):
         if self.listObject is None: return 0
         return len(self.listObject)
 
-    def addColumn(self, colInfo, insertBefore=None):
+    def addColumn(self, colInfo: ColumnInfo, insertBefore=None):
         if insertBefore == None: insertBefore = len(self.columns)
         self.beginInsertColumns(QModelIndex(), insertBefore, insertBefore)
         self.columns.insert(insertBefore, colInfo)
@@ -197,11 +197,13 @@ class PacketListWidget(QWidget):
         self.packetlistmodel.setList(self.listObject)
 
     def onPacketlistSelectionChanged(self, selected, deselected):
-        pass
+        buffers = list()
+        for index in self.packetlist.selectionModel().selectedRows():
+            buffers.append(self.listObject.buffers[index.row()])
+        self.on_meta_update.emit("zoom", buffers)
+
     def onPacketlistCurrentChanged(self, current, previous):
-        if current.isValid():
-            bbuf = self.listObject.buffers[current.row()]
-            self.on_meta_update.emit("zoom", bbuf)
+        pass
 
     def onPacketlistContextMenu(self, point):
         index = self.packetlist.indexAt(point)
@@ -275,7 +277,7 @@ class PacketListWidget(QWidget):
             if c > 10: break
 
 
-@DataWidgetTypes.register(handles=ByteBuffer)
+@DataWidgetTypes.register(handles=[ByteBuffer,list])
 class ByteBufferWidget(QWidget):
     on_meta_update = pyqtSignal(str, object)
     def __init__(self):
@@ -314,7 +316,11 @@ class ByteBufferWidget(QWidget):
         self.bufferObject = bufObj
         self.setWindowTitle(str(bufObj))
         self.textbox.setBuffer(bufObj)
-        self.bufferObject.on_new_data.connect(self.onNewData)
+        try:
+            #TODO maybe remove this whole feature (tab bar etc)?
+            self.bufferObject.on_new_data.connect(self.onNewData)
+        except:
+            pass
 
     def onFormatInfoUpdated(self):
         self.tabWidget.clear()

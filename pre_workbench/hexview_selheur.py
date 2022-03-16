@@ -26,13 +26,13 @@ SelectionHelpers = TypeRegistry()
 
 
 def extendRange(bbuf, range, amount=16):
-	(selMin, selMax) = range
-	return max(0, selMin - amount), min(bbuf.length, selMax + amount)
+	(bufIdx, selMin, selMax) = range
+	return bufIdx, max(0, selMin - amount), min(bbuf.length, selMax + amount)
 
 
 def rangeBefore(bbuf, range, amount=16):
-	(selMin, selMax) = range
-	return max(0, selMin - amount), selMin
+	(bufIdx, selMin, selMax) = range
+	return bufIdx, max(0, selMin - amount), selMin
 
 
 def intToVarious(*values):
@@ -55,18 +55,22 @@ def intToFmts(value, fmts):
 
 
 def findInRange(bbuf, ranges, values):
-	for (start, end) in ranges:
+	for (bufIdx, start, end) in ranges:
 		for val, desc in values:
 			l = len(val)
-			for i in range(start, end-l+1):
+			i = start
+			while i <= end-l:
 				if bbuf.buffer[i:i+l] == val:
-					yield (i, i+l), desc
+					yield (bufIdx, i, i+l), desc
+					i += l
+				else:
+					i += 1
 
 
 def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
-	(start,end)=matchrange
+	(bufIdx,start,end)=matchrange
 	for i in range(start,end):
-		(xHex, xAscii, y, dy) = editor.offsetToClientPos(i)
+		(xHex, xAscii, y, dy) = editor.offsetToClientPos(bufIdx, i)
 		if dy is None: break
 		p = QPen(color)
 		p.setWidth(3)
@@ -81,10 +85,10 @@ def selectionLengthMatcher(editor, qp, bbuf, sel):
 
 	Formats are int8 to int64, uint8 to uint64 (big and little endian), decimal string and hex string (lower and upper case).
 	"""
-	(start, end) = sel
+	(bufIdx, start, end) = sel
 	sellen = end - start + 1
 	if sellen == 0: return
-	for match, desc in findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen)):
+	for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen)):
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
 
 @SelectionHelpers.register(color="#993399", defaultEnabled=False)
@@ -92,11 +96,11 @@ def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel):
 	"""
 	Same as selectionLengthMatcher, but searches for the length +1, +2 and +4.
 	"""
-	(start, end) = sel
+	(bufIdx, start, end) = sel
 	sellen = end - start + 1
 	if sellen == 0: return
 	if sellen >= 5:
-		for match, desc in findInRange(bbuf, [extendRange(bbuf, (start,start))], intToVarious(sellen+1, sellen+2, sellen+4)):
+		for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen+1, sellen+2, sellen+4)):
 			highlightMatch(editor, qp, match,desc,QColor("#993399"))
 
 
@@ -120,16 +124,16 @@ def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
 	First, parsing as big endian is attempted, if the value is too large, little endian is attempted.
 
 	"""
-	(start, end)=sel
+	(bufIdx, start, end)=sel
 	end=end+1
 	if end-start>8: return
 	val = bbuf.getInt(start,end,endianness=">",signed=False)
 	if val > 0 and end+val <= len(bbuf):
-		highlightMatch(editor, qp, (end, end+val), "", QColor("#555555"))
+		highlightMatch(editor, qp, (bufIdx, end, end+val), "", QColor("#555555"))
 		return
 	val = bbuf.getInt(start,end,endianness="<",signed=False)
 	if val > 0 and end+val <= len(bbuf):
-		highlightMatch(editor, qp, (end, end+val), "", QColor("#555555"))
+		highlightMatch(editor, qp, (bufIdx, end, end+val), "", QColor("#555555"))
 		return
 
 @SelectionHelpers.register(color="#009999", defaultEnabled=True)
@@ -137,10 +141,15 @@ def highlightRepetitions(editor, qp, bbuf, sel):
 	"""
 	Searches for the byte values of the selection in the whole visible buffer, highlighting all occurrences.
 	"""
-	(start, end) = sel
-	sellen = end - start + 1
+	(bufIdx, selstart, selend) = sel
+	sellen = selend - selstart + 1
 	if sellen == 0: return
-	for match, desc in findInRange(bbuf, [editor.visibleRange()], [(bbuf.getBytes(start, sellen), "")]):
-		if match == sel: continue
-		highlightMatch(editor, qp, match, desc, QColor("#009999"))
+	selbytes = bbuf.getBytes(selstart, sellen)
+	(firstBuf, firstOffset), (lastBuf, lastOffset) = editor.visibleRange()
+	for i in range(firstBuf, lastBuf + 1):
+		start = firstOffset if i == firstBuf else 0
+		end = lastOffset if i == lastBuf else len(editor.buffers[i])
+		for match, desc in findInRange(editor.buffers[i], [(i, start, end)], [(selbytes, "")]):
+			if match == (bufIdx, selstart, selend + 1): continue
+			highlightMatch(editor, qp, match, desc, QColor("#009999"))
 

@@ -167,7 +167,7 @@ class WorkbenchMain(QMainWindow):
 		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O',
 							   statusTip='Open file', triggered=self.onFileOpenAction)
 
-		self.loadProjectAct = QAction(getIcon('application--plus.png'), 'Open project...', self, shortcut='Ctrl+O',
+		self.loadProjectAct = QAction(getIcon('application--plus.png'), 'Open project...', self, shortcut='Ctrl+Shift+O',
 							   statusTip='Open project...', triggered=self.onProjectOpenAction)
 
 		self.saveAct = QAction(getIcon('disk.png'), "&Save", self,
@@ -393,7 +393,7 @@ class WorkbenchMain(QMainWindow):
 
 	def onProjectOpenAction(self):
 		import subprocess
-		subprocess.Popen([sys.executable, sys.argv[0], "--choose-project"])
+		subprocess.Popen([sys.executable, sys.argv[0], "--choose-project"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 	def onFileNewWindowAction(self, typ):
 		ow = typ()

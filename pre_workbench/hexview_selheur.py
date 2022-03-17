@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import logging
 import struct
 
 from PyQt5.QtGui import QColor, QPen, QPainter
@@ -58,6 +58,7 @@ def findInRange(bbuf, ranges, values):
 	for (bufIdx, start, end) in ranges:
 		for val, desc in values:
 			l = len(val)
+			if l == 0: raise Exception("")
 			i = start
 			while i <= end-l:
 				if bbuf.buffer[i:i+l] == val:
@@ -78,6 +79,7 @@ def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
 		qp.drawLine(xHex+3, y+dy, xHex+editor.dxHex-3, y+dy)
 		qp.drawLine(xAscii+1, y+dy, xAscii+editor.dxAscii-2, y+dy)
 
+
 @SelectionHelpers.register(color="#ff00ff", defaultEnabled=True)
 def selectionLengthMatcher(editor, qp, bbuf, sel):
 	"""
@@ -90,6 +92,7 @@ def selectionLengthMatcher(editor, qp, bbuf, sel):
 	if sellen == 0: return
 	for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen)):
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
+
 
 @SelectionHelpers.register(color="#993399", defaultEnabled=False)
 def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel):
@@ -136,6 +139,7 @@ def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
 		highlightMatch(editor, qp, (bufIdx, end, end+val), "", QColor("#555555"))
 		return
 
+
 @SelectionHelpers.register(color="#009999", defaultEnabled=True)
 def highlightRepetitions(editor, qp, bbuf, sel):
 	"""
@@ -145,10 +149,12 @@ def highlightRepetitions(editor, qp, bbuf, sel):
 	sellen = selend - selstart + 1
 	if sellen == 0: return
 	selbytes = bbuf.getBytes(selstart, sellen)
+	logging.debug("highlightRepetitions: searching for %r", selbytes)
 	(firstBuf, firstOffset), (lastBuf, lastOffset) = editor.visibleRange()
 	for i in range(firstBuf, lastBuf + 1):
 		start = firstOffset if i == firstBuf else 0
 		end = lastOffset if i == lastBuf else len(editor.buffers[i])
+		logging.debug("highlightRepetitions: scanning #%d bytes %d-%d",i,start,end)
 		for match, desc in findInRange(editor.buffers[i], [(i, start, end)], [(selbytes, "")]):
 			if match == (bufIdx, selstart, selend + 1): continue
 			highlightMatch(editor, qp, match, desc, QColor("#009999"))

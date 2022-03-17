@@ -20,7 +20,7 @@ import traceback
 from PyQt5.QtCore import pyqtSignal, QObject, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
 
-from pre_workbench.configs import SettingsField
+from pre_workbench.configs import SettingsField, getIcon
 from pre_workbench.datasource import DataSourceTypes
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.genericwidgets import SettingsGroup, ExpandWidget
@@ -73,15 +73,15 @@ class ObjectWindow(QWidget):
 		#layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
 		toolbar = QToolBar()
-		self.cancelAction = toolbar.addAction("Cancel")
+		self.cancelAction = toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
 		self.cancelAction.triggered.connect(self.onCancelFetch)
 		self.cancelAction.setEnabled(False)
-		self.reloadAction = toolbar.addAction("Reload")
+		self.reloadAction = toolbar.addAction(getIcon("arrow-circle-double.png"), "Reload")
 		self.reloadAction.triggered.connect(self.reload)
-		dsoVisAction = toolbar.addAction("Data Source Options")
+		dsoVisAction = toolbar.addAction(getIcon("gear--pencil.png"), "Data Source Options")
 		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(not collapseSettings)
 		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
-		metadataVisAction = toolbar.addAction("Metadata")
+		metadataVisAction = toolbar.addAction(getIcon("tags-label.png"), "Metadata")
 		metadataVisAction.setCheckable(True)
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)

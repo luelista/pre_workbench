@@ -684,9 +684,11 @@ class HexView2(QWidget):
 	def drawSelection(self, qp):
 		if len(self.buffers) == 0: return
 
-		selMin = max(self.itemY[0][1], min(self.selStart, self.selEnd))
+		selMin = min(self.selStart, self.selEnd)
 		selMax = max(self.selStart, self.selEnd)
-		for i in range(selMin, selMax+1):
+		selVisibleMin = max(self.itemY[0][1], selMin) if self.itemY[0][0] == self.selBuffer else selMin
+		selVisibleMax = min(self.itemY[-1][1], selMax) if self.itemY[-1][0] == self.selBuffer else selMax
+		for i in range(selVisibleMin, selVisibleMax+1):
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.selBuffer, i)
 			if dy is None: break
 			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)

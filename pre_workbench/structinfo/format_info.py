@@ -419,11 +419,16 @@ class BitStructFI:
 	def _parse(self, context):
 		o = {}
 		context.set_top_value(o)
+		context.require_bytes(self.size)
 		raw_data = context.peek_bytes(self.size)
+		le = False
+		if context.get_param("endianness", raise_if_missing=False) == "<":
+			raw_data = raw_data[::-1]
+			le = True
 		stream = BitStream(raw_data)
 		pos = context.buf_offset * 8
 		for key, len in self.children:
-			context.buf_offset = floor(pos / 8)
+			if not le: context.buf_offset = floor(pos / 8)
 			context.push(desc=context.stack[-1][0], id=key)
 			o[key] = context.pack_value(stream.read(len).uint)
 			context.pop()

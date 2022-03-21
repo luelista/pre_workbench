@@ -316,11 +316,9 @@ class HexView2(QWidget):
 				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
 				#QMessageBox.warning(self, "Failed to apply format info", str(ex))
 
-
 	def newSubflowCategory(self, category, parse_context, **kv):
-		print("on_new_subflow_category",category)
+		logging.debug("on_new_subflow_category: %r",category)
 		self.onNewSubflowCategory.emit(category, parse_context)
-
 
 	def fiTreeItemSelected(self, item, previous):
 		if item is None: return
@@ -629,7 +627,6 @@ class HexView2(QWidget):
 		#qpTxt.set
 		bufIdx, offset = self.lineNumberToByteOffset(lineNumber)
 		buffer = self.buffers[bufIdx]
-		print(bufIdx, offset)
 		if offset == 0:
 			# draw buffer separator
 			qpBg.fillRect(2,y,100,1,QColor("red"))

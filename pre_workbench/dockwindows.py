@@ -17,15 +17,15 @@
 import inspect
 import logging
 import os
-import traceback
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices, QColor, QFont
-from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QFileDialog, QMenu, \
-	QAction, QListWidget, QListWidgetItem, QTreeWidget, QMessageBox, QTreeWidgetItem, QTextEdit
+from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
+	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit
 
-from pre_workbench import configs, guihelper
+from pre_workbench import configs
+from pre_workbench.configs import getIcon
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
 from pre_workbench.genericwidgets import filledColorIcon
 from pre_workbench.guihelper import navigate
@@ -83,13 +83,13 @@ class FileBrowserWidget(QWidget):
 			else:
 				for wndTyp, meta in WindowTypes.types:
 					text = 'Open with '+meta.get('displayName', meta['name'])
-					print(wndTyp, meta)
-					ctx.addAction(QAction(text, self, statusTip=text,
+					ctx.addAction(QAction(text, self, statusTip=text, icon=getIcon(meta.get('icon', 'document.png')),
 											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
 				ctx.addSeparator()
-
-			#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
-			ctx.exec(self.tree.viewport().mapToGlobal(point))
+		else:
+			ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.model.rootPath())))
+		#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
+		ctx.exec(self.tree.viewport().mapToGlobal(point))
 
 	def setRoot(self, dir):
 		self.rootFolder = dir
@@ -155,8 +155,14 @@ class MdiWindowListWidget(QWidget):
 		if item is not None:
 			ctx.addAction("Close window", lambda: self.closeWindow(item))
 
-		ctx.addAction("New window", lambda: self.newWindow())
+		ctx.addAction("Close all windows", lambda: self.closeAllWindows())
 		ctx.exec(self.list.viewport().mapToGlobal(point))
+
+	def onSubWindowActivated(self, window):
+		if window is None: return
+		for i in range(self.list.count()):
+			if self.list.item(i).data(QtCore.Qt.UserRole) == window.objectName():
+				self.list.setCurrentRow(i)
 
 
 class StructInfoTreeWidget(QWidget):

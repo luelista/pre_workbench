@@ -243,6 +243,9 @@ class WorkbenchMain(QMainWindow):
 		self.setCentralWidget(self.mdiArea)
 
 		self.mdiArea.subWindowActivated.connect(self.onSubWindowActivated)
+		self.mdiArea.subWindowActivated.connect(self.dockWidgets["Window List"].onSubWindowActivated)
+
+		# required for actions in "Window" menu
 		self.windowMapper = QSignalMapper(self)
 		self.windowMapper.mapped[QWidget].connect(self.setActiveSubWindow)
 
@@ -405,19 +408,31 @@ class WorkbenchMain(QMainWindow):
 			configs.setValue("lastOpenFile", fileName)
 			self.openFile(fileName)
 
-	def navigateWindowId(self, Id):
+	def findWindow(self, Type=None, FileName=None, Id=None):
 		for childWnd in self.mdiArea.subWindowList():
 			logging.debug("childWnd object name: %s", childWnd.objectName())
-			if childWnd.objectName() == Id:
-				logging.debug("switching to childWnd: %s", childWnd)
-				self.setActiveSubWindow(childWnd)
-				childWnd.show()
-				return True
+			widget = childWnd.widget()
+			if ((Type is None or type(widget).__name__ == Type) and
+				(FileName is None or (hasattr(widget, "params") and widget.params.get("fileName") == FileName)) and
+				(Id is None or childWnd.objectName() == Id)):
+				return childWnd
 
-		return False
+		return None
+
+	def navigateWindowId(self, Id):
+		childWnd = self.findWindow(Id=Id)
+		if childWnd:
+			logging.debug("switching to childWnd: %s", childWnd)
+			self.setActiveSubWindow(childWnd)
 
 	@pyqtSlot(str, str)
 	def navigateWindow(self, Type, FileName):
+		childWnd = self.findWindow(Type=Type, FileName=FileName)
+		if childWnd:
+			logging.debug("switching to childWnd: %s", childWnd)
+			self.setActiveSubWindow(childWnd)
+			return
+
 		winType, _ = WindowTypes.find(name=Type)
 		if winType is None:
 			QMessageBox.critical(self, "Failed to open window", "Failed to open window of unknown type "+Type)
@@ -433,6 +448,12 @@ class WorkbenchMain(QMainWindow):
 
 	@pyqtSlot(str)
 	def openFile(self, FileName):
+		childWnd = self.findWindow(FileName=FileName)
+		if childWnd:
+			logging.debug("switching to childWnd: %s", childWnd)
+			self.setActiveSubWindow(childWnd)
+			return
+
 		configs.updateMru("MainFileMru", FileName, MRU_MAX)
 		self.updateMruActions()
 
@@ -477,7 +498,7 @@ class WorkbenchMain(QMainWindow):
 
 
 
-@WindowTypes.register(fileExts=['.pcapng','.pcap','.cap'])
+@WindowTypes.register(fileExts=['.pcapng','.pcap','.cap'], icon='document-table.png')
 class PcapngFileWindow(QWidget, MdiFile):
 	on_meta_update = pyqtSignal(str, object)
 	def __init__(self, **params):

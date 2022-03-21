@@ -485,10 +485,13 @@ class PcapngFileWindow(QWidget, MdiFile):
 		self.params = params
 		self.initUI()
 		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PCAP files (*.pcapng, *.pcap, *.cap)", "untitled%d.pcapng")
+
 	def saveParams(self):
 		return self.params
+
 	def sizeHint(self):
 		return QSize(600,400)
+
 	def initUI(self):
 		self.setLayout(QVBoxLayout())
 		self.dataDisplay = PacketListWidget()
@@ -496,17 +499,12 @@ class PcapngFileWindow(QWidget, MdiFile):
 		self.layout().addWidget(self.dataDisplay)
 		self.packetList = ByteBufferList()
 		self.dataDisplay.setContents(self.packetList)
+
 	def loadFile(self, fileName):
 		with open(fileName, "rb") as f:
-			from pre_workbench.structinfo.parsecontext import LoggingParseContext
-			from pre_workbench.datasource import PcapFormats
-			ctx = LoggingParseContext(PcapFormats, f.read())
-			pcapfile = ctx.parse()
-			self.packetList.metadata.update(pcapfile['header'])
-			self.packetList.beginUpdate()
-			for packet in pcapfile['packets']:
-				self.packetList.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
-			self.packetList.endUpdate()
+			from pre_workbench.structinfo.pcapfiles import read_pcap_file
+			self.packetList = read_pcap_file(f)
+			self.dataDisplay.setContents(self.packetList)
 
 	def saveFile(self, fileName):
 		return False
@@ -520,8 +518,10 @@ class HexFileWindow(QWidget, MdiFile):
 		self.params = params
 		self.initUI()
 		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin")
+
 	def sizeHint(self):
 		return QSize(600,400)
+
 	def initUI(self):
 		self.setLayout(QVBoxLayout())
 		self.dataDisplay = HexView2()

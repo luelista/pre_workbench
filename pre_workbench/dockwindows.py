@@ -362,7 +362,6 @@ class SelectionHeuristicsConfigWidget(QWidget):
 			self.listView.addItem(item)
 
 	def currentItemChanged(self, current, previous):
-		print(current)
 		self.infoBox.setText(inspect.cleandoc(current.data(self.HELPER_ROLE).__doc__) if current is not None else "")
 
 	def itemChanged(self, item):

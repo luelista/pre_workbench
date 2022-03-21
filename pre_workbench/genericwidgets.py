@@ -72,6 +72,7 @@ class FileDropLineEdit(QLineEdit):
 			self.setText(e.mimeData().text())
 			e.accept()
 
+
 class ColorSelectLineEdit(QLineEdit):
 	def __init__(self, *__args):
 		super().__init__(*__args)
@@ -81,11 +82,11 @@ class ColorSelectLineEdit(QLineEdit):
 		self.addAction(self.colorSelectAction, QLineEdit.TrailingPosition)
 	def selectColor(self):
 		result = QColorDialog.getColor(QColor(self.text()))
-		print(result)
 		if result:
 			self.setText(result.name())
 	def onTextChanged(self, newText):
 		self.colorSelectAction.setIcon(filledColorIcon(newText, 16))
+
 
 class FontSelectLineEdit(QLineEdit):
 	def __init__(self, *__args):
@@ -97,16 +98,15 @@ class FontSelectLineEdit(QLineEdit):
 	def selectFont(self):
 		initial = QFont(); initial.fromString(self.text())
 		result, ok = QFontDialog.getFont(initial, self)
-		print(result, result.toString())
 		if ok:
 			self.setText(result.toString())
-
 
 
 def filledColorIcon(color, size):
 	pix = QPixmap(size, size)
 	pix.fill(QColor(color))
 	return QIcon(pix)
+
 
 class SettingsGroup(QGroupBox):
 	item_changed = pyqtSignal(str, str)
@@ -274,19 +274,6 @@ class ExpandWidget(QWidget):
 		else:
 			self.body.show()
 			self.setSizePolicy(self.body.sizePolicy())
-
-
-
-def printsizepolicy(pol):
-	print("controlType", pol.controlType())
-	print("expandingDirections", pol.expandingDirections())
-	print("horizontalPolicy", pol.horizontalPolicy())
-	print("horizontalStretch", pol.horizontalStretch())
-	print("verticalPolicy", pol.verticalPolicy())
-	print("verticalStretch", pol.verticalStretch())
-
-
-
 
 
 class MdiFile:

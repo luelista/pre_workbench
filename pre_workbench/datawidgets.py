@@ -218,7 +218,6 @@ class PacketListWidget(QWidget):
 
     def onHeaderContextMenu(self, point):
         index = self.packetlist.horizontalHeader().logicalIndexAt(point)
-        print(index)
 
         ctx = QMenu("Context menu", self.packetlist)
         if index > -1:
@@ -395,5 +394,5 @@ class DynamicDataWidget(QWidget):
         try:
             self.childWidget.on_meta_update.connect(self.on_meta_update.emit)
         except:
-            print(str(childType)+" has no on_meta_update signal")
+            logging.debug(str(childType)+" has no on_meta_update signal")
         self.layout().addWidget(self.childWidget,66)

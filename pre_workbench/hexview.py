@@ -173,7 +173,7 @@ class HexView2(QWidget):
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
 			if hit.offset < self.selStart or hit.offset > self.selEnd or hit.buffer != self.selBuffer:
-				self.selStart = self.selEnd = hitOffset
+				self.selStart = self.selEnd = hit.offset
 				self.selBuffer = hit.buffer
 				self.selecting = False
 				self.redrawSelection()
@@ -630,9 +630,13 @@ class HexView2(QWidget):
 		bufIdx, offset = self.lineNumberToByteOffset(lineNumber)
 		buffer = self.buffers[bufIdx]
 		print(bufIdx, offset)
-		if bufIdx > 0 and offset == 0:
+		if offset == 0:
 			# draw buffer separator
 			qpBg.fillRect(2,y,100,1,QColor("red"))
+			qpTxt.setFont(self.fontSection[0]); qpTxt.setPen(self.fsAscii)
+			qpTxt.drawText(self.xHex, y+self.fontSection[0].pointSize() * 1.7, repr(buffer.metadata))
+			y += self.fontSection[0].pointSize() * 2
+
 		end = min(len(buffer), offset + self.bytesPerLine)
 		ii = 0
 		for i in range(offset, end):

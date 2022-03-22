@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import errno
+import logging
 import os
 from collections import namedtuple, defaultdict
 
@@ -55,7 +56,6 @@ def registerOption(section, fieldId, title, fieldType, params, defaultValue, cal
 	field = SettingsField(id, title, fieldType, params)
 	if id not in configDict:
 		configDict[id] = defaultValue
-		saveConfig()
 	if callback:
 		callback(id, configDict[id])
 		configWatchers[id] = callback
@@ -103,11 +103,15 @@ configFilespec = os.path.join(dirs.user_config_dir, "config.xdr")
 configWatchers = dict()
 configDict = dict()
 configDefinitions = defaultdict(list)
-try:
-	with open(configFilespec, "rb") as f:
-		configDict = xdrm.loads(f.read())
-except:
-	pass
+
+def loadFromFile():
+	try:
+		logging.debug("Loading configuration file: %s", configFilespec)
+		with open(configFilespec, "rb") as f:
+			data = xdrm.loads(f.read())
+			configDict.update(data)
+	except:
+		logging.exception(f"Unable to load config from %s, using defaults", configFilespec)
 
 
 if __name__ == "__main__":

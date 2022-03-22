@@ -85,8 +85,10 @@ def run_app():
 	logging.debug("CMD args: %r", args)
 	if args.gc_debug:
 		gc.set_debug(gc.DEBUG_STATS)
-	if args.reset_config:
-		configs.configDict = dict()
+	if not args.reset_config:
+		configs.loadFromFile()
+	else:
+		logging.warning("Resetting configuration!")
 
 	from PyQt5.QtWidgets import QApplication
 

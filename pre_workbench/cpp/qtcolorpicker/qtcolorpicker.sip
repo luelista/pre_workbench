@@ -1,21 +1,21 @@
-%Module(name=qtcolorpicker, language="C++")
+%Module(name=qtcolorpicker)
 
 %Import QtCore/QtCoremod.sip
 %Import QtGui/QtGuimod.sip
 %Import QtWidgets/QtWidgetsmod.sip
 
-class QT_QTCOLORPICKER_EXPORT QtColorPicker : public QPushButton
+class  QtColorPicker : public QPushButton
 {
 %TypeHeaderCode
 #include "qtcolorpicker.h"
 %End
 
-    Q_OBJECT
+    //Q_OBJECT
 
-    Q_PROPERTY(bool colorDialog READ colorDialogEnabled WRITE setColorDialogEnabled)
+    //Q_PROPERTY(bool colorDialog READ colorDialogEnabled WRITE setColorDialogEnabled)
 
 public:
-    QtColorPicker(QWidget *parent = 0,
+    QtColorPicker(QWidget *parent /TransferThis/ = 0,
                   int columns = -1, bool enableColorDialog = true);
 
     ~QtColorPicker();
@@ -41,17 +41,11 @@ Q_SIGNALS:
 
 protected:
     void paintEvent(QPaintEvent *e);
-
+/*
 private Q_SLOTS:
     void buttonPressed(bool toggled);
     void popupClosed();
-
-private:
-    ColorPickerPopup *popup;
-    QColor col;
-    bool withColorDialog;
-    bool dirty;
-    bool firstInserted;
+*/
 };
 
 

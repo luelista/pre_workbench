@@ -1,8 +1,24 @@
-# Specify sip v5 as the build system for the package.
+# Specify sip v6 as the build system for the package.
 [build-system]
-requires = ["PyQt-builder >=1, <2"]
+requires = ["sip >=6.0.2, <7", "PyQt-builder >=1.6, <2", "PyQt5>=5.15.4", "PyQt5-sip<13,>=12.8"]
 build-backend = "sipbuild.api"
+
+[tool.sip]
+project-factory = "pyqtbuild:PyQtProject"
+bindings-factory = "pyqtbuild:PyQtBindings"
 
 # Specify the PEP 566 metadata for the project.
 [tool.sip.metadata]
 name = "qtcolorpicker"
+requires-dist = "PyQt5 (>=5.15.4)"
+
+[tool.sip.project]
+sip-files-dir = "."
+tag-prefix = "QTCP"
+
+[tool.sip.bindings.qtcolorpicker]
+sip-file = "qtcolorpicker.sip"
+include-dirs = ["."]
+qmake-QT = ["widgets"]
+headers = ["qtcolorpicker.h"]
+sources = ["qtcolorpicker.cpp"]

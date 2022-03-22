@@ -147,7 +147,7 @@ class HexView2(QWidget):
 		#self.fontAscii.fromString(configs.getValue('HexView2.ascii.Font'))
 		self.fsAscii = QColor(configs.getValue('HexView2.ascii.Color')); self.dxAscii = QFontMetrics(self.fontAscii).width("W")
 
-		self.fsSel = QColor("#7fff9bff");  self.fsHover = QColor("#7f9b9bff")
+		self.fsSel = QColor("#7fddaaff");  self.fsCursor = QColor("#bfddaaff");  self.fsHover = QColor("#8fff9bff")
 		sectionFont = QFont(); sectionFont.fromString(configs.getValue('HexView2.section.Font'))
 		self.fontSection = []
 		for i in [0,10,8,6,4,2]:
@@ -485,7 +485,7 @@ class HexView2(QWidget):
 		elif arrow is not None and mod == QtCore.Qt.NoModifier:
 			self.select(arrow, arrow)
 
-		if mod == QtCore.Qt.ControlModifier:
+		elif mod == QtCore.Qt.ControlModifier:
 			if e.key() == QtCore.Qt.Key_A:
 				self.selectAll()
 			elif e.key() == QtCore.Qt.Key_C:
@@ -523,7 +523,14 @@ class HexView2(QWidget):
 				if info:
 					self.styleSelection(**info[2])
 
+		else:
+			super().keyPressEvent(e)
 
+	def focusInEvent(self, event) -> None:
+		self.update()
+
+	def focusOutEvent(self, event) -> None:
+		self.update()
 
 	#################  data setters   ##########################################
 	def getBytes(self):
@@ -692,8 +699,9 @@ class HexView2(QWidget):
 		for i in range(selVisibleMin, selVisibleMax+1):
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.selBuffer, i)
 			if dy is None: break
-			qp.fillRect(xHex, y, self.dxHex, dy, self.fsSel)
-			qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsSel)
+			fs = self.fsCursor if i == self.selEnd and self.hasFocus() else self.fsSel
+			qp.fillRect(xHex, y, self.dxHex, dy, fs)
+			qp.fillRect(xAscii, y, self.dxAscii, dy, fs)
 
 		for helper, meta in SelectionHelpers.types:
 			if configs.getValue("SelHeur." + helper.__name__ + ".enabled", meta.get("defaultEnabled", False)):

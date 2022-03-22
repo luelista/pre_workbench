@@ -36,7 +36,7 @@ def find_project():
 	preventAutoOpen = len(sys.argv) > 1 and sys.argv[1] == "--choose-project"
 
 	if not preventAutoOpen:
-		if len(sys.argv) > 1 and os.path.isfile(os.path.join(sys.argv[1], ".pre_workbench")):
+		if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
 			return sys.argv[1]
 
 		if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
@@ -76,6 +76,7 @@ def run_app():
 	prj_dir = find_project()
 	if not prj_dir: sys.exit(1)
 	app_project = Project(prj_dir)
+	configs.updateMru("ProjectMru", prj_dir, 5)
 	guihelper.CurrentProject = app_project
 	configs.setValue("LastProjectDir", app_project.projectFolder)
 

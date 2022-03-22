@@ -144,6 +144,7 @@ class MdiWindowListWidget(QWidget):
 		logging.debug("MdiWindowListWidget.updateWindowList (len=%d)", len(wndList))
 		self.list.clear()
 		for window in wndList:
+			if not hasattr(window.widget(), 'child_wnd_meta'): continue
 			listitem = QListWidgetItem(window.windowTitle())
 			listitem.setData(QtCore.Qt.UserRole, window.widget().objectName())
 			listitem.setIcon(window.windowIcon())
@@ -178,16 +179,8 @@ class StructInfoTreeWidget(QWidget):
 		self.setLayout(windowLayout)
 
 	def show_grammar(self, fic):
+		if not self.isVisible(): return
 		self.tree.set(fic)
-
-	def showEvent(self, QShowEvent):
-		self.parentWidget().parentWidget().on_grammar_update.connect(self.show_grammar)
-
-	def hideEvent(self, QHideEvent):
-		try:
-			self.parentWidget().parentWidget().on_grammar_update.disconnect(self.show_grammar)
-		except:
-			pass #sometimes it is not connected, probably hideEvent is called multiple times
 
 
 class StructInfoCodeWidget(QWidget):
@@ -255,16 +248,8 @@ class DataInspectorWidget(QWidget):
 	def restoreState(self, data):
 		if "hs" in data: self.fiTreeWidget.header().restoreState(data["hs"])
 
-	def showEvent(self, QShowEvent):
-		self.parentWidget().parentWidget().on_selected_bytes_update.connect(self.on_select_bytes)
-
-	def hideEvent(self, QHideEvent):
-		try:
-			self.parentWidget().parentWidget().on_selected_bytes_update.disconnect(self.on_select_bytes)
-		except:
-			pass #sometimes it is not connected, probably hideEvent is called multiple times
-
 	def on_select_bytes(self, selbytes):#buffer:ByteBuffer, range:Range):
+		if not self.isVisible(): return
 		with PerfTimer("DataInspector parsing"):
 			parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, selbytes) #buffer.getBytes(range.start, range.length()))
 			try:
@@ -311,18 +296,9 @@ class RangeListWidget(QWidget):
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
-	def showEvent(self, QShowEvent):
-		self.parentWidget().parentWidget().on_meta_update.connect(self.on_select_hexview_range)
-
-	def hideEvent(self, QHideEvent):
-		try:
-			self.parentWidget().parentWidget().on_meta_update.disconnect(self.on_select_hexview_range)
-		except:
-			pass #sometimes it is not connected, probably hideEvent is called multiple times
-
-	def on_select_hexview_range(self, event_id, sender):
+	def on_meta_update(self, event_id, sender):
 		with PerfTimer("RangeListWidget update"):
-			if event_id != "hexview_range" or sender is None: return
+			if event_id != "hexview_range" or sender is None or not self.isVisible(): return
 			self.treeView.clear()
 			for d in sender.buffers[0].matchRanges(overlaps=sender.selRange()):
 				root = QTreeWidgetItem(self.treeView)

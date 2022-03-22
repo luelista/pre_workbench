@@ -170,6 +170,7 @@ class PacketListWidget(QWidget):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
+        self.setFocusPolicy(Qt.NoFocus)
         #tabs = QTabWidget()
         #layout.addWidget(tabs)
 

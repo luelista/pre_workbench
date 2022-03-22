@@ -30,7 +30,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QVBoxLay
 	QMdiArea, QDockWidget, QMessageBox, QToolButton, QMenu, QLabel, QApplication
 from PyQtAds import ads
 
-from pre_workbench.guihelper import NavigateCommands, GlobalEvents
+from pre_workbench.guihelper import NavigateCommands, GlobalEvents, navigateBrowser
 from pre_workbench import configs, SettingsSection, guihelper
 # noinspection PyUnresolvedReferences
 from pre_workbench import textfile
@@ -221,18 +221,20 @@ class WorkbenchMain(QMainWindow):
 			#fileMenu.addAction(newAct)
 			newTbMenu.addAction(newAct)
 		mainToolbar.addWidget(newTbAct)
-		fileMenu.addSeparator()
 		#fileMenu.addAction(self.newAct)
 
-		fileMenu.addAction(self.loadProjectAct)
-		recentProjectMenu = fileMenu.addMenu('&Recent projects')
-		for project in configs.getValue("ProjectMru", []):
-			recentProjectMenu.addAction(project, lambda dir=project: self.openProjectInNewWindow(dir))
 		fileMenu.addAction(self.openAct)
 		fileMenu.addAction(self.saveAct)
 		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
+
+		fileMenu.addAction(self.loadProjectAct)
+		recentProjectMenu = fileMenu.addMenu('&Recent projects')
+		for project in configs.getValue("ProjectMru", []):
+			recentProjectMenu.addAction(project, lambda dir=project: self.openProjectInNewWindow(dir))
+		fileMenu.addSeparator()
+
 		self.mruActions = []
 		for _ in range(MRU_MAX):
 			a = fileMenu.addAction("-")
@@ -281,8 +283,10 @@ class WorkbenchMain(QMainWindow):
 
 		##### HELP #####
 		helpMenu = menubar.addMenu("&Help")
-		helpMenu.addAction(QAction("Getting started", self))
-		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.onAboutBox(),
+		helpMenu.addAction(QAction("Getting started", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/getting-started")))
+		helpMenu.addAction(QAction("Syntax reference", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/syntax-reference")))
+		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser("https://github.com/luelista/pre_workbench/issues")))
+		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))
 
 		mainToolbar.addAction(self.openAct)
@@ -346,6 +350,12 @@ class WorkbenchMain(QMainWindow):
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
 		self.setWindowTitle(f'PRE Workbench - {self.project.projectFolder}')
 		self.show()
+
+	def showAboutBox(self):
+		QMessageBox.about(self, "PRE Workbench", "Protocol Reverse Engineering Workbench\n\n"
+												 "Copyright (c) 2022 Mira Weller\n"
+												 "Licensed under the GNU General Public License Version 3\n\n"
+												 "https://github.com/luelista/pre_workbench")
 
 	def onPreferences(self):
 		res = showPreferencesDlg(configs.configDefinitions, configs.configDict, "Preferences", self)

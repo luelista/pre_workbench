@@ -20,9 +20,11 @@ import logging
 import os.path
 import platform
 import sys
+import argparse
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog
+from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog, QMessageBox
 
 from pre_workbench import configs, guihelper, errorhandler
 from pre_workbench.configs import SettingsSection
@@ -30,13 +32,22 @@ from pre_workbench.mainwindow import WorkbenchMain
 from pre_workbench.project import Project
 from pre_workbench.syshelper import load_file_watch
 
-gc.set_debug(gc.DEBUG_STATS)
+def parse_args():
+	parser = argparse.ArgumentParser(description='Protocol Reverse Engineering Workbench')
+	parser.add_argument('--reset-config', action='store_true',
+						help='Reset the configuration to defaults')
+	parser.add_argument('--gc-debug', action='store_true',
+						help='Print debug output from garbage collector')
+	parser.add_argument('--choose-project', action='store_true',
+						help='Force the project directory chooser to appear, instead of opening the last project')
+	parser.add_argument('project_dir', metavar='DIR', type=str, nargs='?',
+						help='Project directory')
 
-def find_project():
-	preventAutoOpen = len(sys.argv) > 1 and sys.argv[1] == "--choose-project"
+	return parser.parse_args()
 
-	if not preventAutoOpen:
-		if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
+def find_project(args):
+	if not args.choose_project:
+		if args.project_dir and os.path.isdir(args.project_dir):
 			return sys.argv[1]
 
 		if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
@@ -45,6 +56,13 @@ def find_project():
 		last_prj = configs.getValue("LastProjectDir", None)
 		if last_prj and os.path.isfile(os.path.join(last_prj, ".pre_workbench")):
 			return last_prj
+
+	if not args.choose_project:
+		QMessageBox.information(None, "Welcome", "Welcome to PRE Workbench!\n\n"
+								"In the next dialog, you will be asked to choose a project directory. You can\n"
+								"- choose an existing project\n- create a new folder\n- select an existing folder\n\n"
+								"If it does not exist already, a project database file (named \".pre_workbench\") "
+								"will automatically be created in this directory.")
 
 	dlg = QFileDialog()
 	dlg.setFileMode(QFileDialog.DirectoryOnly)
@@ -63,6 +81,13 @@ def run_app():
 
 	sys.excepthook = errorhandler.excepthook
 
+	args = parse_args()
+	logging.debug("CMD args: %r", args)
+	if args.gc_debug:
+		gc.set_debug(gc.DEBUG_STATS)
+	if args.reset_config:
+		configs.configDict = dict()
+
 	from PyQt5.QtWidgets import QApplication
 
 	app = QApplication(sys.argv)
@@ -73,7 +98,7 @@ def run_app():
 						   "fusion", lambda key, value: app.setStyle(value))
 	load_file_watch(app, os.path.join(os.path.dirname(__file__), "stylesheet.css"), lambda contents: app.setStyleSheet(contents))
 
-	prj_dir = find_project()
+	prj_dir = find_project(args)
 	if not prj_dir: sys.exit(1)
 	app_project = Project(prj_dir)
 	configs.updateMru("ProjectMru", prj_dir, 5)

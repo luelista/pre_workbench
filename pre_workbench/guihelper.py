@@ -14,8 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtGui import QColor, QPalette
+from PyQt5.QtCore import QObject, pyqtSignal, QUrl
+from PyQt5.QtGui import QColor, QPalette, QDesktopServices
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
 
 MainWindow = None
@@ -67,6 +67,9 @@ def navigateSingle(cmd, *args):
 def navigateLink(link):
 	if QMessageBox.question(None, "Open from anchor?", str(link)) == QMessageBox.Yes:
 		navigate("OPEN", f'FileName={link}')
+
+def navigateBrowser(link):
+	QDesktopServices.openUrl(QUrl(link))
 
 """
 

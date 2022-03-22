@@ -23,7 +23,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name='pre_workbench',
-	version='0.2.0',
+	version='0.3.1',
 	author="Mira Weller",
 	author_email="mweller@seemoo.tu-darmstadt.de",
 	description="Protocol Reverse Engineering Workbench",
@@ -44,6 +44,7 @@ setuptools.setup(
 		'lark-parser>=0.7.5',
 		'psutil>=5.0.0',
 		'bitstring>=3.1.9',
+		'PyQtAds==3.8.1',
 	],
 	classifiers=[
 		"Programming Language :: Python :: 3",

@@ -30,27 +30,29 @@ def make_builtin(name, params):
 		return None
 
 
+def parse_definition(txt, start="anytype"):
+	ast = fi_parser.parse(txt, start=start)
 
-def parse_string(txt):
-	ast = fi_parser.parse(txt, start="start")
-	#print(ast.pretty())
-	return ast
+	return transformer.transform(ast)
+
+
+def parse_definition_map_into_container(txt, container, start="start"):
+	ast = fi_parser.parse(txt, start=start)
+
+	for definition in ast.children:
+		container.definitions[definition.children[0]] = transformer.transform(definition.children[1])
+	container.main_name = ast.children[0].children[0]
+
 
 class MainTrans(Transformer):
-	def __init__(self, container):
+	def __init__(self):
 		super().__init__()
-		self.container = container
-
-	def load_definitions(self, ast):
-		for definition in ast.children:
-			self.container.definitions[definition.children[0]] = self.transform(definition.children[1])
-		self.container.main_name = ast.children[0].children[0]
 
 	start = dict
 
-
 	def string(self, s):
 		return json.loads(s[0])
+
 	def number(self, n):
 		return float(n[0]) if "." in n[0] else int(n[0], 0)
 
@@ -117,5 +119,5 @@ class MainTrans(Transformer):
 	def expr_value(self, node):
 		return Expression(expr_tree=node[0])
 
-
+transformer = MainTrans()
 

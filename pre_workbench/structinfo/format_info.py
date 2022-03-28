@@ -49,12 +49,8 @@ class FormatInfo:
 		return self.fi._to_text(indent, refs, self.params)
 
 	def from_text(self, txt):
-		from pre_workbench.structinfo.parser import fi_parser, MainTrans
-		ast = fi_parser.parse(txt, start="anytype")
-		print(ast.pretty())
-
-		trans = MainTrans(self)
-		item = trans.transform(ast)
+		from pre_workbench.structinfo.parser import parse_definition
+		item = parse_definition(txt)
 		self.fi = item.fi
 		self.params = item.params
 

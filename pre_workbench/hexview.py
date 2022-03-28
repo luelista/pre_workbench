@@ -26,7 +26,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QComboBox
-from pre_workbench.algo.rangelist import Range
+from pre_workbench.algo.range import Range
 
 from pre_workbench import configs, guihelper
 from pre_workbench.configs import SettingsSection
@@ -119,7 +119,7 @@ class HexView2(QWidget):
 	def initUI(self):
 		self.fiTreeWidget = RangeTreeWidget(self)
 		self.fiTreeWidget.show()
-		self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
+		self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
 		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 
 
@@ -169,7 +169,7 @@ class HexView2(QWidget):
 	############ HEX VIEW CONTEXT MENU  #############################################################
 
 	def onCustomContextMenuRequested(self, point):
-		hit = self.hitTest(point)
+		hit = self._hitTest(point)
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
 			if hit.offset < self.selStart or hit.offset > self.selEnd or hit.buffer != self.selBuffer:
@@ -307,7 +307,7 @@ class HexView2(QWidget):
 				self.buffers[0].setRanges(self.buffers[0].matchRanges(doesntHaveMetaKey='_sdef_ref'))
 
 				parse_context = BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
-				parse_context.on_new_subflow_category = self.newSubflowCategory
+				parse_context.on_new_subflow_category = self._newSubflowCategory
 				self.buffers[0].fi_tree = parse_context.parse()
 				self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
 				self.redraw()
@@ -316,11 +316,11 @@ class HexView2(QWidget):
 				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
 				#QMessageBox.warning(self, "Failed to apply format info", str(ex))
 
-	def newSubflowCategory(self, category, parse_context, **kv):
+	def _newSubflowCategory(self, category, parse_context, **kv):
 		logging.debug("on_new_subflow_category: %r",category)
 		self.onNewSubflowCategory.emit(category, parse_context)
 
-	def fiTreeItemSelected(self, item, previous):
+	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
 		range = item.data(0, Range.RangeRole)
 		if range is not None:
@@ -348,11 +348,11 @@ class HexView2(QWidget):
 	def scrollIntoView(self, offset):
 		line = floor(offset / self.bytesPerLine)
 		if line < self.firstLine:
-			self.setFirstLine(line - 2)
+			self._setFirstLine(line - 2)
 		elif line >= self.maxVisibleLine():
-			self.setFirstLine(line - 5)  #TODO - ich weiß vorher nicht, wie viele zeilen auf den schirm passen
+			self._setFirstLine(line - 5)  #TODO - ich weiß vorher nicht, wie viele zeilen auf den schirm passen
 
-	def setFirstLine(self, line):
+	def _setFirstLine(self, line):
 		self.firstLine = max(0, min(self.maxLine()-1, line))
 		self.scrollY = self.firstLine * self.dyLine
 		self.redraw()
@@ -360,7 +360,7 @@ class HexView2(QWidget):
 	############## MOUSE EVENTS - SELECTION  ############################
 
 	def mouseMoveEvent(self, e):
-		hit = self.hitTest(e.pos())
+		hit = self._hitTest(e.pos())
 		if hit == self.lastHit: return
 		self.lastHit = hit
 		if self.selecting and hit is not None and hit.buffer == self.selBuffer: self.selEnd = hit.offset
@@ -368,7 +368,7 @@ class HexView2(QWidget):
 
 	def mousePressEvent(self, e):
 		if e.button() != Qt.LeftButton: return
-		hit = self.hitTest(e.pos())
+		hit = self._hitTest(e.pos())
 		if hit is None: return
 		self.lastHit = hit
 		self.selStart = self.selEnd = hit.offset
@@ -390,7 +390,7 @@ class HexView2(QWidget):
 		except StopIteration:
 			pass
 
-	def hitTest(self, point):
+	def _hitTest(self, point):
 		x, y = point.x(), point.y()
 		linePos = None
 		if (x >= self.xAscii):
@@ -497,13 +497,16 @@ class HexView2(QWidget):
 			elif e.key() == QtCore.Qt.Key_Plus:
 				self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+				GlobalEvents.on_config_change.emit()
 			elif e.key() == QtCore.Qt.Key_Minus:
 				self.fontHex.setPointSize(self.fontHex.pointSize() - 1)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+				GlobalEvents.on_config_change.emit()
 
 			elif e.key() == QtCore.Qt.Key_0:
 				self.fontHex.setPointSize(10)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+				GlobalEvents.on_config_change.emit()
 
 
 		elif mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:

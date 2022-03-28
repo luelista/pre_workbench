@@ -1,7 +1,7 @@
 import logging
 import struct
 
-from pre_workbench.algo.rangelist import Range
+from pre_workbench.algo.range import Range
 
 from pre_workbench.objects import ByteBufferList, ByteBuffer
 from pre_workbench.structinfo.exceptions import *
@@ -32,11 +32,8 @@ class FormatInfoContainer:
 		self.file_name = fileName
 
 	def load_from_string(self, txt):
-		from pre_workbench.structinfo.parser import parse_string, MainTrans
-		ast = parse_string(txt)
-
-		trans = MainTrans(self)
-		trans.load_definitions(ast)
+		from pre_workbench.structinfo.parser import parse_definition_map_into_container
+		parse_definition_map_into_container(txt, self)
 
 	def write_file(self, fileName):
 		if fileName.endswith(".txt"):

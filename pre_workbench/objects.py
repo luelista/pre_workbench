@@ -22,7 +22,8 @@ from pre_workbench.structinfo import hexdump
 from PyQt5.QtCore import (pyqtSignal, QObject)
 
 from pre_workbench.guihelper import getClipboardText
-from pre_workbench.algo.rangelist import RangeList, Range
+from pre_workbench.algo.rangelist import RangeList
+from pre_workbench.algo.range import Range
 
 
 class ReloadRequired(Exception):

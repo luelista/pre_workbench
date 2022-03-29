@@ -4,9 +4,25 @@ A grammar file consists of a map of names to type definitions, in the format `na
 ```
 grammar_file: field*
 field: IDENTIFIER type
-type: named | struct | repeat | variant | switch | union
+type: named | struct | repeat | variant | switch | union | bits
+
+params: ("(" [parampair ("," parampair)*] ")")?
+parampair: IDENTIFIER "=" value
 ```
 
+# Parameters
+
+Some parameters are recognized on all types, where the `params` element is accepted. Other parameters are recognized on 
+specific types only, but can also be declared on any surrounding container type, causing them to cascade to the children
+(e.g., declaring `endianness` on a struct specifies the endianness for all struct elements). 
+
+| parameter | type | description |
+| ------------- | ------- | --- |
+| ignore_errors | Boolean | If true, all errors which may occur during parsing this element or it's children are ignored. |
+
+
+
+# Type Definitions
 
 ## named
 In any place where a type is expected, a name can be used to reference another type defined in the same file. Many common types of integers, strings, floating-point numbers and network addresses are predefined. For easier adaption, they have the same name as in Wireshark dissectors.
@@ -19,15 +35,25 @@ UINT32(endianness="<")
 --> unsigned integer, 4 byte, little endian.
 
 IPv4
-  IP version 4 address, in binary, in network byte order.
+--> IP version 4 address, in binary, in network byte order.
 
 UINT_STRING(size_len=2, encoding=">", charset="utf-8")
-  character string in UTF-8 encoding, with an unsigned integer, 2 byte, big endian prefix specifing the string length.
+--> character string in UTF-8 encoding, with an unsigned integer, 2 byte, big endian prefix specifing the string length.
   
 mytype
+--> custom type declared elsewhere
 ```
 
 
+| parameter | type | description |
+| ------------- | ------- | --- |
+| endianness    | String  | "<" (Little endian) or ">" (Big endian). Used by some built-in named types (multibyte int and floats). |
+| charset       | String  | Python charsets, e.g. "utf-8". Used by all string types. |
+| unit          | String  | "s", "ms", "us" |
+| magic         | ???     |  |
+| size          | int expression  |  |
+| size_len      | int expression  |  |
+| parse_with    | named   |  |
 
 
 
@@ -44,6 +70,7 @@ pascal_string struct {
 	length UINT16(endianness=">")
 	value STRING(size=(length))
 }
+# note: a pascal_string could be defined more easily as pascal_string STRING(size_len=2)
 ```
 
 
@@ -65,6 +92,12 @@ int32_array struct(endianness=">") {
 ```
 
 
+
+| parameter | type | description |
+| ------------- | ------- | --- |
+| times       | int expression  |  |
+| until       | int expression |  |
+| until_invalid       | boolean  |  |
 
 
 ## `variant`
@@ -146,3 +179,8 @@ header bits {
 }
 ```
 
+
+
+| parameter | type | description |
+| ------------- | ------- | --- |
+| endianness    | String  | "<" (Little endian) or ">" (Big endian). |

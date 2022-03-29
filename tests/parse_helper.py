@@ -1,14 +1,12 @@
 
 from binascii import unhexlify
 
-
-from pre_workbench.structinfo import LoggingParseContext, FormatInfo, FormatInfoContainer, ParseContext, invalid
+from pre_workbench.structinfo.parsecontext import FormatInfoContainer, LoggingParseContext, ParseContext
 
 log = False
 
 def parse_me(definition, hexstring, expected):
-	fic = FormatInfoContainer()
-	fic.load_from_string(definition)
+	fic = FormatInfoContainer(load_from_string=definition)
 	if log:
 		pc = LoggingParseContext(fic, unhexlify(hexstring.replace(" ","")))
 	else:

@@ -17,6 +17,7 @@
 import inspect
 import logging
 import os
+import weakref
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
@@ -24,15 +25,16 @@ from PyQt5.QtGui import QDesktopServices, QColor, QFont
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit
 
-from pre_workbench import configs
+from pre_workbench import configs, guihelper
+from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
 from pre_workbench.genericwidgets import filledColorIcon
-from pre_workbench.guihelper import navigate
+from pre_workbench.guihelper import navigate, getMonospaceFont
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
-from pre_workbench.textfile import SimplePythonEditor
+from pre_workbench.windows.content.textfile import SimplePythonEditor
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.util import PerfTimer, truncate_str
@@ -172,15 +174,18 @@ class StructInfoTreeWidget(QWidget):
 		self.initUI()
 
 	def initUI(self):
-		self.tree = JsonView(schema="format_info.tes", rootTypeDefinition="FormatInfoFile")
+		self.tree = JsonView(schema="format_info.tes", rootTypeDefinition="AnyFI")
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.tree)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
-	def show_grammar(self, fic):
+	def show_grammar(self, fi_trees):
 		if not self.isVisible(): return
-		self.tree.set(fic)
+		try:
+			self.tree.set(fi_trees[0].source_desc.serialize())
+		except:
+			pass
 
 
 class StructInfoCodeWidget(QWidget):
@@ -201,6 +206,9 @@ class RangeTreeDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
 		self.initUI()
+		#self.lastBuffer = lambda : None # dead weakref
+		self.lastHexView = lambda : None   # dead weakref
+		self.fiTreeWidget.formatInfoContainer = guihelper.CurrentProject.formatInfoContainer
 
 	def initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
@@ -209,8 +217,33 @@ class RangeTreeDockWidget(QWidget):
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 		self.fiTreeWidget.show()
-		#self.fiTreeWidget.currentItemChanged.connect(self.fiTreeItemSelected)
-		#self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
+		self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
+		self.fiTreeWidget.formatInfoUpdated.connect(self._applyFormatInfo)
+
+	def _fiTreeItemSelected(self, item, previous):
+		if item is None: return
+		range = item.data(0, Range.RangeRole)
+		hexView = self.lastHexView()
+		if range is not None and hexView is not None:
+			hexView.selectRange(range, scrollIntoView=True)
+
+	def _applyFormatInfo(self):
+		pass
+
+	def on_meta_update(self, event_id, param):
+		if param is None or not self.isVisible(): return
+		if event_id == "hexview_range":
+			with PerfTimer("RangeTreeWidget update"):
+				#buf = param.buffers[param.selBuffer]
+				logging.debug("RangeTreeDockWidget %r %r", self.lastHexView(), param)
+				if self.lastHexView() is not param:
+					self.lastHexView = weakref.ref(param)
+					self.fiTreeWidget.updateTree([buf.fi_tree for buf in param.buffers])
+				self.fiTreeWidget.hilightFormatInfoTree(param.selRange())
+		elif event_id == "grammar":
+			self.fiTreeWidget.updateTree(param)
+
+
 
 
 class DataInspectorWidget(QWidget):
@@ -257,7 +290,7 @@ class DataInspectorWidget(QWidget):
 			except parse_exception as ex:
 				logging.exception("Failed to apply format info")
 				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
-			self.fiTreeWidget.updateTree(fi_tree)
+			self.fiTreeWidget.updateTree([fi_tree])
 
 	def initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
@@ -369,9 +402,7 @@ class LogWidget(QWidget):
 
 	def initUI(self):
 		self.textBox = QTextEdit()
-		font = QFont("monospace")
-		font.setStyleHint(QFont.Monospace)
-		self.textBox.setFont(font)
+		self.textBox.setFont(getMonospaceFont())
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.textBox)
 		windowLayout.setContentsMargins(0,0,0,0)

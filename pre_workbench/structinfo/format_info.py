@@ -402,7 +402,6 @@ class UnionFI:
 @FITypes.register(type_id=9)
 class BitStructFI:
 	def init(self, children, **kw):
-		print(children)
 		self.children = [(str(name), bitlength) for (name, bitlength) in children]
 		self.size = ceil(sum(bits for (name, bits) in self.children) / 8)
 

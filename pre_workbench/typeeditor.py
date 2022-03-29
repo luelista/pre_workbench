@@ -277,8 +277,10 @@ class StructTypeEditor(StructuredTypeEditor):
 			self.layout().addRow(labelWidget, child)
 			if ("uiShowIf" in field): self.conditionals.append((Expression(expr_str=field['uiShowIf']), labelWidget, child));
 			# TODO fix autoincrement fields
-			#if ("uiFlags" in field and (field['uiFlags'] & Field_UiFlags_autoIncrement) > 0 and parent.children):
-			#	child.set(parent.children.reduce(function(p,c) { return Math.max(p,c.getFieldValue(field.name))}, 0) + 1);
+			if ("uiFlags" in field and (field['uiFlags'] & Field_UiFlags_autoIncrement) > 0 and hasattr(self.parent(), "get")):
+				siblings = self.parent().get()
+				if siblings is not None and type(siblings) == list and len(siblings) > 0:
+					child.set(max(sib.get(field['name'], 0) for sib in siblings) + 1)
 			if ("uiFlags" in field and (field['uiFlags'] & Field_UiFlags_advanced) > 0):
 				self.advancedElements.append((labelWidget, child))
 
@@ -596,7 +598,9 @@ class JsonView(QTreeWidget):
 
 			if typ is list:
 				ctx.addSeparator()
-				ctx.addAction("Add item ...", lambda: self.addField(item, "AnyFI"))
+				childTypeDef = item.data(1, QtCore.Qt.UserRole + 2)
+				if childTypeDef:
+					ctx.addAction("Add item ...", lambda: self.addField(item, None, childTypeDef))
 				ctx.addAction("Clear list", lambda: self.clearList(item)).setEnabled(False)
 			if parentTyp is dict:
 				ctx.addSeparator()
@@ -650,6 +654,17 @@ class JsonView(QTreeWidget):
 			showHexView2Dialog(self, "Edit bytes value", data, lambda newVal: self.tree_set_row(item, newVal, typeDef))
 		else:
 			QMessageBox.information(self, "Note", "Editor for data type "+str(type(data))+" not implemented")
+
+	def addField(self, parentItem, name, typeDef):
+		parentTypeDef = parentItem.data(1, QtCore.Qt.UserRole + 1)
+		parentData = self.tree_fetch(parentItem)
+		def ok(res):
+			if name is None:
+				parentData.append(res)
+			else:
+				parentData[name] = res
+			self.tree_set_row(parentItem, parentData, parentTypeDef)
+		showTypeEditorDlg(self.schema, typeDef, None, "Add field", ok_callback=ok)
 
 	def removeField(self, item):
 		item.parent().removeChild(item)
@@ -735,6 +750,8 @@ class JsonView(QTreeWidget):
 				print("choiceItem",choiceItem)
 				self.tree_add_row(choiceItem['name'], val[1], me, choiceItem['type'])
 			else:
+				if typeKind == Type_List:
+					me.setData(1, QtCore.Qt.UserRole + 2, typeDef[1]['itemType'])
 				for i, cc in enumerate(val):
 					key = str(i)
 					self.tree_add_row(key, cc, me, typeDef[1]['itemType'] if typeKind == Type_List else None)

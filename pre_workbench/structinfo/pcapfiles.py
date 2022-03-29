@@ -1,3 +1,5 @@
+import logging
+
 from pre_workbench.objects import ByteBufferList, ByteBuffer
 from pre_workbench.structinfo.parsecontext import FormatInfoContainer
 
@@ -98,4 +100,6 @@ def read_pcap_file(f):
 			if 'payload' in block:
 				meta = {k: v for (k, v) in block.items() if k in ['interface_id', 'timestamp', 'cap_length', 'orig_length',]}
 				plist.add(ByteBuffer(block['payload'], metadata=meta))
+			else:
+				logging.info("PCAPng - unhandled header block: %r", block_wrapper)
 	return plist

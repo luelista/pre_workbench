@@ -19,21 +19,20 @@ import json
 import logging
 import re
 import sys
+from base64 import b64decode
 from collections import namedtuple
 from math import ceil, floor
 
-from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QComboBox
-from pre_workbench.algo.range import Range
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
 
 from pre_workbench import configs, guihelper
+from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import setClipboardText, GlobalEvents, showWidgetDlg
+from pre_workbench.guihelper import setClipboardText, GlobalEvents, showWidgetDlg, getClipboardText
 from pre_workbench.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
-from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
 from pre_workbench.util import PerfTimer
@@ -71,7 +70,7 @@ HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset'])
 
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
-	formatInfoUpdated = pyqtSignal()
+	formatInfoUpdated = pyqtSignal(list)
 	selectionChanged = pyqtSignal(object)
 
 	userStyles = [
@@ -91,14 +90,14 @@ class HexView2(QWidget):
 		self.firstLine = 0
 		self.scrollY = 0
 		self.partialLineScrollY = 0
-		self.setFocusPolicy(QtCore.Qt.StrongFocus)
+		self.setFocusPolicy(Qt.StrongFocus)
 
 		self.initUI()
 
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
-		GlobalEvents.on_config_change.connect(self.loadOptions)
-		self.loadOptions()
+		GlobalEvents.on_config_change.connect(self._loadOptions)
+		self._loadOptions()
 
 		self.pixmapsInvalid = True
 		self.selBuffer = 0
@@ -117,13 +116,14 @@ class HexView2(QWidget):
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 	def initUI(self):
-		self.fiTreeWidget = RangeTreeWidget(self)
-		self.fiTreeWidget.show()
-		self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
-		self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
+		pass
+		#self.fiTreeWidget = RangeTreeWidget(self)
+		#self.fiTreeWidget.show()
+		#self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
+		#self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
 
 
-	def loadOptions(self, *dummy):
+	def _loadOptions(self, *dummy):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
 		self.addressFormat = configs.getValue('HexView2.address.Format')
 		self.hexFormat = configs.getValue('HexView2.hex.Format')
@@ -160,15 +160,14 @@ class HexView2(QWidget):
 		self.dyLine = ceil(self.charHeight * configs.getValue('HexView2.general.lineHeight'))
 		self.fontAscent = ceil(QFontMetrics(self.fontHex).ascent())
 		self.linePadding = ceil(max(0, self.charHeight * (configs.getValue('HexView2.general.lineHeight') - 1) / 2))
-		print(self.charHeight, self.dyLine, self.fontAscent, self.linePadding)
 
-		self.fiTreeWidget.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, 10)
+		#self.fiTreeWidget.move(self.xAscii + self.dxAscii*self.bytesPerLine + 10, 10)
 		self.redraw()
 
 
 	############ HEX VIEW CONTEXT MENU  #############################################################
 
-	def onCustomContextMenuRequested(self, point):
+	def _onCustomContextMenuRequested(self, point):
 		hit = self._hitTest(point)
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
@@ -177,12 +176,12 @@ class HexView2(QWidget):
 				self.selBuffer = hit.buffer
 				self.selecting = False
 				self.redrawSelection()
-			self.buildSelectionContextMenu(ctxMenu)
+			self._buildSelectionContextMenu(ctxMenu)
 		else:
-			self.buildGeneralContextMenu(ctxMenu)
+			self._buildGeneralContextMenu(ctxMenu)
 		ctxMenu.exec(self.mapToGlobal(point))
 
-	def buildSelectionContextMenu(self, ctx):
+	def _buildSelectionContextMenu(self, ctx):
 		ctx.addAction(QAction("Copy selection hex\tCtrl-C", ctx, triggered=lambda: self.copySelection(), shortcut="Ctrl+C"))
 		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
 		ctx.addAction("Copy selection hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
@@ -205,35 +204,51 @@ class HexView2(QWidget):
 		ctx.addAction("&Start Section...", lambda: self.setSectionSelection())
 		ctx.addSeparator()
 
-		menu = ctx.addMenu( "Apply annotation set for selection")
-		for name in guihelper.CurrentProject.getAnnotationSetNames():
-			#TODO implement this
-			menu.addAction(name, lambda name=name: print(name))
+		if self.selLength() > 1:
+			menu = ctx.addMenu( "Apply annotation set for selection")
+			for name in guihelper.CurrentProject.getAnnotationSetNames():
+				#TODO implement this
+				menu.addAction(name, lambda name=name: print(name))
+		else:
+			menu = ctx.addMenu("Load annotation set")
+			for name in guihelper.CurrentProject.getAnnotationSetNames():
+				menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
+
+			menu = ctx.addMenu("Apply format info")
+			for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
+				menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
 
 
-	def buildGeneralContextMenu(self, ctx):
+	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addSeparator()
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
+		menu = ctx.addMenu("Paste as")
+		menu.addAction("Base64", lambda: self.setBuffer(ByteBuffer(b64decode(getClipboardText()))))
 		ctx.addAction("Clear ranges", lambda: self.clearRanges())
 
-		menu = ctx.addMenu("Load annotation set")
+		menu = ctx.addMenu("Load annotation set" + (" on all buffers" if len(self.buffers) > 0 else ""))
 		for name in guihelper.CurrentProject.getAnnotationSetNames():
 			menu.addAction(name, lambda name=name: self.loadAnnotations(name))
+
+		menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
+		for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
+			menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
 
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
 		self.loadAnnotations(name)
 
-	def loadAnnotations(self, set_name):
-		self.buffers[0].setRanges(self.buffers[0].matchRanges(hasMetaKey='_sdef_ref'))
-		annotations = guihelper.CurrentProject.getAnnotations(set_name)
-		for rowid, start, end, meta_str in annotations:
-			meta = json.loads(meta_str)
-			if meta.get("deleted"): continue
-			meta['rowid'] = rowid
-			self.buffers[0].addRange(Range(start=start, end=end, meta=meta))
+	def loadAnnotations(self, set_name, bufIdx=None):
+		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
+			buf.setRanges(buf.matchRanges(hasMetaKey='_sdef_ref'))
+			annotations = guihelper.CurrentProject.getAnnotations(set_name)
+			for rowid, start, end, meta_str in annotations:
+				meta = json.loads(meta_str)
+				if meta.get("deleted"): continue
+				meta['rowid'] = rowid
+				buf.addRange(Range(start=start, end=end, meta=meta))
 		self.redraw()
 		self.annotationSetName = set_name
 
@@ -298,23 +313,21 @@ class HexView2(QWidget):
 
 	################# FI Tree ####################################################
 
-	def applyFormatInfo(self):
-		if self.fiTreeWidget.formatInfoContainer != None:
-			try:
-				self.formatInfoUpdated.emit()
+	def applyFormatInfo(self, root_name, bufIdx=None):
+		try:
+			# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
+			for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
+				buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
 
-				# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
-				self.buffers[0].setRanges(self.buffers[0].matchRanges(doesntHaveMetaKey='_sdef_ref'))
-
-				parse_context = BytebufferAnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.buffers[0])
+				parse_context = BytebufferAnnotatingParseContext(guihelper.CurrentProject.formatInfoContainer, buf)
 				parse_context.on_new_subflow_category = self._newSubflowCategory
-				self.buffers[0].fi_tree = parse_context.parse()
-				self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
-				self.redraw()
-			except parse_exception as ex:
-				logging.exception("Failed to apply format info")
-				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
-				#QMessageBox.warning(self, "Failed to apply format info", str(ex))
+				buf.fi_tree = parse_context.parse(root_name)
+			self.formatInfoUpdated.emit([buf.fi_tree for buf in self.buffers])
+			self.redraw()
+		except parse_exception as ex:
+			logging.exception("Failed to apply format info")
+			logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
+			#QMessageBox.warning(self, "Failed to apply format info", str(ex))
 
 	def _newSubflowCategory(self, category, parse_context, **kv):
 		logging.debug("on_new_subflow_category: %r",category)
@@ -379,7 +392,7 @@ class HexView2(QWidget):
 	def mouseReleaseEvent(self, e):
 		if e.button() != Qt.LeftButton: return
 		self.selecting = False
-		self.select(self.selStart, self.selEnd, self.selBuffer)
+		self.select(self.selStart, self.selEnd)
 
 	def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:
 		if e.button() != Qt.LeftButton: return
@@ -427,7 +440,8 @@ class HexView2(QWidget):
 		if bufferIdx >= len(self.buffers): return 0
 		return max(0, min(len(self.buffers[bufferIdx]) - 1, pos))
 
-	def select(self, start:int, end:int, bufferIdx=0, scrollIntoView=False):
+	def select(self, start:int, end:int, bufferIdx=None, scrollIntoView=False):
+		if bufferIdx is None: bufferIdx = self.selBuffer
 		#TODO ensure that start, end are in valid range
 		self.selStart = self.clipPosition(bufferIdx, start); self.selEnd = self.clipPosition(bufferIdx, end)
 		self.selBuffer = bufferIdx
@@ -439,7 +453,7 @@ class HexView2(QWidget):
 		logging.debug("selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
 		r = self.selRange()
 
-		self.fiTreeWidget.hilightFormatInfoTree(r)
+		#self.fiTreeWidget.hilightFormatInfoTree(r)
 
 		with PerfTimer("selectionChanged event handlers"):
 			if self.selBuffer < len(self.buffers):
@@ -453,75 +467,69 @@ class HexView2(QWidget):
 		self.select(rangeObj.start, max(rangeObj.start, rangeObj.end-1), bufferIdx=rangeObj.buffer_idx, scrollIntoView=scrollIntoView)
 
 	def selectAll(self):
-		self.select(0, len(self.buffers[0]))
+		self.select(0, len(self.buffers[self.selBuffer]), self.selBuffer)
 
 
 
 	######## KEYBOARD EVENTS ###########################################
 
 	def keyPressEvent(self, e: QKeyEvent) -> None:
-		mod = e.modifiers() & ~QtCore.Qt.KeypadModifier
+		mod = e.modifiers() & ~Qt.KeypadModifier
 
 		arrow = None
-		if e.key() == QtCore.Qt.Key_Left:
+		if e.key() == Qt.Key_Left:
 			arrow = self.selEnd - 1
-		elif e.key() == QtCore.Qt.Key_Right:
+		elif e.key() == Qt.Key_Right:
 			arrow = self.selEnd + 1
-		elif e.key() == QtCore.Qt.Key_Up:
+		elif e.key() == Qt.Key_Up:
 			arrow = self.selEnd - self.bytesPerLine
-		elif e.key() == QtCore.Qt.Key_Down:
+		elif e.key() == Qt.Key_Down:
 			arrow = self.selEnd + self.bytesPerLine
-		elif e.key() == QtCore.Qt.Key_PageUp:
+		elif e.key() == Qt.Key_PageUp:
 			arrow = self.selEnd - self.bytesPerLine * floor(self.height() / self.dyLine * 0.9)
-		elif e.key() == QtCore.Qt.Key_PageDown:
+		elif e.key() == Qt.Key_PageDown:
 			arrow = self.selEnd + self.bytesPerLine * floor(self.height() / self.dyLine * 0.9)
 
 		if arrow is not None:
-			arrow = self.clipPosition(0, arrow)
+			arrow = self.clipPosition(self.selBuffer, arrow)
 			self.scrollIntoView(arrow)
-		#print("hexView Key Press %d 0x%x %d"%(e.key(), int(e.modifiers()), arrow))
-		if arrow is not None and mod == QtCore.Qt.ShiftModifier:
+
+		if arrow is not None and mod == Qt.ShiftModifier:
 			self.select(self.selStart, arrow)
-		elif arrow is not None and mod == QtCore.Qt.NoModifier:
+
+		elif arrow is not None and mod == Qt.NoModifier:
 			self.select(arrow, arrow)
 
-		elif mod == QtCore.Qt.ControlModifier:
-			if e.key() == QtCore.Qt.Key_A:
+		elif mod == Qt.ControlModifier:
+			if e.key() == Qt.Key_A:
 				self.selectAll()
-			elif e.key() == QtCore.Qt.Key_C:
+			elif e.key() == Qt.Key_C:
 				self.copySelection()
-			elif e.key() == QtCore.Qt.Key_I:
-				self.fiTreeWidget.loadFormatInfo(load_from_file=configs.getValue(self.fiTreeWidget.optionsConfigKey+"_lastOpenFile",""))
-			elif e.key() == QtCore.Qt.Key_F5:
+			elif e.key() == Qt.Key_F5:
 				self.applyFormatInfo()
-			elif e.key() == QtCore.Qt.Key_Plus:
+			elif e.key() == Qt.Key_Plus:
 				self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 				GlobalEvents.on_config_change.emit()
-			elif e.key() == QtCore.Qt.Key_Minus:
+			elif e.key() == Qt.Key_Minus:
 				self.fontHex.setPointSize(self.fontHex.pointSize() - 1)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 				GlobalEvents.on_config_change.emit()
-
-			elif e.key() == QtCore.Qt.Key_0:
+			elif e.key() == Qt.Key_0:
 				self.fontHex.setPointSize(10)
 				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
 				GlobalEvents.on_config_change.emit()
 
-
-		elif mod == QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier:
-			if e.key() == QtCore.Qt.Key_C:
+		elif mod == Qt.ControlModifier | Qt.ShiftModifier:
+			if e.key() == Qt.Key_C:
 				self.copySelection("hexdump")
-			elif e.key() == QtCore.Qt.Key_I:
-				self.fiTreeWidget.fileOpenFormatInfo()
 
-
-		elif mod == QtCore.Qt.NoModifier:
-			if e.key() == QtCore.Qt.Key_X:
+		elif mod == Qt.NoModifier:
+			if e.key() == Qt.Key_X:
 				self.deleteSelectedStyle()
 
-			if QtCore.Qt.Key_A <= e.key() <= QtCore.Qt.Key_Z:
-				letter = chr(e.key() - QtCore.Qt.Key_A + 0x41)
+			if Qt.Key_A <= e.key() <= Qt.Key_Z:
+				letter = chr(e.key() - Qt.Key_A + 0x41)
 				info = next((x for x in HexView2.userStyles if x[0] == letter), None)
 				if info:
 					self.styleSelection(**info[2])
@@ -537,7 +545,7 @@ class HexView2(QWidget):
 
 	#################  data setters   ##########################################
 	def getBytes(self):
-		return self.buffers[0].buffer
+		return self.buffers[0].buffer  # TODO handle multiple buffers!
 
 	def setBytes(self, buf : bytes):
 		abuf = ByteBuffer(buf)
@@ -553,21 +561,15 @@ class HexView2(QWidget):
 		else:
 			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
 		self.firstLine = 0
-		self.selStart = 0
-		self.selEnd = 0
-		self.selBuffer = 0
+		self.formatInfoUpdated.emit([buf.fi_tree for buf in self.buffers])
+		self.select(0, 0, 0)
 		self.redraw()
-		if len(self.buffers) > 0:
-			if self.fiTreeWidget.formatInfoContainer is None:
-				self.fiTreeWidget.formatInfoContainer = self.buffers[0].fi_container
-			self.fiTreeWidget.updateTree(self.buffers[0].fi_tree)
-			if self.buffers[0].fi_tree is None: self.applyFormatInfo()
 
 	############ RENDERING ############################################################
 
 	def resizeEvent(self, e):
 		self.redraw();
-		self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
+		#self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
 
 	def sizeHint(self):
 		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)
@@ -693,7 +695,7 @@ class HexView2(QWidget):
 		return y + self.dyLine
 
 	def drawSelection(self, qp):
-		if len(self.buffers) == 0: return
+		if len(self.buffers) == 0 or len(self.itemY) == 0: return
 
 		selMin = min(self.selStart, self.selEnd)
 		selMax = max(self.selStart, self.selEnd)

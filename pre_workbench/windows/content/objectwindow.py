@@ -29,8 +29,7 @@ from pre_workbench.typeregistry import WindowTypes
 
 @WindowTypes.register(icon='beaker.png')
 class ObjectWindow(QWidget):
-	on_meta_update = pyqtSignal(str, object)
-	on_log = pyqtSignal(str)
+	meta_updated = pyqtSignal(str, object)
 
 	def __init__(self, name="Untitled", dataSourceType="", collapseSettings=False, **kw):
 		super().__init__()
@@ -41,7 +40,7 @@ class ObjectWindow(QWidget):
 
 		self.dataSource = None
 		self.dataSourceType = ""
-		self.initUI(collapseSettings)
+		self._initUI(collapseSettings)
 		self.setConfig(kw)
 
 
@@ -51,7 +50,8 @@ class ObjectWindow(QWidget):
 
 	def sizeHint(self):
 		return QSize(600,400)
-	def initUI(self, collapseSettings):
+
+	def _initUI(self, collapseSettings):
 		layout=QVBoxLayout()
 		layout.setContentsMargins(0,0,0,0)
 		layout.setSpacing(0)
@@ -87,7 +87,7 @@ class ObjectWindow(QWidget):
 		layout.addWidget(self.sourceConfig)
 
 		self.dataDisplay = DynamicDataWidget()
-		self.dataDisplay.on_meta_update.connect(self.on_meta_update.emit)
+		self.dataDisplay.meta_updated.connect(self.meta_updated.emit)
 		metadataVisAction.toggled.connect(self.dataDisplay.setMetadataVisible)
 		#tb.addItem(self.dataDisplay, "Results")
 		#layout.addWidget(ExpandWidget("Results", self.dataDisplay))
@@ -140,7 +140,6 @@ class ObjectWindow(QWidget):
 			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
-			self.dataSource.on_log.connect(self.on_log.emit)
 			result = self.dataSource.startFetch()
 			self.dataDisplay.setContents(result)
 

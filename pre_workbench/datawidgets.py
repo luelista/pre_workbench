@@ -18,13 +18,19 @@
 import html
 import itertools
 import logging
+from base64 import b64encode, b64decode
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex, pyqtSlot)
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
     QTableWidgetItem, QMenu, \
     QAbstractItemView, QTableView
+from PyQtAds import ads
+from pre_workbench import guihelper
 
 from pre_workbench.configs import SettingsField
+from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText
+from pre_workbench.structinfo import xdrm
 from pre_workbench.structinfo.expr import Expression
 from pre_workbench.genericwidgets import showSettingsDlg
 from pre_workbench.typeeditor import JsonView
@@ -78,6 +84,7 @@ class PacketListModel(QAbstractItemModel):
     def autoCols(self):
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
+                (ColumnInfo("hex(payload)"),),
                 (ColumnInfo("${\"" + x + "\"}") for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo(x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
@@ -109,6 +116,7 @@ class PacketListModel(QAbstractItemModel):
         try:
             return str(col_info.extract(item))
         except Exception as ex:
+            logging.warning("Data error: %s", ex)
             return "ERROR: "+str(ex)
 
     def flags(self, index):
@@ -140,6 +148,7 @@ class PacketListModel(QAbstractItemModel):
         self.beginInsertColumns(QModelIndex(), insertBefore, insertBefore)
         self.columns.insert(insertBefore, colInfo)
         self.endInsertColumns()
+
     def removeColumns(self, column: int, count: int, parent: QModelIndex = ...) -> bool:
         self.beginRemoveColumns(parent, column, column+count-1)
         self.columns = self.columns[0:column] + self.columns[column+count:]
@@ -152,19 +161,17 @@ class PacketListModel(QAbstractItemModel):
 
 @DataWidgetTypes.register(handles=ByteBufferList)
 class PacketListWidget(QWidget):
-    on_meta_update = pyqtSignal(str, object)
+    meta_updated = pyqtSignal(str, object)
 
     def __init__(self):
         super().__init__()
-        self.dv = None
         self.initUI()
 
     def showData(self, data):
-        if not self.dv:
-            self.dv = DynamicDataWidget()
-            self.dv.setWindowTitle("Data view")
-        self.dv.setContents(data)
-        self.dv.show()
+        dv = DynamicDataWidget()
+        dv.setContents(data)
+        dv.setWindowTitle("Data view")
+        guihelper.MainWindow.showChild(dv, True)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -175,6 +182,7 @@ class PacketListWidget(QWidget):
         #layout.addWidget(tabs)
 
         self.packetlist = QTableView()
+        self.packetlist.setFont(getMonospaceFont())
         self.packetlist.setSortingEnabled(True)
         self.packetlist.setContextMenuPolicy(Qt.CustomContextMenu)
         self.packetlist.customContextMenuRequested.connect(self.onPacketlistContextMenu)
@@ -191,7 +199,7 @@ class PacketListWidget(QWidget):
 
     def setContents(self, lstObj):
         self.listObject = lstObj
-        print("PacketListWidget::setContents", lstObj, len(lstObj))
+        logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
         #for bbuf in lstObj.buffers:
         #    self.addPacketToList(bbuf)
@@ -201,7 +209,7 @@ class PacketListWidget(QWidget):
         buffers = list()
         for index in self.packetlist.selectionModel().selectedRows():
             buffers.append(self.listObject.buffers[index.row()])
-        self.on_meta_update.emit("zoom", buffers)
+        self.meta_updated.emit("zoom", buffers)
 
     def onPacketlistCurrentChanged(self, current, previous):
         pass
@@ -232,8 +240,11 @@ class PacketListWidget(QWidget):
             ctx.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
         ctx.addSeparator()
         for key in sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True)):
-            ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo(key), addIdx))
-
+            ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("fields[\""+key+"\"]"), addIdx))
+        ctx.addSeparator()
+        ctx.addAction("Copy header state", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
+        if getClipboardText().startswith("PL-HS:"):
+            ctx.addAction("Paste header state", lambda: self.restoreState(xdrm.loads(b64decode(getClipboardText()[6:].encode("ascii")))))
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
 
     def getColumnInfoDefinition(self):
@@ -276,10 +287,24 @@ class PacketListWidget(QWidget):
             c += 1
             if c > 10: break
 
+    def saveState(self):
+        return {
+            "hs": self.packetlist.horizontalHeader().saveState(),
+            "cols": [c.toDict() for c in self.packetlistmodel.columns],
+        }
+
+    def restoreState(self, state):
+        if "cols" in state:
+            self.packetlistmodel.beginResetModel()
+            self.packetlistmodel.columns = [ColumnInfo(**params) for params in state["cols"]]
+            self.packetlistmodel.endResetModel()
+        if "hs" in state:
+            self.packetlist.horizontalHeader().restoreState(state["hs"])
+
 
 @DataWidgetTypes.register(handles=[ByteBuffer,list])
 class ByteBufferWidget(QWidget):
-    on_meta_update = pyqtSignal(str, object)
+    meta_updated = pyqtSignal(str, object)
     def __init__(self):
         super().__init__()
 
@@ -301,16 +326,16 @@ class ByteBufferWidget(QWidget):
         self.tabWidget.setDocumentMode(True)
         layout.addWidget(self.tabWidget)
         self.textbox = HexView2()
-        self.textbox.selectionChanged.connect(self.onSelectionChanged)
-        self.textbox.onNewSubflowCategory.connect(self.newSubflowCategory)
-        self.textbox.formatInfoUpdated.connect(self.onFormatInfoUpdated)
+        self.textbox.selectionChanged.connect(self._onSelectionChanged)
+        self.textbox.onNewSubflowCategory.connect(self._newSubflowCategory)
+        self.textbox.formatInfoUpdated.connect(self._onFormatInfoUpdated)
         self.tabWidget.addTab(self.textbox, "Raw buffer")
         #layout.addWidget(toolbar)
 
-    def onSelectionChanged(self, selRange):
+    def _onSelectionChanged(self, selRange):
         selbytes = self.textbox.buffers[selRange.buffer_idx].getBytes(selRange.start, selRange.length())
-        self.on_meta_update.emit("selected_bytes", selbytes)
-        self.on_meta_update.emit("hexview_range", self.textbox)
+        self.meta_updated.emit("selected_bytes", selbytes)
+        self.meta_updated.emit("hexview_range", self.textbox)
 
     def setContents(self, bufObj):
         self.bufferObject = bufObj
@@ -322,19 +347,19 @@ class ByteBufferWidget(QWidget):
         except:
             pass
 
-    def onFormatInfoUpdated(self):
+    def _onFormatInfoUpdated(self, fi_trees):
         self.tabWidget.clear()
         self.tabWidget.addTab(self.textbox, "Raw buffer")
-        self.on_meta_update.emit("grammar", self.textbox.fiTreeWidget.formatInfoContainer)
+        self.meta_updated.emit("grammar", fi_trees)
 
-    def newSubflowCategory(self, category, parse_context):
+    def _newSubflowCategory(self, category, parse_context):
         for i in range(self.tabWidget.count()):
             if self.tabWidget.tabText(i) == category:
                 break
         widget = PacketListWidget()
         widget.setContents(parse_context.subflow_categories[category])
         self.tabWidget.addTab(widget, category)
-        widget.on_meta_update.connect(self.on_meta_update.emit)
+        widget.meta_updated.connect(self.meta_updated.emit)
 
     def onNewData(self):
         #self.textbox.showHex(bufObj.buffer)
@@ -348,7 +373,7 @@ class ByteBufferWidget(QWidget):
 
 
 class DynamicDataWidget(QWidget):
-    on_meta_update = pyqtSignal(str, object)
+    meta_updated = pyqtSignal(str, object)
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -393,7 +418,7 @@ class DynamicDataWidget(QWidget):
         self.childWidget = None  #neccessary, so if the next line throws, the error message will be shown
         self.childWidget = childType()
         try:
-            self.childWidget.on_meta_update.connect(self.on_meta_update.emit)
+            self.childWidget.meta_updated.connect(self.meta_updated.emit)
         except:
-            logging.debug(str(childType)+" has no on_meta_update signal")
+            logging.debug(str(childType)+" has no meta_updated signal")
         self.layout().addWidget(self.childWidget,66)

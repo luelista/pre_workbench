@@ -24,37 +24,37 @@ import sys
 import traceback
 import uuid
 
-from PyQt5.QtCore import (Qt, QSize, pyqtSlot, QSignalMapper, QTimer, pyqtSignal)
+from PyQt5.QtCore import (Qt, pyqtSlot, QSignalMapper, QTimer, pyqtSignal)
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QVBoxLayout, \
-	QMdiArea, QDockWidget, QMessageBox, QToolButton, QMenu, QLabel, QApplication
+from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication
 from PyQtAds import ads
 
 from pre_workbench.guihelper import NavigateCommands, GlobalEvents, navigateBrowser
-from pre_workbench import configs, SettingsSection, guihelper
+from pre_workbench import configs
 # noinspection PyUnresolvedReferences
-from pre_workbench import textfile
+from pre_workbench.windows.content import textfile
 # noinspection PyUnresolvedReferences
 from pre_workbench import typeeditor
-from pre_workbench.configs import getIcon
-from pre_workbench.datawidgets import DynamicDataWidget, PacketListWidget
-from pre_workbench.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
-	StructInfoCodeWidget, DataInspectorWidget
-from pre_workbench.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
-from pre_workbench.genericwidgets import MdiFile, MemoryUsageWidget, showPreferencesDlg
-from pre_workbench.hexview import HexView2
-from pre_workbench.objects import ByteBufferList, ByteBuffer
 # noinspection PyUnresolvedReferences
-from pre_workbench.objectwindow import ObjectWindow
+from pre_workbench import windows
+from pre_workbench.configs import getIcon
+from pre_workbench.datawidgets import DynamicDataWidget
+from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
+	StructInfoCodeWidget, DataInspectorWidget
+from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
+from pre_workbench.genericwidgets import MemoryUsageWidget, showPreferencesDlg
+# noinspection PyUnresolvedReferences
+from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
+from pre_workbench.windows.content.hexfile import HexFileWindow
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
-	on_zoom_update = pyqtSignal(object)
-	on_selected_bytes_update = pyqtSignal(object)
-	on_grammar_update = pyqtSignal(object)
-	on_meta_update = pyqtSignal(str, object)
+	zoom_updated = pyqtSignal(object)
+	selected_bytes_updated = pyqtSignal(object)
+	grammar_updated = pyqtSignal(object)
+	meta_updated = pyqtSignal(str, object)
 
 	def __init__(self, project):
 		super().__init__()
@@ -151,7 +151,7 @@ class WorkbenchMain(QMainWindow):
 				action.setEnabled(hasattr(child, funcName) or hasattr(child, "childActionProxy") and hasattr(child.childActionProxy(), funcName))
 
 
-	def initActions(self):
+	def _initActions(self):
 		self.exitAct = QAction('Exit', self, shortcut='Ctrl+Q', statusTip='Exit application', triggered=QApplication.closeAllWindows, menuRole=QAction.QuitRole)
 
 		self.openAct = QAction(getIcon('folder-open-document.png'), 'Open', self, shortcut='Ctrl+O',
@@ -203,7 +203,7 @@ class WorkbenchMain(QMainWindow):
 				statusTip="Open a grammar file to parse the current buffer")
 		self.mapChildAction(self.openGrammarAct, "openGrammar")
 
-	def initMenu(self):
+	def _initMenu(self):
 		menubar = self.menuBar()
 		mainToolbar = self.addToolBar('Main')
 		toolWndToolbar = self.addToolBar('Tool Windows')
@@ -294,6 +294,28 @@ class WorkbenchMain(QMainWindow):
 		mainToolbar.addAction(self.saveAsAct)
 		mainToolbar.addAction(editConfigAction)
 
+	def _initDockWindows(self):
+		self.dockWidgets = {}
+		self.createDockWnd("Project Files", "folder-tree.png", FileBrowserWidget(self.project.projectFolder), ads.LeftDockWidgetArea, showFirstRun=True)
+		self.dockWidgets["Project Files"].on_open.connect(self.openFile)
+		self.createDockWnd("Window List", "applications-stack.png", MdiWindowListWidget(), ads.LeftDockWidgetArea)
+		self.zoomWindow = DynamicDataWidget()
+		self.zoomWindow.meta_updated.connect(self.onMetaUpdateRaw)
+		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea)
+		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content))
+		self.createDockWnd("Data Inspector", "user-detective-gray.png", DataInspectorWidget(), ads.BottomDockWidgetArea, showFirstRun=True)
+		self.selected_bytes_updated.connect(self.dockWidgets["Data Inspector"].on_select_bytes)
+		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
+		self.createDockWnd("Application Log", "terminal--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
+
+		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
+		self.grammar_updated.connect(self.dockWidgets["Grammar Definition Tree"].show_grammar)
+		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
+		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
+		self.meta_updated.connect(self.dockWidgets["Grammar Parse Result"].on_meta_update)
+		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget(), showFirstRun=True)
+		self.meta_updated.connect(self.dockWidgets["Selected Ranges"].on_meta_update)
+		self.createDockWnd("Selection Heuristics", "clipboard-task.png", SelectionHeuristicsConfigWidget())
 
 	def initUI(self):
 		ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)
@@ -310,27 +332,10 @@ class WorkbenchMain(QMainWindow):
 		self.centralDockWidget.setFeature(ads.CDockWidget.DockWidgetClosable, False)
 		self.mdiArea.setCentralWidget(self.centralDockWidget)
 
+		self._initDockWindows()
+
 		self.setUnifiedTitleAndToolBarOnMac(True)
 		self.setAcceptDrops(True)
-		self.dockWidgets = {}
-		self.createDockWnd("Project Files", "folder-tree.png", FileBrowserWidget(self.project.projectFolder), ads.LeftDockWidgetArea, showFirstRun=True)
-		self.dockWidgets["Project Files"].on_open.connect(self.openFile)
-		self.createDockWnd("Window List", "applications-stack.png", MdiWindowListWidget(), ads.LeftDockWidgetArea)
-		self.zoomWindow = DynamicDataWidget()
-		self.zoomWindow.on_meta_update.connect(self.onMetaUpdateRaw)
-		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea)
-		self.on_zoom_update.connect(lambda content: self.zoomWindow.setContents(content))
-		self.createDockWnd("Data Inspector", "user-detective-gray.png", DataInspectorWidget(), ads.BottomDockWidgetArea, showFirstRun=True)
-		self.on_selected_bytes_update.connect(self.dockWidgets["Data Inspector"].on_select_bytes)
-		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
-
-		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
-		self.on_grammar_update.connect(self.dockWidgets["Grammar Definition Tree"].show_grammar)
-		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
-		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
-		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget(), showFirstRun=True)
-		self.on_meta_update.connect(self.dockWidgets["Selected Ranges"].on_meta_update)
-		self.createDockWnd("Selection Heuristics", "clipboard-task.png", SelectionHeuristicsConfigWidget())
 
 		self.mdiArea.focusedDockWidgetChanged.connect(self.onSubWindowActivated)
 		self.mdiArea.focusedDockWidgetChanged.connect(self.dockWidgets["Window List"].onSubWindowActivated)
@@ -339,8 +344,8 @@ class WorkbenchMain(QMainWindow):
 		self.windowMapper = QSignalMapper(self)
 		self.windowMapper.mapped[QWidget].connect(self.setActiveSubWindow)
 
-		self.initActions()
-		self.initMenu()
+		self._initActions()
+		self._initMenu()
 
 		self.statusBar().addWidget(MemoryUsageWidget())
 
@@ -411,8 +416,8 @@ class WorkbenchMain(QMainWindow):
 			newval = new_meta.get(ident)
 			if newval != oldval:
 				self.curChildMeta[ident] = newval
-				if hasattr(self, "on_"+ident+"_update"): getattr(self, "on_"+ident+"_update").emit(newval)
-				self.on_meta_update.emit(ident, newval)
+				if hasattr(self, ident+"_updated"): getattr(self, ident+"_updated").emit(newval)
+				self.meta_updated.emit(ident, newval)
 
 	def activeMdiChild(self):
 		activeSubWindow = self.mdiArea.focusedDockWidget()
@@ -510,16 +515,16 @@ class WorkbenchMain(QMainWindow):
 			msg.exec()
 
 	def onMetaUpdateRaw(self, ident, newval):
-		if hasattr(self, "on_"+ident+"_update"): getattr(self, "on_"+ident+"_update").emit(newval)
-		self.on_meta_update.emit(ident, newval)
+		if hasattr(self, ident+"_updated"): getattr(self, ident+"_updated").emit(newval)
+		self.meta_updated.emit(ident, newval)
 
 	def onMetaUpdateChild(self, ident, newval):
 		self.sender().child_wnd_meta[ident] = newval
 		self.curChildMeta[ident] = newval
-		if hasattr(self, "on_"+ident+"_update"): getattr(self, "on_"+ident+"_update").emit(newval)
-		self.on_meta_update.emit(ident, newval)
+		if hasattr(self, ident+"_updated"): getattr(self, ident+"_updated").emit(newval)
+		self.meta_updated.emit(ident, newval)
 
-	def showChild(self, widget):
+	def showChild(self, widget, floating=False):
 		logging.debug("showChild %s", widget)
 		subwnd = ads.CDockWidget(widget.windowTitle())
 		subwnd.setWidget(widget)
@@ -528,16 +533,16 @@ class WorkbenchMain(QMainWindow):
 		subwnd.setWindowIcon(getIcon(type(widget).icon if hasattr(type(widget), 'icon') else 'document.png'))
 		widget.child_wnd_meta = dict()
 		try:
-			widget.on_meta_update.connect(self.onMetaUpdateChild)
-		except: pass
-		try:
-			widget.on_log.connect(self.onLog)
+			widget.meta_updated.connect(self.onMetaUpdateChild)
 		except: pass
 		widget.destroyed.connect(self.updateChildWindowList)
 		if not widget.objectName(): widget.setObjectName(str(uuid.uuid1()))
 		subwnd.setObjectName(widget.objectName())
 		widget.show()
-		self.mdiArea.addDockWidgetTabToArea(subwnd, self.centralDockWidget.dockAreaWidget())
+		if floating:
+			self.mdiArea.addDockWidgetFloating(subwnd)
+		else:
+			self.mdiArea.addDockWidgetTabToArea(subwnd, self.centralDockWidget.dockAreaWidget())
 		self.updateChildWindowList()
 
 	def createDockWnd(self, name, iconName, widget, area=ads.RightDockWidgetArea, showFirstRun=False):
@@ -550,73 +555,4 @@ class WorkbenchMain(QMainWindow):
 		self.mdiArea.addDockWidgetTab(area, dw)
 		self.dockWidgets[name] = widget
 		if not showFirstRun: dw.closeDockWidget()
-
-
-
-@WindowTypes.register(fileExts=['.pcapng','.pcap','.cap'], icon='document-table.png')
-class PcapngFileWindow(QWidget, MdiFile):
-	on_meta_update = pyqtSignal(str, object)
-	def __init__(self, **params):
-		super().__init__()
-		self.params = params
-		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "PCAP files (*.pcapng, *.pcap, *.cap)", "untitled%d.pcapng")
-
-	def saveParams(self):
-		return self.params
-
-	def sizeHint(self):
-		return QSize(600,400)
-
-	def initUI(self):
-		self.setLayout(QVBoxLayout())
-		self.dataDisplay = PacketListWidget()
-		self.dataDisplay.on_meta_update.connect(self.on_meta_update.emit)
-		self.layout().addWidget(self.dataDisplay)
-		self.packetList = ByteBufferList()
-		self.dataDisplay.setContents(self.packetList)
-
-	def loadFile(self, fileName):
-		with open(fileName, "rb") as f:
-			from pre_workbench.structinfo.pcapfiles import read_pcap_file
-			self.packetList = read_pcap_file(f)
-			self.dataDisplay.setContents(self.packetList)
-
-	def saveFile(self, fileName):
-		return False
-
-
-@WindowTypes.register(icon="document-binary.png")
-class HexFileWindow(QWidget, MdiFile):
-	on_meta_update = pyqtSignal(str, object)
-	def __init__(self, **params):
-		super().__init__()
-		self.params = params
-		self.initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin")
-
-	def sizeHint(self):
-		return QSize(600,400)
-
-	def initUI(self):
-		self.setLayout(QVBoxLayout())
-		self.dataDisplay = HexView2()
-		self.dataDisplay.selectionChanged.connect(self.onSelectionChanged)
-		self.layout().setContentsMargins(0, 0, 0, 0)
-		self.layout().addWidget(self.dataDisplay)
-
-	def onSelectionChanged(self, selRange):
-		selbytes = self.dataDisplay.buffers[selRange.buffer_idx].getBytes(selRange.start, selRange.length())
-		self.on_meta_update.emit("selected_bytes", selbytes)
-		self.on_meta_update.emit("hexview_range", self.dataDisplay)
-
-	def loadFile(self, fileName):
-		self.dataDisplay.setBytes(open(fileName,'rb').read())
-		self.dataDisplay.setDefaultAnnotationSet(guihelper.CurrentProject.getRelativePath(self.params.get("fileName")))
-
-	def saveFile(self, fileName):
-		#bin = self.dataDisplay.buffers[0].buffer
-		#with open(fileName, "wb") as f:
-		#	f.write(bin)
-		return True
 

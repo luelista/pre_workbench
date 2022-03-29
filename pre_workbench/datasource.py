@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import logging
 import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
@@ -36,7 +37,7 @@ DataSourceTypes = TypeRegistry()
 
 class DataSource(QObject):
 	on_finished = pyqtSignal()
-	on_log = pyqtSignal(str)
+	logger = logging.getLogger("DataSource")
 	def __init__(self, params):
 		super().__init__()
 		self.params = params
@@ -109,9 +110,7 @@ class AbstractTsharkDataSource(DataSource):
 		return self.plist
 
 	def onReadyReadStderr(self):
-		s = "STD-ERR FROM Tshark:"+self.process.readAllStandardError().data().decode("utf-8", "replace")
-		print(s)
-		self.on_log.emit(s)
+		self.logger.warning("STD-ERR FROM Tshark: %s", self.process.readAllStandardError().data().decode("utf-8", "replace"))
 
 	def onReadyReadStdout(self):
 		self.plist.beginUpdate()
@@ -198,11 +197,11 @@ class LivePcapCaptureDataSource(DataSource):
 				self.plist.metadata.update(header)
 				return
 			except invalid as ex:
-				self.on_log.emit(str(ex))
+				self.logger.debug("invalid pcap format, trying next (exception: %r)", ex)
 		raise invalid(self.ctx, "no PcapVariant matched")
 
 	def onReadyReadStderr(self):
-		self.on_log.emit("STD-ERR:"+self.process.readAllStandardError().data().decode("utf-8", "replace"))
+		self.logger.warning("STD-ERR: %s", self.process.readAllStandardError().data().decode("utf-8", "replace"))
 
 	def onReadyReadStdout(self):
 		self.ctx.feed_bytes(self.process.readAllStandardOutput())
@@ -215,8 +214,7 @@ class LivePcapCaptureDataSource(DataSource):
 		except incomplete:
 			return
 		except invalid as ex:
-			self.on_log.emit("Invalid packet format - killing pcap")
-			self.on_log.emit(str(ex))
+			self.logger.exception("Invalid packet format - killing pcap")
 			self.cancelFetch()
 
 	def onProcessFinished(self, exitCode, exitStatus):

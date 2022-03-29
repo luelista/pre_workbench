@@ -2,8 +2,12 @@ import json
 import os
 import sqlite3
 
+from pre_workbench.rangetree import InteractiveFormatInfoContainer
 from pre_workbench.structinfo import xdrm
 
+class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):
+    def write_file(self, fileName):
+        self.project.setValue("format_infos", self.to_text())
 
 class Project:
     def __init__(self, dirName):
@@ -11,6 +15,8 @@ class Project:
         self.projectDbFile = os.path.join(dirName, ".pre_workbench")
         self.db = sqlite3.connect(self.projectDbFile)
         self.initDb()
+        self.formatInfoContainer = ProjectFormatInfoContainer(load_from_string=self.getValue("format_infos", "DEFAULT struct(endianness=\"<\") {}"))
+        self.formatInfoContainer.project = self
 
     def getRelativePath(self, absolutePath):
         path = os.path.relpath(absolutePath, self.projectFolder)
@@ -23,9 +29,6 @@ class Project:
         cur = self.db.cursor()
         cur.execute('''
         CREATE TABLE IF NOT EXISTS annotations (rowid INTEGER PRIMARY KEY, set_name TEXT NOT NULL, start INTEGER NOT NULL, end INTEGER NOT NULL, meta TEXT NOT NULL);
-        ''')
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS protocols (id INTEGER PRIMARY KEY, display_name TEXT NOT NULL, code TEXT NOT NULL);
         ''')
         cur.execute('''
         CREATE TABLE IF NOT EXISTS options (name TEXT PRIMARY KEY, value BLOB NOT NULL);

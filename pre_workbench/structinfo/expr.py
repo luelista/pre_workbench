@@ -104,15 +104,15 @@ class ParseContextEvaluator(Evaluator):
 		self.parse_context = parse_context
 
 	def hierarchy_expr(self, node):
-		print("hierarchy_expr", node, self.parse_context.stack[-len(node[0])][1])
+		#print("hierarchy_expr", node, self.parse_context.stack[-len(node[0])][1])
 		return self.parse_context.stack[-len(node[0])][1]
 
 	def array_expr(self, node):
-		print("array_expr", node)
+		#print("array_expr", node)
 		return self.parse_context.unpack_value(node[0][node[1]])
 
 	def member_expr(self, node):
-		print("member_expr", node)
+		#print("member_expr", node)
 		try:
 			return self.parse_context.unpack_value(node[0][node[1]])
 		except KeyError as e:
@@ -154,11 +154,11 @@ class ByteBufferEvaluator(Evaluator):
 		raise NotImplemented
 
 	def array_expr(self, node):
-		print("array_expr", node)
+		#print("array_expr", node)
 		return generic_unpack_value(node[0][node[1]])
 
 	def member_expr(self, node):
-		print("member_expr", node)
+		#print("member_expr", node)
 		try:
 			return generic_unpack_value(node[0][node[1]])
 		except KeyError as e:
@@ -168,7 +168,10 @@ class ByteBufferEvaluator(Evaluator):
 		id = node[0]
 		if id == "payload":
 			return self.bbuf.buffer
+		if id == "fields":
+			return self.bbuf.fields
 		frame = generic_unpack_value(self.bbuf.fi_tree)
+		#print(frame)
 		if frame is not None and id in frame:
 			return generic_unpack_value(frame[id])
 		raise Exception("field "+id+" not found")
@@ -187,11 +190,11 @@ class DictEvaluator(Evaluator):
 		raise NotImplemented
 
 	def array_expr(self, node):
-		print("array_expr", node)
+		#print("array_expr", node)
 		return node[0][node[1]]
 
 	def member_expr(self, node):
-		print("member_expr", node)
+		#print("member_expr", node)
 		try:
 			return node[0][node[1]]
 		except KeyError as e:
@@ -318,27 +321,24 @@ class Expression:
 		try:
 			return ParseContextEvaluator(parse_context).transform(self.expr_tree)
 		except Exception as e:
-			traceback.print_exc()
-			print(self.expr_str)
-			print(self.expr_tree.pretty())
+			#logging.exception("Failed to eval expr_str: %s", self.expr_str)
+			#logging.warning("expr_tree pretty: %s", self.expr_tree.pretty())
 			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
 
 	def evaluate_bbuf(self, bbuf):
 		try:
 			return ByteBufferEvaluator(bbuf).transform(self.expr_tree)
 		except Exception as e:
-			traceback.print_exc()
-			print(self.expr_str)
-			print(self.expr_tree.pretty())
+			#logging.exception("Failed to eval expr_str on bbuf: %s", self.expr_str)
+			#logging.warning("expr_tree pretty: %s", self.expr_tree.pretty())
 			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
 
 	def evaluate_dict(self, dic):
 		try:
 			return DictEvaluator(dic).transform(self.expr_tree)
 		except Exception as e:
-			traceback.print_exc()
-			print(self.expr_str)
-			print(self.expr_tree.pretty())
+			#logging.exception("Failed to eval expr_str on dict: %s", self.expr_str)
+			#logging.warning("expr_tree pretty: %s", self.expr_tree.pretty())
 			raise Exception("Failed to evaluate expression '"+self.expr_str+"' ("+type(e).__name__+"): "+str(e)) from e
 
 

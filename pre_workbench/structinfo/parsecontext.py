@@ -14,16 +14,16 @@ class FormatInfoContainer:
 		self.definitions = {} if definitions is None else definitions
 		self.main_name = None
 		self.file_name = None
-		if load_from_file is not None: self.load_from_file(load_from_file)
-		if load_from_string is not None: self.load_from_string(load_from_string)
+		if load_from_file is not None: self._load_from_file(load_from_file)
+		if load_from_string is not None: self._load_from_string(load_from_string)
 
 	def to_text(self, indent = 0):
 		return "\n\n".join(name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
 
-	def load_from_file(self, fileName):
+	def _load_from_file(self, fileName):
 		if fileName.endswith(".txt"):
 			with open(fileName, "r") as f:
-				self.load_from_string(f.read())
+				self._load_from_string(f.read())
 		else:
 			with open(fileName, "rb") as f:
 				#return bin_deserialize_fi(f.read())
@@ -31,7 +31,7 @@ class FormatInfoContainer:
 				raise NotImplemented
 		self.file_name = fileName
 
-	def load_from_string(self, txt):
+	def _load_from_string(self, txt):
 		from pre_workbench.structinfo.parser import parse_definition_map_into_container
 		parse_definition_map_into_container(txt, self)
 

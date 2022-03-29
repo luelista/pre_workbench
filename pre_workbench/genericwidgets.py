@@ -297,7 +297,7 @@ class MdiFile:
 		self.isUntitled = True
 		self.curFile = fileName or (self.fileDefaultNamePattern % MdiFile.sequenceNumber)
 		MdiFile.sequenceNumber += 1
-		self.setWindowTitle(self.curFile + '[*]')
+		self.setWindowTitle(self.curFile)# + '[*]')
 
 		#self.document().contentsChanged.connect(self.documentWasModified)
 
@@ -306,7 +306,7 @@ class MdiFile:
 		self.isUntitled = False
 		#self.document().setModified(False)
 		self.setWindowModified(False)
-		self.setWindowTitle(QFileInfo(self.curFile).fileName() + "[*]")
+		self.setWindowTitle(QFileInfo(self.curFile).fileName())# + "[*]")
 
 	def documentWasModified(self, dummy=None):
 		self.setWindowModified(True)

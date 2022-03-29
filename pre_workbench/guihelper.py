@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from PyQt5.QtCore import QObject, pyqtSignal, QUrl
-from PyQt5.QtGui import QColor, QPalette, QDesktopServices
+from PyQt5.QtGui import QColor, QPalette, QDesktopServices, QFont
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
 
 MainWindow = None
@@ -83,6 +83,11 @@ def navigateBrowser(link):
 		}
 	}
 """
+
+def getMonospaceFont():
+	font = QFont("monospace")
+	font.setStyleHint(QFont.Monospace)
+	return font
 
 def setControlColors(ctrl, bg, fg=None):
 	pal = ctrl.palette()

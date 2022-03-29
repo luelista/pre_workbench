@@ -53,7 +53,7 @@ mytype
 | parameter | type | description |
 | ------------- | ------- | --- |
 | endianness    | String  | "<" (Little endian) or ">" (Big endian). Used by some built-in named types (multibyte int and floats). |
-| charset       | String  | Python charsets, e.g. "utf-8". Used by all string types. |
+| charset       | String  | [Python charsets, e.g. "utf-8"][charsets]. Used by all string types. |
 | unit          | String  | "s", "ms", "us" |
 | magic         | ???     |  |
 | size          | int expression  |  |
@@ -73,9 +73,9 @@ struct: "struct" params "{" (IDENTIFIER type)* "}"
 ```
 pascal_string struct {
 	length UINT16(endianness=">")
-	value STRING(size=(length))
+	value STRING(size=(length), charset="utf8")
 }
-# note: a pascal_string could be defined more easily as pascal_string STRING(size_len=2)
+# note: a pascal_string could be defined more easily as pascal_string STRING(size_len=(2), endianness=">", charset="utf8")
 ```
 
 
@@ -185,7 +185,11 @@ header bits {
 ```
 
 
-
 | parameter | type | description |
 | ------------- | ------- | --- |
 | endianness    | String  | "<" (Little endian) or ">" (Big endian). |
+
+
+
+
+[charsets]: <https://docs.python.org/3/library/codecs.html#standard-encodings>

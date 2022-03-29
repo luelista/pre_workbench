@@ -25,6 +25,11 @@ specific types only, but can also be declared on any surrounding container type,
 # Type Definitions
 
 ## named
+
+```
+named: IDENTIFIER params
+```
+
 In any place where a type is expected, a name can be used to reference another type defined in the same file. Many common types of integers, strings, floating-point numbers and network addresses are predefined. For easier adaption, they have the same name as in Wireshark dissectors.
 
 This allows for generalization, because the same type can be references in multiple places (e.g. to define a common header shared by many different packet types). It also can make the grammar easier to read, because special cases can be put away at the end of the file, and the nesting depth can be reduced.

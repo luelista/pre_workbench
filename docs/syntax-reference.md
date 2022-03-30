@@ -19,6 +19,9 @@ specific types only, but can also be declared on any surrounding container type,
 | parameter | type | description |
 | ------------- | ------- | --- |
 | ignore_errors | Boolean | If true, all errors which may occur during parsing this element or it's children are ignored. |
+| reassemble_into | list (Expression or string) |  |
+| store_into | list (Expression or string) |  |
+| segment_meta |  | experimental??? |
 
 
 
@@ -52,14 +55,13 @@ mytype
 
 | parameter | type | description |
 | ------------- | ------- | --- |
-| endianness    | String  | "<" (Little endian) or ">" (Big endian). Used by some built-in named types (multibyte int and floats). |
-| charset       | String  | [Python charsets, e.g. "utf-8"][charsets]. Used by all string types. |
-| unit          | String  | "s", "ms", "us" |
-| magic         | ???     |  |
-| size          | int expression  |  |
-| size_len      | int expression  |  |
-| parse_with    | named   |  |
-
+| endianness    | String  | "<" (Little endian) or ">" (Big endian). **Required** by some built-in named types (multibyte int and floats). |
+| charset       | String  | [Python charsets, e.g. "utf-8"][charsets]. **Required** by all string types. |
+| unit          | String  | "s", "ms", "us". Optional for ABSOLUTE_TIME, guessed if absent. |
+| magic         | ???     | If specified, the field is only valid if its value matches the magic. |
+| size          | int expression  | Optional for STRING and BYTES fields, the rest of the parsing unit is matched if absent. |
+| size_len      | int expression  | **Required** for UINT_STRING and UINT_BYTES |
+| parse_with    | named   | Usually used on BYTES or UINT_BYTES fields, causes the value to be parsed as a child parsing unit. This allows to run the child parser with a fixed length, by specifying `size` or using UINT_BYTES. |
 
 
 ## `struct`
@@ -75,7 +77,7 @@ pascal_string struct {
 	length UINT16(endianness=">")
 	value STRING(size=(length), charset="utf8")
 }
-# note: a pascal_string could be defined more easily as pascal_string STRING(size_len=(2), endianness=">", charset="utf8")
+# note: a pascal_string could be defined more easily using the UINT_STRING built-in, as shown above
 ```
 
 
@@ -170,7 +172,7 @@ bits: "bits" params "{" (IDENTIFIER ":" number)* "}"
 ```
 
 ```
-header bits {
+header bits(endianness="<") {
 	TRX : 15
 	res_1 : 1
 	MID : 10

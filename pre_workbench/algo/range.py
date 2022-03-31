@@ -1,4 +1,5 @@
 from PyQt5 import QtCore
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QTreeWidgetItem
 
 from pre_workbench.util import truncate_str
@@ -43,7 +44,10 @@ class Range:
 		me.setText(0, truncate_str(text0))
 		me.setText(1, truncate_str(text1))
 		me.setText(2, truncate_str(text2))
-		if type(x.value) == dict:
+		if x.exception is not None:
+			me.setForeground(3, QColor("red"))
+			me.setText(3, str(x.exception).split("\n", 1)[0])
+		elif type(x.value) == dict:
 			me.setExpanded(True)
 			for key, item in x.value.items():
 				item.addToTree(me)

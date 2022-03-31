@@ -10,6 +10,18 @@ params: ("(" [parampair ("," parampair)*] ")")?
 parampair: IDENTIFIER "=" value
 ```
 
+```
+MyProto repeat(until_invalid=true) struct {
+    header MyHeader
+    payload BYTES(size=(header.length))
+}
+
+MyHeader struct(endianness=">") {
+    magic UINT32(magic=0xaabbccdd)
+    length UINT32
+}
+```
+
 # Parameters
 
 Some parameters are recognized on all types, where the `params` element is accepted. Other parameters are recognized on 

@@ -17,6 +17,7 @@ class Project:
         self.initDb()
         self.formatInfoContainer = ProjectFormatInfoContainer(load_from_string=self.getValue("format_infos", "DEFAULT struct(endianness=\"<\") {}"))
         self.formatInfoContainer.project = self
+        #self.formatInfoContainer = InteractiveFormatInfoContainer(load_from_string=self.getValue("format_info_file", ""))
 
     def getRelativePath(self, absolutePath):
         path = os.path.relpath(absolutePath, self.projectFolder)

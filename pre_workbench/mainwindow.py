@@ -408,9 +408,9 @@ class WorkbenchMain(QMainWindow):
 
 	def onSubWindowActivated(self, old: ads.CDockWidget, now: ads.CDockWidget):
 		logging.debug("onSubWindowActivated")
+		self.updateMappedChildActions()
 		if now is None or not hasattr(now.widget(), 'child_wnd_meta'): return
 		new_meta = now.widget().child_wnd_meta
-		self.updateMappedChildActions()
 		# TODO what about metas only contained in new_meta?
 		for ident, oldval in self.curChildMeta.items():
 			newval = new_meta.get(ident)

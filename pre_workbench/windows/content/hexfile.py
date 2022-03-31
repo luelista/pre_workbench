@@ -60,3 +60,10 @@ class HexFileWindow(QWidget, MdiFile):
 		#	f.write(bin)
 		return True
 
+	def zoomIn(self):
+		self.dataDisplay.zoomIn()
+	def zoomOut(self):
+		self.dataDisplay.zoomOut()
+	def zoomReset(self):
+		self.dataDisplay.zoomReset()
+

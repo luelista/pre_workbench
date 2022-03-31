@@ -66,7 +66,7 @@ configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 
 
 pattern_heading = re.compile("[#]{0,6}")
 
-HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset'])
+HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset', 'region'])
 
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
@@ -107,7 +107,7 @@ class HexView2(QWidget):
 		self.lastHit = None
 		self.selecting = False
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+		self.customContextMenuRequested.connect(self._onCustomContextMenuRequested)
 		if byteBuffer is None:
 			self.setBytes(bytes())
 		else:
@@ -217,7 +217,7 @@ class HexView2(QWidget):
 			menu = ctx.addMenu("Apply format info")
 			for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
 				menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
-
+			#menu.addAction("New...", lambda: )
 
 	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
@@ -234,7 +234,6 @@ class HexView2(QWidget):
 		menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
 		for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
 			menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
-
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
@@ -403,17 +402,34 @@ class HexView2(QWidget):
 		except StopIteration:
 			pass
 
+		hit = self._hitTest(e.pos())
+		if hit and hit.region == 'ascii':
+			start, end = self._extendRangeMatch(hit.offset, hit.buffer, lambda c: 32 < c < 128)
+			self.select(start, end, hit.buffer)
+
+	def _extendRangeMatch(self, start, bufIdx, matcher):
+		end = start
+		buf = self.buffers[bufIdx]
+		if not matcher(buf.buffer[start]): return (start, start)
+		while start > 0:
+			if not matcher(buf.buffer[start - 1]): break
+			start -= 1
+		while end < buf.length:
+			if not matcher(buf.buffer[end + 1]): break
+			end += 1
+		return (start,end)
+
 	def _hitTest(self, point):
 		x, y = point.x(), point.y()
 		linePos = None
 		if (x >= self.xAscii):
 			pos = floor((x - self.xAscii) / self.dxAscii);
-			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+			if (pos < self.bytesPerLine): linePos = pos; region = 'ascii' #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
 		elif (x >= self.xHex):
 			xx = (x - self.xHex)
 			xx -= floor(xx / (self.dxHex*self.hexSpaceAfter + self.hexSpaceWidth)) * self.hexSpaceWidth # correction factor for hex grouping
 			pos = floor(xx / self.dxHex);
-			if (pos < self.bytesPerLine): linePos = pos; #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+			if (pos < self.bytesPerLine): linePos = pos; region = 'hex' #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
 
 		#//console.log(x,y,linePos);
 		if (linePos is None): return None
@@ -422,7 +438,7 @@ class HexView2(QWidget):
 			#//console.log(i,self.itemY[i],y,self.itemY[i] <= y , y <= self.itemY[i]+self.dyLine)
 			bufIdx, bufOffset, itemY = self.itemY[i]
 			if itemY is not None and itemY <= y and y <= itemY+self.dyLine:
-				return HitTestResult(bufIdx, bufOffset)
+				return HitTestResult(bufIdx, bufOffset, region)
 
 		return None
 
@@ -508,17 +524,11 @@ class HexView2(QWidget):
 			elif e.key() == Qt.Key_F5:
 				self.applyFormatInfo()
 			elif e.key() == Qt.Key_Plus:
-				self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
-				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
-				GlobalEvents.on_config_change.emit()
+				self.zoomIn()
 			elif e.key() == Qt.Key_Minus:
-				self.fontHex.setPointSize(self.fontHex.pointSize() - 1)
-				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
-				GlobalEvents.on_config_change.emit()
+				self.zoomOut()
 			elif e.key() == Qt.Key_0:
-				self.fontHex.setPointSize(10)
-				configs.setValue('HexView2.hex.Font', self.fontHex.toString())
-				GlobalEvents.on_config_change.emit()
+				self.zoomReset()
 
 		elif mod == Qt.ControlModifier | Qt.ShiftModifier:
 			if e.key() == Qt.Key_C:
@@ -542,6 +552,21 @@ class HexView2(QWidget):
 
 	def focusOutEvent(self, event) -> None:
 		self.update()
+
+	def zoomIn(self):
+		self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
+		configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+		GlobalEvents.on_config_change.emit()
+
+	def zoomOut(self):
+		self.fontHex.setPointSize(self.fontHex.pointSize() - 1)
+		configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+		GlobalEvents.on_config_change.emit()
+
+	def zoomReset(self):
+		self.fontHex.setPointSize(10)
+		configs.setValue('HexView2.hex.Font', self.fontHex.toString())
+		GlobalEvents.on_config_change.emit()
 
 	#################  data setters   ##########################################
 	def getBytes(self):
@@ -637,7 +662,7 @@ class HexView2(QWidget):
 	def drawLine(self, qpTxt, qpBg, lineNumber, y):
 		TXT_DY = self.fontAscent + self.linePadding #floor(self.dyLine*0.8)
 		#qpTxt.set
-		bufIdx, offset = self.lineNumberToByteOffset(lineNumber)
+		bufIdx, offset, _ = self.lineNumberToByteOffset(lineNumber)
 		buffer = self.buffers[bufIdx]
 		if offset == 0:
 			# draw buffer separator
@@ -715,7 +740,7 @@ class HexView2(QWidget):
 
 	def drawHover(self, qp):
 		if self.lastHit is not None:
-			(xHex, xAscii, y, dy) = self.offsetToClientPos(*self.lastHit)
+			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.lastHit.buffer, self.lastHit.offset)
 			if dy is not None:
 				qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
 				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
@@ -727,7 +752,7 @@ class HexView2(QWidget):
 		while bufIdx < len(self.buffers) and bufOffset >= len(self.buffers[bufIdx]):
 			bufOffset -= ceil(len(self.buffers[bufIdx]) / self.bytesPerLine) * self.bytesPerLine
 			bufIdx += 1
-		return HitTestResult(bufIdx, bufOffset)
+		return HitTestResult(bufIdx, bufOffset, None)
 
 	def maxLine(self):
 		return sum(ceil(len(buffer) / self.bytesPerLine) for buffer in self.buffers);

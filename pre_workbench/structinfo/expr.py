@@ -105,7 +105,7 @@ class ParseContextEvaluator(Evaluator):
 
 	def hierarchy_expr(self, node):
 		#print("hierarchy_expr", node, self.parse_context.stack[-len(node[0])][1])
-		return self.parse_context.stack[-len(node[0])][1]
+		return self.parse_context.stack[-len(node[0])].value
 
 	def array_expr(self, node):
 		#print("array_expr", node)
@@ -122,8 +122,8 @@ class ParseContextEvaluator(Evaluator):
 		id = node[0]
 		for i in range(len(self.parse_context.stack)-1, -1, -1):
 			frame = self.parse_context.stack[i]
-			if frame[1] is not None and id in frame[1]:
-				return self.parse_context.unpack_value(frame[1][id])
+			if frame.value is not None and id in frame.value:
+				return self.parse_context.unpack_value(frame.value[id])
 		raise Exception("field "+id+" not found")
 
 	def param_expr(self, node):

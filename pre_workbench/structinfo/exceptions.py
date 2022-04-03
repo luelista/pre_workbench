@@ -26,5 +26,5 @@ class value_not_found(parse_exception):
 class spec_error(parse_exception):
 	def __init__(self, context, msg):
 		super().__init__(context, "spec_error: "+msg)
-		self.offending_desc = context.stack[-1][0]
+		self.offending_desc = context.stack[-1].desc
 

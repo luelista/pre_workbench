@@ -122,7 +122,7 @@ class PdmlToPacketListParser:
 	def data(self, data):
 		pass            # We do not need to do anything with data.
 	def close(self):
-		#return self.stack[0][1]
+		#return self.stack[0].value
 		pass
 
 

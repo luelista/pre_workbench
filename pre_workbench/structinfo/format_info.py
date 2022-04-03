@@ -442,7 +442,7 @@ class BitStructFI:
 		pos = context.buf_offset * 8
 		for key, len in self.children:
 			if not le: context.buf_offset = floor(pos / 8)
-			context.push(desc=context.stack[-1][0], id=key)
+			context.push(desc=context.stack[-1].desc, id=key)
 			o[key] = context.pack_value(stream.read(len).uint)
 			context.pop()
 			pos += len

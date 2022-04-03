@@ -52,12 +52,21 @@ class FormatInfoContainer:
 	def get_fi_by_def_name(self, def_name):
 			return self.definitions[def_name]
 
+class stack_frame:
+	__slots__ = ('desc', 'value', 'id', 'buf_offset', 'buf_limit_end')
+
+	def __init__(self, desc, value, id, buf_offset, buf_limit_end):
+		self.desc = desc
+		self.value = value
+		self.id = id
+		self.buf_offset = buf_offset
+		self.buf_limit_end = buf_limit_end
+
 
 class ParseContext:
 	def __init__(self, format_infos: FormatInfoContainer, buf: bytes = None):
 		self.format_infos = format_infos
 		self.stack = list()
-		"""stackframes are lists with this structure: [desc, value, id, buf_offset, buf_limit_end]"""
 		self.id = ""
 		self.buf_offset = 0
 		self.buf_limit_end = None
@@ -100,8 +109,8 @@ class ParseContext:
 
 	def get_param(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack)-1, -1, -1):
-			if id in self.stack[i][0].params:
-				return self.stack[i][0].params[id]
+			if id in self.stack[i].desc.params:
+				return self.stack[i].desc.params[id]
 		if raise_if_missing:
 			raise value_not_found(self, "Missing parameter "+id)
 		else:
@@ -110,24 +119,25 @@ class ParseContext:
 	def push(self, desc, value=None, id=None):
 		if id != None: self.id = id
 		self.log("push",desc)
-		self.stack.append([desc, value, self.id, self.buf_offset, self.buf_limit_end])
+		self.stack.append(stack_frame(desc, value, self.id, self.buf_offset, self.buf_limit_end))
 		self.id=""
 
 	def restore_offset(self):
-		self.buf_offset = self.stack[-1][3]
+		self.buf_offset = self.stack[-1].buf_offset
 
 	def pop(self):
 		self.log("pop")
-		desc, value, self.id, _, self.buf_limit_end = self.stack.pop()
-		self.log("-->", value, desc)
-		return value
+		frame = self.stack.pop()
+		self.id = frame.id; self.buf_limit_end = frame.buf_limit_end
+		self.log("-->", frame.value, frame.desc)
+		return frame.value
 
 	def set_child_limit(self, max_length):
 		self.require_bytes(max_length)
 		self.buf_limit_end = self.buf_offset + max_length
 
 	def get_path(self):
-		return ".".join(x[2] for x in self.stack)
+		return ".".join(frame.id for frame in self.stack)
 
 	def log(self, *dat):
 		pass
@@ -163,30 +173,30 @@ class ParseContext:
 		return self.buf_offset + self.display_offset_delta
 
 	def top_offset(self, stack_index=-1):
-		return self.stack[stack_index][3] + self.display_offset_delta
+		return self.stack[stack_index].buf_offset + self.display_offset_delta
 
 	def top_length(self, stack_index=-1):
-		return self.buf_offset - self.stack[stack_index][3] + self.display_offset_delta
+		return self.buf_offset - self.stack[stack_index].buf_offset + self.display_offset_delta
 
 	def top_value(self, stack_index=-1):
-		return self.stack[stack_index][1]
+		return self.stack[stack_index].value
 
 	def top_id(self):
 		for i in reversed(range(len(self.stack))):
-			id = self.stack[i][2]
+			id = self.stack[i].id
 			if id: return id
 		return None
 
 	def set_top_value(self, value):
-		self.stack[-1][1] = value
+		self.stack[-1].value = value
 
 	def top_buf(self, stack_index=-1):
-		return self.buf[ self.stack[stack_index][3] : self.buf_offset ]
+		return self.buf[ self.stack[stack_index].buf_offset : self.buf_offset ]
 
 	def pack_value(self, value):
 		if self.on_new_subflow_category is not None:
 			try:
-				desc = self.stack[-1][0]
+				desc = self.stack[-1].desc
 				if 'reassemble_into' in desc.params:
 					category, meta, subflow_key = self.build_subflow_key(desc.params['reassemble_into'])
 					print("reassemble:",category,subflow_key,value)
@@ -247,12 +257,12 @@ class LoggingParseContext(ParseContext):
 
 
 	def pack_value(self, value):
-		self.log("pack(L)",type(self.stack[-1][0]).__name__, self.top_offset(), self.top_length())#, value)
+		self.log("pack(L)",type(self.stack[-1].desc).__name__, self.top_offset(), self.top_length())#, value)
 		return value
 
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
-		source_desc = self.stack[-1][0]
+		source_desc = self.stack[-1].desc
 		self.log("pack(A)",type(source_desc).__name__, self.top_offset(), self.top_length())#, value)
 		return Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=self.top_id())
 
@@ -274,8 +284,8 @@ class BytebufferAnnotatingParseContext(AnnotatingParseContext):
 	def pack_value(self, value):
 		from pre_workbench.structinfo.format_info import FormatInfo
 		range = super().pack_value(value)
-		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0], 'show': str(value) })
-		fi = self.stack[-1][0]
+		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
+		fi = self.stack[-1].desc
 		if isinstance(fi, FormatInfo):
 			range.metadata.update(fi.extra_params(context=self))
 		elif isinstance(fi, dict):

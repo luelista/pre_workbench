@@ -285,6 +285,8 @@ class WorkbenchMain(QMainWindow):
 		helpMenu = menubar.addMenu("&Help")
 		helpMenu.addAction(QAction("Getting started", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/getting-started")))
 		helpMenu.addAction(QAction("Syntax reference", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/syntax-reference")))
+		helpMenu.addAction(QAction("Key bindings", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/key-bindings")))
+
 		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser("https://github.com/luelista/pre_workbench/issues")))
 		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))

@@ -1,9 +1,10 @@
 
 class parse_exception(Exception):
-	def __init__(self, context, msg):
+	def __init__(self, context, msg, cause=None):
 		self.offset = context.offset()
 		self.context_hexdump = context.hexdump_context(self.offset)
 		super().__init__(context.get_path() + ": " + msg + "\n" + self.context_hexdump)
+		if cause: self.__cause__ = cause
 		self.parse_stack = context.stack
 
 

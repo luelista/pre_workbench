@@ -114,6 +114,7 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 		btn.accepted.connect(dlg.accept)
 	btn.rejected.connect(dlg.reject)
 	dlg.layout().addWidget(btn)
+	return btn
 
 
 def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None):

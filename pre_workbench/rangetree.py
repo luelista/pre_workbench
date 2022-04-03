@@ -3,17 +3,18 @@ import time
 import traceback
 
 from PyQt5 import QtGui
-from PyQt5.QtCore import (Qt, pyqtSignal)
+from PyQt5.QtCore import (Qt, pyqtSignal, QObject)
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QMenu, QFileDialog, QTreeWidget, QTreeWidgetItem, \
-	QTreeWidgetItemIterator, QMessageBox
+	QTreeWidgetItemIterator, QMessageBox, QAction
 
 from pre_workbench.configs import SettingsField
 from pre_workbench import configs, guihelper
 from pre_workbench.genericwidgets import showSettingsDlg
 from pre_workbench.algo.range import Range
 
-from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI
+from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI, \
+	UnionFI, BitStructFI
 from pre_workbench.structinfo.parsecontext import FormatInfoContainer
 from pre_workbench.structinfo.serialization import deserialize_fi
 from pre_workbench.scintillaedit import showScintillaDialog
@@ -21,9 +22,16 @@ from pre_workbench.typeeditor import showTypeEditorDlg, showTreeEditorDlg
 from pre_workbench.util import PerfTimer
 
 
-class InteractiveFormatInfoContainer(FormatInfoContainer):
+class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
+	updated = pyqtSignal()
+
 	def __init__(self, **kw):
-		super().__init__(**kw)
+		QObject.__init__(self)
+		FormatInfoContainer.__init__(self, **kw)
+
+	def write_file(self, fileName):
+		super().write_file(fileName)
+		self.updated.emit()
 
 	def get_fi_by_def_name(self, def_name):
 		try:
@@ -43,7 +51,7 @@ class RangeTreeWidget(QTreeWidget):
 	def __init__(self, parent=None):
 		super().__init__(parent)
 		self.itemActivated.connect(self._fiTreeItemActivated)
-		self.setColumnCount(5)
+		self.setColumnCount(6)
 		self.setColumnWidth(0, 400)
 		self.headerItem().setText(0, "Grammar Tree")
 		self.headerItem().setText(1, "Offset")
@@ -51,6 +59,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.setColumnWidth(3, 200)
 		self.headerItem().setText(3, "Displayed Value")
 		self.headerItem().setText(4, "Raw Value")
+		self.headerItem().setText(5, "Print")
 		self.header().moveSection(3, 1)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self._onCustomContextMenuRequested)
@@ -58,8 +67,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.optionsConfigKey = "RangeTree"
 		self.setMouseTracking(True)
 		self.setAcceptDrops(True)
-
-	formatInfoUpdated = pyqtSignal()
+		self.onlyPrintable = False
 
 	def wheelEvent(self, a0: QtGui.QWheelEvent) -> None:
 		super().wheelEvent(a0)
@@ -73,7 +81,7 @@ class RangeTreeWidget(QTreeWidget):
 			root.setExpanded(True)
 			if self.formatInfoContainer:
 				root.setText(0, self.formatInfoContainer.file_name)
-			fi_tree.addToTree(root)
+			fi_tree.addToTree(root, self.onlyPrintable)
 
 	def _fiTreeItemActivated(self, item, column):
 		pass
@@ -110,7 +118,7 @@ class RangeTreeWidget(QTreeWidget):
 			if item.parent() != None:
 				parentSource = item.parent().data(0, Range.SourceDescRole)
 			if isinstance(source, FormatInfo):
-				if isinstance(source.fi, StructFI):
+				if isinstance(source.fi, (StructFI, UnionFI)):
 					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
 					ctx.addSeparator()
 				if isinstance(source.fi, VariantStructFI):
@@ -119,7 +127,7 @@ class RangeTreeWidget(QTreeWidget):
 				if isinstance(source.fi, SwitchFI):
 					ctx.addAction("Add case ...", lambda: self.addField(source, "SwitchItem"))
 					ctx.addSeparator()
-				if parentSource is not None and isinstance(parentSource, StructFI):
+				if parentSource is not None and isinstance(parentSource.fi, (StructFI, UnionFI, BitStructFI)):
 					ctx.addAction("Remove this field", lambda: self.removeField(parentSource, range.field_name))
 					ctx.addSeparator()
 				ctx.addAction("Edit ...", lambda: self.editField(source))
@@ -134,21 +142,25 @@ class RangeTreeWidget(QTreeWidget):
 		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
 		if self.formatInfoContainer and self.formatInfoContainer.file_name:
 			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
+		ctx.addAction(QAction(parent=ctx, text="Only printable", triggered=self._toggleOnlyPrintable, checkable=True, checked=self.onlyPrintable))
 		ctx.exec(self.mapToGlobal(point))
+
+	def _toggleOnlyPrintable(self):
+		self.onlyPrintable = not self.onlyPrintable
+
 
 	def addField(self, parent, typeName):
 		def ok(params):
 			parent.updateParams(children=parent.params['children']+[params])
-			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainer.file_name)
+			self._afterUpdate()
 
 		showTypeEditorDlg("format_info.tes", typeName, ok_callback=ok)
 
 	def removeField(self, parent, field_name):
 		ch = parent.params['children']
-		del ch[field_name]
+		del ch[next(i for i,(key,el) in enumerate(ch) if key == field_name)]
 		parent.updateParams(children=ch)
-		self.formatInfoUpdated.emit()
+		self._afterUpdate()
 
 	def editDisplayParams(self, parent):
 		params = showSettingsDlg([
@@ -161,8 +173,7 @@ class RangeTreeWidget(QTreeWidget):
 		if params.get("textcolor") == "": params["textcolor"] = None
 		if params.get("section") == "": params["section"] = None
 		parent.updateParams(**params)
-		self.formatInfoUpdated.emit()
-		self.saveFormatInfo(self.formatInfoContainer.file_name)
+		self._afterUpdate()
 
 	def editField(self, element: FormatInfo):
 		"""
@@ -174,24 +185,24 @@ class RangeTreeWidget(QTreeWidget):
 		#if ok:
 		def ok_callback(result):
 			element.from_text(result)
-			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainer.file_name)
+			self._afterUpdate()
 		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback)
 
 	def editField2(self, element: FormatInfo):
 		def ok_callback(params):
 			element.deserialize(params)
-			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainer.file_name)
+			self._afterUpdate()
 		showTreeEditorDlg("format_info.tes", "AnyFI", element.serialize(), ok_callback=ok_callback)
 
 	def repeatField(self, element: FormatInfo):
 		def ok_callback(params):
 			element.setContents(RepeatStructFI, params)
-			self.formatInfoUpdated.emit()
-			self.saveFormatInfo(self.formatInfoContainer.file_name)
+			self._afterUpdate()
 
 		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
+
+	def _afterUpdate(self):
+		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	#endregion
 
@@ -207,7 +218,6 @@ class RangeTreeWidget(QTreeWidget):
 		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
 		self.formatInfoContainer.load_from_string("DEFAULT struct(endianness="<") {}")
 		self.formatInfoContainer.file_name = fileName
-		self.formatInfoUpdated.emit()
 		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	def fileOpenFormatInfo(self):
@@ -223,7 +233,6 @@ class RangeTreeWidget(QTreeWidget):
 			traceback.print_exc()
 			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
 			return
-		self.formatInfoUpdated.emit()
 
 	def saveFormatInfo(self, fileName):
 		self.formatInfoContainer.write_file(fileName)

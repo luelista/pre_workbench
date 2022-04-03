@@ -173,25 +173,37 @@ class StructInfoTreeWidget(QWidget):
 		super().__init__()
 		self.initUI()
 
+		self._updateContent()
+		guihelper.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
+
+	def _updateContent(self):
+		try:
+			self.tree.set([(k,v.serialize()) for k,v in guihelper.CurrentProject.formatInfoContainer.definitions.items()])
+		except:
+			logging.exception("failed to load StructInfoTree")
+
 	def initUI(self):
-		self.tree = JsonView(schema="format_info.tes", rootTypeDefinition="AnyFI")
+		self.tree = JsonView(schema="format_info.tes", rootTypeDefinition="FormatInfoFile")
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.tree)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
-
-	def show_grammar(self, fi_trees):
-		if not self.isVisible(): return
-		try:
-			self.tree.set(fi_trees[0].source_desc.serialize())
-		except:
-			pass
 
 
 class StructInfoCodeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
 		self.initUI()
+		self._updateContent()
+		guihelper.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
+		self.editor.ctrlEnterPressed.connect(self._applyContent)
+
+	def _updateContent(self):
+		self.editor.setText(guihelper.CurrentProject.formatInfoContainer.to_text())
+
+	def _applyContent(self):
+		guihelper.CurrentProject.formatInfoContainer.load_from_string(self.editor.text())
+		guihelper.CurrentProject.formatInfoContainer.write_file(None)
 
 	def initUI(self):
 		self.editor = SimplePythonEditor()
@@ -218,7 +230,6 @@ class RangeTreeDockWidget(QWidget):
 		self.setLayout(windowLayout)
 		self.fiTreeWidget.show()
 		self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
-		self.fiTreeWidget.formatInfoUpdated.connect(self._applyFormatInfo)
 
 	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
@@ -226,9 +237,6 @@ class RangeTreeDockWidget(QWidget):
 		hexView = self.lastHexView()
 		if range is not None and hexView is not None:
 			hexView.selectRange(range, scrollIntoView=True)
-
-	def _applyFormatInfo(self):
-		pass
 
 	def on_meta_update(self, event_id, param):
 		if param is None or not self.isVisible(): return
@@ -274,7 +282,10 @@ class DataInspectorWidget(QWidget):
 	"""
 	def __init__(self):
 		super().__init__()
+		self.selbytes = None
 		self.initUI()
+		self.loadFormatInfo()
+		self.fiTreeWidget.formatInfoContainer.updated.connect(self.parse)
 
 	def saveState(self):
 		return {"hs": self.fiTreeWidget.header().saveState()}
@@ -283,8 +294,13 @@ class DataInspectorWidget(QWidget):
 
 	def on_select_bytes(self, selbytes):#buffer:ByteBuffer, range:Range):
 		if not self.isVisible(): return
+		self.selbytes = selbytes
+		self.parse()
+
+	def parse(self):
 		with PerfTimer("DataInspector parsing"):
-			parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, selbytes) #buffer.getBytes(range.start, range.length()))
+			if not self.selbytes: return
+			parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.selbytes) #buffer.getBytes(range.start, range.length()))
 			try:
 				fi_tree = parse_context.parse()
 			except parse_exception as ex:
@@ -298,7 +314,6 @@ class DataInspectorWidget(QWidget):
 		windowLayout.addWidget(self.fiTreeWidget)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
-		self.loadFormatInfo()
 
 	def loadFormatInfo(self):
 		#definition = configs.getValue("DataInspectorDef", DataInspectorWidget.defaultdef)

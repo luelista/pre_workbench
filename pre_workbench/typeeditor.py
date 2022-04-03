@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import logging
 import uuid
 
 from PyQt5 import QtGui, QtCore, QtWidgets
@@ -636,7 +636,7 @@ class JsonView(QTreeWidget):
 
 	def editField(self, item):
 		typeDef = item.data(1, QtCore.Qt.UserRole + 1)
-		print("typeDef",typeDef)
+		logging.debug("editField: typeDef %r",typeDef)
 		data = self.tree_fetch(item)
 		if typeDef is not None:
 			showTypeEditorDlg(self.schema, typeDef, data, "Edit item", ok_callback=lambda res: self.tree_set_row(item, res, typeDef))
@@ -707,7 +707,7 @@ class JsonView(QTreeWidget):
 		return me
 
 	def tree_set_row(self, me, val, origtypeDef):
-		print(origtypeDef)
+		logging.debug("tree_set_row: origTypeDef = %r", origtypeDef)
 		me.setData(1, QtCore.Qt.UserRole, type(val))
 		me.setData(1, QtCore.Qt.UserRole + 1, origtypeDef)
 		if self.schema is not None and origtypeDef is not None:
@@ -727,13 +727,13 @@ class JsonView(QTreeWidget):
 		for i in reversed(range(me.childCount())):
 			me.removeChild(me.child(i))
 
-		print("typeDef:",typeDef)
+		logging.debug("tree_set_row: typeDef = %r",typeDef)
 		if isinstance(val, dict):
 			if typeDef is None:
 				childTypeDefs = {}
 			else:
 				childTypeDefs = {field['name'] : field['type'] for field in typeDef[1]['fields']}
-			print("defs",childTypeDefs)
+			logging.debug("tree_set_row: defs = %r",childTypeDefs)
 			for key, cc in val.items():
 				self.tree_add_row(key, cc, me, childTypeDefs.pop(key, None))
 			me.setData(1, QtCore.Qt.UserRole + 2, childTypeDefs)
@@ -747,7 +747,7 @@ class JsonView(QTreeWidget):
 			choiceItem = getChoiceSubtypeById(typeDef, val)
 			if choiceItem is not None:
 				me.setData(1, QtCore.Qt.UserRole + 2, val[0])
-				print("choiceItem",choiceItem)
+				logging.debug("tree_set_row: choiceItem = %r",choiceItem)
 				self.tree_add_row(choiceItem['name'], val[1], me, choiceItem['type'])
 			else:
 				if typeKind == Type_List:

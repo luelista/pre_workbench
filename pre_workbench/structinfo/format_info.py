@@ -1,4 +1,5 @@
 import datetime
+import logging
 import uuid
 from math import ceil, floor
 
@@ -6,7 +7,7 @@ from bitstring import BitStream
 
 from pre_workbench.structinfo import display_styles, FITypes
 from pre_workbench.structinfo.exceptions import *
-from pre_workbench.structinfo.expr import deserialize_expr
+from pre_workbench.structinfo.expr import deserialize_expr, Expression
 from pre_workbench.structinfo.parsecontext import ParseContext
 from pre_workbench.structinfo.serialization import recursive_serialize, deserialize_fi
 from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
@@ -57,23 +58,37 @@ class FormatInfo:
 	def serialize(self):
 		return [type(self.fi).type_id, recursive_serialize(self.params)]
 
-	def extra_params(self, removewhat=['children','def_name']):
-		return {i:self.params[i] for i in self.params if not i in removewhat}
+	def extra_params(self, removewhat=['children','def_name'], context=None):
+		return {i:self._eval_if_needed(self.params[i], context) for i in self.params if not i in removewhat}
+
+	def _eval_if_needed(self, expr, context):
+		if isinstance(expr, Expression) and context is not None:
+			return expr.evaluate(context)
+		else:
+			return expr
 
 	def read_from_buffer(self, context):
 		try:
 			context.push(self, None)
-			return self.fi._parse(context)
+			if "print" in self.params and not isinstance(self.fi, FieldFI):
+				logging.info("%s %s", "+ " * len(context.stack), self.params["print"])
+			result = self.fi._parse(context)
+
+			if "print" in self.params and isinstance(self.fi, FieldFI):
+				logging.info("%s %s: \t%r", "+ " * len(context.stack), self.params["print"], result.value if hasattr(result, "value") else result)
+			return result
 		except parse_exception as ex:
 			context.log("parse_exception: "+str(ex))
 			context.restore_offset()
-			if context.get_param("ignore_errors", False, raise_if_missing=False): return context.pack_error(ex)
-			raise
+			if not context.get_param("ignore_errors", False, raise_if_missing=False):
+				context.failed = ex
+			return context.pack_error(ex)
 		except Exception as ex:
 			context.log("UNHANDLED Exception in FI parse: "+str(ex))
 			context.restore_offset()
-			if context.get_param("ignore_errors", False, raise_if_missing=False): return context.pack_error(ex)
-			raise parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex)) from ex
+			if not context.get_param("ignore_errors", False, raise_if_missing=False):
+				context.failed = ex
+			return context.pack_error(parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex), cause=ex))
 		#except Exception as ex:
 		#	context.log("UNHANDLED Exception in FI parse: "+str(ex))
 		#	traceback.print_exc()
@@ -107,6 +122,7 @@ class StructFI:
 		for name, child in self.children:
 			context.id = name
 			o[name] = child.read_from_buffer(context)
+			if context.failed: break
 		return context.pack_value(o)
 
 
@@ -125,15 +141,18 @@ class VariantStructFI:
 
 	def _parse(self, context):
 		for i, variant in enumerate(self.children):
-			try:
-				context.id = "var-%d"%i
-				return context.pack_value(variant.read_from_buffer(context))
-			#except (incomplete, invalid):
-			except invalid as ex:
+			context.id = "var-%d"%i
+			result = context.pack_value(variant.read_from_buffer(context))
+
+			if context.failed and isinstance(context.failed, invalid):
 				#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
 				# aktuell: invalid ist es nur, wenn alle invalid sind - incomplete schon, sobald das erste incomplete ist
-				print("variant %d no match: %r"%(i, ex))
-				pass
+				print("variant %d no match: %r"%(i, context.failed))
+				context.failed = None
+				continue
+
+
+			return result
 		#
 		context.log("no variant matched")
 		raise invalid(context, "no variant matched")
@@ -163,16 +182,14 @@ class RepeatStructFI:
 			i = 0
 			while True:
 				pos = context.offset()
-				try:
-					context.id = "[%d]"%i
-					o.append(self.children.read_from_buffer(context))
-				except incomplete:
+				context.id = "[%d]"%i
+				o.append(self.children.read_from_buffer(context))
+				if context.failed:
+					if isinstance(context.failed, incomplete) or (
+							isinstance(context.failed, invalid) and self.until_invalid):
+						context.failed = None
+						o.pop()
 					break
-				except invalid:
-					if self.until_invalid:
-						break
-					else:
-						raise
 				if pos == context.offset():
 					raise parse_exception(context, "infinite loop prevented - repeat child consumed zero bytes")
 				if self.until_expr.evaluate(context): break
@@ -182,6 +199,7 @@ class RepeatStructFI:
 			for i in range(times):
 				context.id = "[%d/%d]"%(i,times)
 				o.append(self.children.read_from_buffer(context))
+				if context.failed: break
 		return context.pack_value(o)
 
 
@@ -313,7 +331,7 @@ builtinTypes = {
 	#"PCRE": (NOT_IMPL, None, ),   		#	/* a compiled Perl-Compatible Regular Expression object */
 	"GUID": 	(16, _parse_uuid, ),   		#	/* GUID,  UUID */
 	"OID": 		(EXPR_LEN, None, ),   	#		/* OBJECT IDENTIFIER */
-	"EUI64": 	(8, None, ),   			#
+	"EUI64": 	(8, _parse_bytes_formatted("%02x%02x:%02x%02x:%02x%02x:%02x%02x"), ),   			#
 	"AX25": 	(7, None, ),   			#
 	"VINES": 	(6, None, ),   			#
 	"REL_OID": 	(EXPR_LEN, None, ),   	#	/* RELATIVE-OID */

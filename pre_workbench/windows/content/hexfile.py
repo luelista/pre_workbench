@@ -36,9 +36,9 @@ class HexFileWindow(QWidget, MdiFile):
 
 	def _initUI(self):
 		self.setLayout(QVBoxLayout())
-		self.dataDisplay = HexView2()
+		self.dataDisplay = HexView2(project=guihelper.CurrentProject, formatInfoContainer=guihelper.CurrentProject.formatInfoContainer)
 		self.dataDisplay.selectionChanged.connect(self._onSelectionChanged)
-		self.dataDisplay.formatInfoUpdated.connect(self._onFormatInfoUpdated)
+		self.dataDisplay.parseResultsUpdated.connect(self._onParseResultsUpdated)
 		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
 
@@ -47,7 +47,7 @@ class HexFileWindow(QWidget, MdiFile):
 		self.meta_updated.emit("selected_bytes", selbytes)
 		self.meta_updated.emit("hexview_range", self.dataDisplay)
 
-	def _onFormatInfoUpdated(self, fi_trees):
+	def _onParseResultsUpdated(self, fi_trees):
 		self.meta_updated.emit("grammar", fi_trees)
 
 	def loadFile(self, fileName):

@@ -8,6 +8,7 @@ from pre_workbench.structinfo import xdrm
 class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):
     def write_file(self, fileName):
         self.project.setValue("format_infos", self.to_text())
+        self.updated.emit()
 
 class Project:
     def __init__(self, dirName):

@@ -19,10 +19,6 @@ from pre_workbench.typeregistry import TypeRegistry
 
 FITypes = TypeRegistry()
 
-import pre_workbench.structinfo.format_info
-import pre_workbench.structinfo.parsecontext
-import pre_workbench.structinfo.serialization
-
 
 """
 class RangeTreeModel(QAbstractItemModel):

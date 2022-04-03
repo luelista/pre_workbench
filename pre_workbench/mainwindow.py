@@ -309,7 +309,6 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("Application Log", "terminal--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
 
 		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
-		self.grammar_updated.connect(self.dockWidgets["Grammar Definition Tree"].show_grammar)
 		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
 		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
 		self.meta_updated.connect(self.dockWidgets["Grammar Parse Result"].on_meta_update)
@@ -354,6 +353,7 @@ class WorkbenchMain(QMainWindow):
 		self.restoreGeometry(configs.getValue("MainWindowGeometry", b""))
 		self.restoreState(configs.getValue("MainWindowState", b""), 123)
 		self.setWindowTitle(f'PRE Workbench - {self.project.projectFolder}')
+		self.setWindowFilePath(self.project.projectDbFile)
 		self.show()
 
 	def showAboutBox(self):

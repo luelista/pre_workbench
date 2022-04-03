@@ -14,16 +14,16 @@ class FormatInfoContainer:
 		self.definitions = {} if definitions is None else definitions
 		self.main_name = None
 		self.file_name = None
-		if load_from_file is not None: self._load_from_file(load_from_file)
-		if load_from_string is not None: self._load_from_string(load_from_string)
+		if load_from_file is not None: self.load_from_file(load_from_file)
+		if load_from_string is not None: self.load_from_string(load_from_string)
 
 	def to_text(self, indent = 0):
 		return "\n\n".join(name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
 
-	def _load_from_file(self, fileName):
+	def load_from_file(self, fileName):
 		if fileName.endswith(".txt"):
 			with open(fileName, "r") as f:
-				self._load_from_string(f.read())
+				self.load_from_string(f.read())
 		else:
 			with open(fileName, "rb") as f:
 				#return bin_deserialize_fi(f.read())
@@ -31,8 +31,9 @@ class FormatInfoContainer:
 				raise NotImplemented
 		self.file_name = fileName
 
-	def _load_from_string(self, txt):
+	def load_from_string(self, txt):
 		from pre_workbench.structinfo.parser import parse_definition_map_into_container
+		self.definitions = {}
 		parse_definition_map_into_container(txt, self)
 
 	def write_file(self, fileName):
@@ -56,6 +57,7 @@ class ParseContext:
 	def __init__(self, format_infos: FormatInfoContainer, buf: bytes = None):
 		self.format_infos = format_infos
 		self.stack = list()
+		"""stackframes are lists with this structure: [desc, value, id, buf_offset, buf_limit_end]"""
 		self.id = ""
 		self.buf_offset = 0
 		self.buf_limit_end = None
@@ -63,6 +65,7 @@ class ParseContext:
 		self.buf = bytes()
 		self.on_new_subflow_category = None
 		self.subflow_categories = dict()
+		self.failed = None
 		if buf is not None:
 			self.feed_bytes(buf)
 
@@ -88,7 +91,12 @@ class ParseContext:
 	def parse(self, by_name=None):
 		if by_name is None: by_name = self.format_infos.main_name
 		self.id = by_name
-		return self.get_fi_by_def_name(by_name).read_from_buffer(self)
+		result = self.get_fi_by_def_name(by_name).read_from_buffer(self)
+		if self.failed:
+			logging.getLogger("DataSource").exception("Failed to parse", exc_info=self.failed)
+			#self.failed.partial_result = result
+			#raise self.failed
+		return result
 
 	def get_param(self, id, default=None, raise_if_missing=True):
 		for i in range(len(self.stack)-1, -1, -1):
@@ -269,7 +277,7 @@ class BytebufferAnnotatingParseContext(AnnotatingParseContext):
 		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1][0], 'show': str(value) })
 		fi = self.stack[-1][0]
 		if isinstance(fi, FormatInfo):
-			range.metadata.update(fi.extra_params())
+			range.metadata.update(fi.extra_params(context=self))
 		elif isinstance(fi, dict):
 			range.metadata.update(fi)
 		self.bbuf.addRange(range)

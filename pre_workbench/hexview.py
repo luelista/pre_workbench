@@ -27,7 +27,7 @@ from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
 
-from pre_workbench import configs, guihelper
+from pre_workbench import configs
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import setClipboardText, GlobalEvents, showWidgetDlg, getClipboardText
@@ -70,7 +70,7 @@ HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset', 'region'])
 
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
-	formatInfoUpdated = pyqtSignal(list)
+	parseResultsUpdated = pyqtSignal(list)
 	selectionChanged = pyqtSignal(object)
 
 	userStyles = [
@@ -82,8 +82,11 @@ class HexView2(QWidget):
 		("T", "Turqoise", {"color": "#00aaaa"}),
 	]
 
-	def __init__(self, byteBuffer=None, annotationSetDefaultName="", options=dict(), optionsConfigKey="HexViewParams"):
+	def __init__(self, byteBuffer=None, annotationSetDefaultName="", options=dict(), optionsConfigKey="HexViewParams", project=None, formatInfoContainer=None):
 		super().__init__()
+		self.project = project
+		self.formatInfoContainer = formatInfoContainer
+		if self.formatInfoContainer: self.formatInfoContainer.updated.connect(self._formatInfoUpdated)
 		self.annotationSetDefaultName = annotationSetDefaultName
 		self.annotationSetName = None
 		self.buffers = list()
@@ -205,19 +208,22 @@ class HexView2(QWidget):
 		ctx.addSeparator()
 
 		if self.selLength() > 1:
-			menu = ctx.addMenu( "Apply annotation set for selection")
-			for name in guihelper.CurrentProject.getAnnotationSetNames():
-				#TODO implement this
-				menu.addAction(name, lambda name=name: print(name))
+			if self.project:
+				menu = ctx.addMenu( "Apply annotation set for selection")
+				for name in self.project.getAnnotationSetNames():
+					#TODO implement this
+					menu.addAction(name, lambda name=name: print(name))
 		else:
-			menu = ctx.addMenu("Load annotation set")
-			for name in guihelper.CurrentProject.getAnnotationSetNames():
-				menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
+			if self.project:
+				menu = ctx.addMenu("Load annotation set")
+				for name in self.project.getAnnotationSetNames():
+					menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
 
-			menu = ctx.addMenu("Apply format info")
-			for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
-				menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
-			#menu.addAction("New...", lambda: )
+			if self.formatInfoContainer:
+				menu = ctx.addMenu("Apply format info")
+				for name in self.formatInfoContainer.definitions.keys():
+					menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
+				#menu.addAction("New...", lambda: )
 
 	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
@@ -227,13 +233,15 @@ class HexView2(QWidget):
 		menu.addAction("Base64", lambda: self.setBuffer(ByteBuffer(b64decode(getClipboardText()))))
 		ctx.addAction("Clear ranges", lambda: self.clearRanges())
 
-		menu = ctx.addMenu("Load annotation set" + (" on all buffers" if len(self.buffers) > 0 else ""))
-		for name in guihelper.CurrentProject.getAnnotationSetNames():
-			menu.addAction(name, lambda name=name: self.loadAnnotations(name))
+		if self.project:
+			menu = ctx.addMenu("Load annotation set" + (" on all buffers" if len(self.buffers) > 0 else ""))
+			for name in self.project.getAnnotationSetNames():
+				menu.addAction(name, lambda name=name: self.loadAnnotations(name))
 
-		menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
-		for name in guihelper.CurrentProject.formatInfoContainer.definitions.keys():
-			menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
+		if self.formatInfoContainer:
+			menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
+			for name in self.formatInfoContainer.definitions.keys():
+				menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
@@ -242,7 +250,7 @@ class HexView2(QWidget):
 	def loadAnnotations(self, set_name, bufIdx=None):
 		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
 			buf.setRanges(buf.matchRanges(hasMetaKey='_sdef_ref'))
-			annotations = guihelper.CurrentProject.getAnnotations(set_name)
+			annotations = self.project.getAnnotations(set_name)
 			for rowid, start, end, meta_str in annotations:
 				meta = json.loads(meta_str)
 				if meta.get("deleted"): continue
@@ -252,8 +260,8 @@ class HexView2(QWidget):
 		self.annotationSetName = set_name
 
 	def storeAnnotaton(self, range):
-		if not self.annotationSetName: return
-		guihelper.CurrentProject.storeAnnotation(self.annotationSetName, range)
+		if not self.annotationSetName or not self.project: return
+		self.project.storeAnnotation(self.annotationSetName, range)
 
 	def clearRanges(self):
 		self.buffers[0].clearRanges()
@@ -312,21 +320,28 @@ class HexView2(QWidget):
 
 	################# FI Tree ####################################################
 
-	def applyFormatInfo(self, root_name, bufIdx=None):
+	def _formatInfoUpdated(self):
+		self.applyFormatInfo()
+
+	def _parseBuffer(self, buf):
+		if buf.fi_root_name is None: return
 		try:
 			# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
-			for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
-				buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
-
-				parse_context = BytebufferAnnotatingParseContext(guihelper.CurrentProject.formatInfoContainer, buf)
-				parse_context.on_new_subflow_category = self._newSubflowCategory
-				buf.fi_tree = parse_context.parse(root_name)
-			self.formatInfoUpdated.emit([buf.fi_tree for buf in self.buffers])
-			self.redraw()
+			buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
+			parse_context = BytebufferAnnotatingParseContext(self.formatInfoContainer, buf)
+			parse_context.on_new_subflow_category = self._newSubflowCategory
+			buf.fi_tree = parse_context.parse(buf.fi_root_name)
 		except parse_exception as ex:
 			logging.exception("Failed to apply format info")
-			logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
-			#QMessageBox.warning(self, "Failed to apply format info", str(ex))
+			logging.getLogger("DataSource").error("Failed to apply format info: " + str(ex))
+
+	def applyFormatInfo(self, root_name=None, bufIdx=None):
+		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
+			if root_name is not None: buf.fi_root_name = root_name
+			self._parseBuffer(buf)
+		# QMessageBox.warning(self, "Failed to apply format info", str(ex))
+		self.parseResultsUpdated.emit([buf.fi_tree for buf in self.buffers])
+		self.redraw()
 
 	def _newSubflowCategory(self, category, parse_context, **kv):
 		logging.debug("on_new_subflow_category: %r",category)
@@ -586,7 +601,7 @@ class HexView2(QWidget):
 		else:
 			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
 		self.firstLine = 0
-		self.formatInfoUpdated.emit([buf.fi_tree for buf in self.buffers])
+		self.parseResultsUpdated.emit([buf.fi_tree for buf in self.buffers])
 		self.select(0, 0, 0)
 		self.redraw()
 

@@ -6,7 +6,7 @@ def hex(i):
 	if isinstance(i, bytes):
 		return ":".join("%02x" % a for a in i)
 	else:
-		return "%x" % i
+		return "0x%x" % i
 
 def dotted_quad(b):
 	return ".".join("%d" % i for i in b)

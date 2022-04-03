@@ -2,6 +2,7 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QTreeWidgetItem
 
+from pre_workbench.genericwidgets import filledColorIcon
 from pre_workbench.util import truncate_str
 
 
@@ -25,41 +26,59 @@ class Range:
 		self.exception = None
 		if meta: self.metadata.update(meta)
 
-	def addToTree(self, parent):
-		me = QTreeWidgetItem(parent)
-		me.setData(0, Range.RangeRole, self)
-		me.setData(0, Range.BytesOffsetRole, self.start)
-		me.setData(0, Range.BytesSizeRole, self.bytes_size)
-		me.setData(0, Range.SourceDescRole, self.source_desc)
-		text0 = self.field_name
-		text1 = str(self.start) + "+" + str(self.bytes_size)
-		text2 = str(self.source_desc)
+	def addToTree(self, parent, printableOnly=False):
 		x = self
+		text0 = x.field_name
+		text1 = str(x.start) + "+" + str(x.bytes_size)
+		text2 = str(x.source_desc)
+		color = x.metadata.get("color")
+		print = []
+		if x.metadata.get("print"): print.append(x.metadata["print"])
 		while type(x.value) == Range:
 			x = x.value
-			me.setData(0, Range.SourceDescRole, x.source_desc)
 			text0 += " >> " + x.field_name
 			text1 += " >> " + str(x.start) + "+" + str(x.bytes_size)
 			text2 += " >> " + str(x.source_desc)
-		me.setText(0, truncate_str(text0))
-		me.setText(1, truncate_str(text1))
-		me.setText(2, truncate_str(text2))
-		if x.exception is not None:
-			me.setForeground(3, QColor("red"))
-			me.setText(3, str(x.exception).split("\n", 1)[0])
-		elif type(x.value) == dict:
-			me.setExpanded(True)
-			for key, item in x.value.items():
-				item.addToTree(me)
-		elif type(x.value) == list:
-			me.setExpanded(True)
-			for item in x.value:
-				item.addToTree(me)
+			if x.metadata.get("color"): color = x.metadata["color"]
+			if x.metadata.get("print"): print.append(x.metadata["print"])
+
+		if len(print) > 0 or not printableOnly or x.exception is not None:
+			me = QTreeWidgetItem(parent)
+			me.setData(0, Range.RangeRole, self)
+			me.setData(0, Range.BytesOffsetRole, self.start)
+			me.setData(0, Range.BytesSizeRole, self.bytes_size)
+			me.setData(0, Range.SourceDescRole, x.source_desc)
+
+			me.setText(0, truncate_str(text0))
+			me.setText(1, truncate_str(text1))
+			me.setText(2, truncate_str(text2))
+			if x.exception is not None:
+				me.setForeground(3, QColor("red"))
+				me.setText(3, str(x.exception).split("\n", 1)[0])
+			elif type(x.value) == dict:
+				me.setExpanded(True)
+				for item in x.value.values():
+					item.addToTree(me, printableOnly)
+			elif type(x.value) == list:
+				me.setExpanded(True)
+				for item in x.value:
+					item.addToTree(me, printableOnly)
+			else:
+				try:
+					me.setText(3, truncate_str(x.source_desc.formatter(x.value)))
+				except:
+					me.setText(3, truncate_str(x.value))
+			if color:
+				me.setIcon(3, filledColorIcon(color, 16))
+			me.setText(5, " >> ".join(print))
 		else:
-			try:
-				me.setText(3, truncate_str(x.source_desc.formatter(x.value)))
-			except:
-				me.setText(3, truncate_str(x.value))
+			if type(x.value) == dict:
+				for item in x.value.values():
+					item.addToTree(parent, printableOnly)
+			if type(x.value) == list:
+				for item in x.value:
+					item.addToTree(parent, printableOnly)
+
 
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]" % (

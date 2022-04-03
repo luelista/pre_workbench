@@ -325,10 +325,10 @@ class ByteBufferWidget(QWidget):
         self.tabWidget.setContentsMargins(0,0,0,0)
         self.tabWidget.setDocumentMode(True)
         layout.addWidget(self.tabWidget)
-        self.textbox = HexView2()
+        self.textbox = HexView2(project=guihelper.CurrentProject, formatInfoContainer=guihelper.CurrentProject.formatInfoContainer)
         self.textbox.selectionChanged.connect(self._onSelectionChanged)
         self.textbox.onNewSubflowCategory.connect(self._newSubflowCategory)
-        self.textbox.formatInfoUpdated.connect(self._onFormatInfoUpdated)
+        self.textbox.parseResultsUpdated.connect(self._onParseResultsUpdated)
         self.tabWidget.addTab(self.textbox, "Raw buffer")
         #layout.addWidget(toolbar)
 
@@ -347,7 +347,7 @@ class ByteBufferWidget(QWidget):
         except:
             pass
 
-    def _onFormatInfoUpdated(self, fi_trees):
+    def _onParseResultsUpdated(self, fi_trees):
         self.tabWidget.clear()
         self.tabWidget.addTab(self.textbox, "Raw buffer")
         self.meta_updated.emit("grammar", fi_trees)

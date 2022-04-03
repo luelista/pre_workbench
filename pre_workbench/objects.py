@@ -32,14 +32,7 @@ class ReloadRequired(Exception):
 
 
 class ByteBuffer(QObject):
-	"""
-- dict<string,string> metadata
-- byte[] buffer
-- int length
-- dict<string,(number,number)> ranges
-- dict<string,field> fields
-	field = ()
-	"""
+	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container')
 	on_new_data = pyqtSignal()
 	def __init__(self, buf=None, metadata=None):
 		super().__init__()
@@ -48,6 +41,7 @@ class ByteBuffer(QObject):
 		self.ranges = RangeList(len(self), list())
 		self.fields = dict()
 		self.fi_tree = None
+		self.fi_root_name = None
 		self.fi_container = None
 
 	def setContent(self, buf):
@@ -164,6 +158,7 @@ class ByteBuffer(QObject):
 
 
 class ByteBufferList(QObject):
+	__slots__ = ('metadata', 'buffers', 'buffers_hash', 'updating')
 	on_new_packet = pyqtSignal(int)
 	
 	def __init__(self):
@@ -172,6 +167,7 @@ class ByteBufferList(QObject):
 		self.buffers = list()
 		self.buffers_hash = dict()
 		self.updating = None
+
 	def add(self, bbuf):
 		self.buffers.append(bbuf)
 		if self.updating is None:
@@ -190,10 +186,12 @@ class ByteBufferList(QObject):
 	def beginUpdate(self):
 		if self.updating is not None: raise AssertionError("beginUpdate called while in update")
 		self.updating = 0
+
 	def endUpdate(self):
 		if self.updating is None: raise AssertionError("endUpdate called while not in update")
 		self.on_new_packet.emit(self.updating)
 		self.updating = None
+
 	def __len__(self):
 		return len(self.buffers)
 

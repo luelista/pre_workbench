@@ -1,4 +1,8 @@
-# Grammar files
+---
+title: Syntax Reference
+---
+
+# Grammar Files
 A grammar file consists of a map of names to type definitions, in the format `name1 definition1 name2 definition2 ...`, each element separated by white-space. The following sections explain all available base types from which the type definitions can be assembled.
 
 ```
@@ -76,7 +80,7 @@ mytype
 | parse_with    | named   | Usually used on BYTES or UINT_BYTES fields, causes the value to be parsed as a child parsing unit. This allows to run the child parser with a fixed length, by specifying `size` or using UINT_BYTES. |
 
 
-## `struct`
+## struct
 A struct is defined as an ordered list of named field definitions, where each field has a type.
 
 ```
@@ -96,7 +100,7 @@ pascal_string struct {
 
 
 
-## `repeat`
+## repeat
 
 ```
 repeat: "repeat" params type
@@ -119,7 +123,7 @@ int32_array struct(endianness=">") {
 | until_invalid       | boolean  |  |
 
 
-## `variant`
+## variant
 
 ```
 variant: "variant" params "{" type* "}"
@@ -139,7 +143,7 @@ capture_file variant {
 
 
 
-## `switch`
+## switch
 
 ```
 switch: "switch" expression params "{" ("case" expression ":" type)* "}"
@@ -161,7 +165,7 @@ my_packet struct {
 
 
 
-## `union`
+## union
 
 ```
 union: "union" params "{" (IDENTIFIER type)* "}"
@@ -177,7 +181,7 @@ u_s union {
 
 
 
-## `bits`
+## bits
 
 ```
 bits: "bits" params "{" (IDENTIFIER ":" number)* "}"

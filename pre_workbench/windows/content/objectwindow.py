@@ -17,13 +17,13 @@
 import logging
 import traceback
 
-from PyQt5.QtCore import pyqtSignal, QObject, QSize
+from PyQt5.QtCore import pyqtSignal, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
 
 from pre_workbench.configs import SettingsField, getIcon
 from pre_workbench.datasource import DataSourceTypes
 from pre_workbench.datawidgets import DynamicDataWidget
-from pre_workbench.genericwidgets import SettingsGroup, ExpandWidget
+from pre_workbench.controls.genericwidgets import SettingsGroup
 from pre_workbench.typeregistry import WindowTypes
 
 

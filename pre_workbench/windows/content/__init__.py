@@ -1,1 +1,1 @@
-from . import hexfile, pcapfile, objectwindow, textfile
+from . import hexfile, pcapfile, objectwindow, textfile, typeeditorwindow

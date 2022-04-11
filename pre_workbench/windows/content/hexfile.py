@@ -16,10 +16,12 @@
 
 from PyQt5.QtCore import pyqtSignal, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
+
+import pre_workbench.app
 from pre_workbench import guihelper
 
-from pre_workbench.genericwidgets import MdiFile
-from pre_workbench.hexview import HexView2
+from pre_workbench.windows.mdifile import MdiFile
+from pre_workbench.controls.hexview import HexView2
 from pre_workbench.typeregistry import WindowTypes
 
 @WindowTypes.register(icon="document-binary.png")
@@ -36,7 +38,7 @@ class HexFileWindow(QWidget, MdiFile):
 
 	def _initUI(self):
 		self.setLayout(QVBoxLayout())
-		self.dataDisplay = HexView2(project=guihelper.CurrentProject, formatInfoContainer=guihelper.CurrentProject.formatInfoContainer)
+		self.dataDisplay = HexView2(project=pre_workbench.app.CurrentProject, formatInfoContainer=pre_workbench.app.CurrentProject.formatInfoContainer)
 		self.dataDisplay.selectionChanged.connect(self._onSelectionChanged)
 		self.dataDisplay.parseResultsUpdated.connect(self._onParseResultsUpdated)
 		self.layout().setContentsMargins(0, 0, 0, 0)
@@ -52,7 +54,8 @@ class HexFileWindow(QWidget, MdiFile):
 
 	def loadFile(self, fileName):
 		self.dataDisplay.setBytes(open(fileName,'rb').read())
-		self.dataDisplay.setDefaultAnnotationSet(guihelper.CurrentProject.getRelativePath(self.params.get("fileName")))
+		self.dataDisplay.setDefaultAnnotationSet(
+			pre_workbench.app.CurrentProject.getRelativePath(self.params.get("fileName")))
 
 	def saveFile(self, fileName):
 		#bin = self.dataDisplay.buffers[0].buffer

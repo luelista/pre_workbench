@@ -8,16 +8,17 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QMenu, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator, QMessageBox, QAction
 
+import pre_workbench.app
 from pre_workbench.configs import SettingsField
 from pre_workbench import configs, guihelper
-from pre_workbench.genericwidgets import showSettingsDlg
+from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.algo.range import Range
 
 from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI, \
 	UnionFI, BitStructFI
 from pre_workbench.structinfo.parsecontext import FormatInfoContainer
 from pre_workbench.structinfo.serialization import deserialize_fi
-from pre_workbench.scintillaedit import showScintillaDialog
+from pre_workbench.controls.scintillaedit import showScintillaDialog
 from pre_workbench.typeeditor import showTypeEditorDlg, showTreeEditorDlg
 from pre_workbench.util import PerfTimer
 
@@ -37,7 +38,7 @@ class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
 		try:
 			return self.definitions[def_name]
 		except KeyError:
-			if QMessageBox.question(guihelper.MainWindow, "Format Info", "Reference to undefined formatinfo '"+def_name+"'. Create it now?") == QMessageBox.Yes:
+			if QMessageBox.question(pre_workbench.app.MainWindow, "Format Info", "Reference to undefined formatinfo '" + def_name + "'. Create it now?") == QMessageBox.Yes:
 				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create formatinfo '"+def_name+"'")
 				if params is None: raise
 				self.definitions[def_name] = deserialize_fi(params)

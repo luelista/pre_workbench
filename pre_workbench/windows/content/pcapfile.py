@@ -18,7 +18,7 @@ from PyQt5.QtCore import pyqtSignal, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
 from pre_workbench.datawidgets import PacketListWidget
-from pre_workbench.genericwidgets import MdiFile
+from pre_workbench.windows.mdifile import MdiFile
 from pre_workbench.objects import ByteBufferList
 from pre_workbench.typeregistry import WindowTypes
 

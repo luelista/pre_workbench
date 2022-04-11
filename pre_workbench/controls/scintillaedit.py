@@ -39,7 +39,7 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
 					   "FontFamily", "Font Family", "text", {}, "", None)
 
-class SimplePythonEditor(QsciScintilla):
+class ScintillaEdit(QsciScintilla):
 	ARROW_MARKER_NUM = 8
 
 	escapePressed = pyqtSignal()
@@ -167,7 +167,7 @@ def showScintillaDialog(parent, title, content, ok_callback):
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.resize(800,600)
-	sg = SimplePythonEditor()
+	sg = ScintillaEdit()
 	sg.setText(content)
 	dlg.layout().addWidget(sg)
 	box = makeDlgButtonBox(dlg, ok_callback, lambda: sg.text())

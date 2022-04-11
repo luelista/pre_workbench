@@ -19,12 +19,13 @@ import traceback
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QMouseEvent, QFont, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
+from PyQt5.QtGui import QMouseEvent, QColor, QKeyEvent, QTextFrameFormat, QTextFormat
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QMessageBox
 
-from pre_workbench.genericwidgets import MdiFile
-from pre_workbench.guihelper import navigateLink, getMonospaceFont
-from pre_workbench.scintillaedit import SimplePythonEditor
+from pre_workbench.windows.mdifile import MdiFile
+from pre_workbench.guihelper import getMonospaceFont
+from pre_workbench.app import navigateLink
+from pre_workbench.controls.scintillaedit import ScintillaEdit
 from pre_workbench.typeregistry import WindowTypes
 
 
@@ -118,7 +119,7 @@ class TextFileWindow(QWidget, MdiFile):
 		return QSize(600,400)
 	def _initUI(self):
 		self.setLayout(QVBoxLayout())
-		self.dataDisplay = SimplePythonEditor()
+		self.dataDisplay = ScintillaEdit()
 		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(self.dataDisplay)
 		self.dataDisplay.modificationChanged.connect(self.setWindowModified)

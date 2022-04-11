@@ -20,21 +20,21 @@ import itertools
 import logging
 from base64 import b64encode, b64decode
 
-from PyQt5.QtCore import (Qt, pyqtSignal, QObject, QAbstractItemModel, QModelIndex, pyqtSlot)
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QTextEdit, QTabWidget, QTableWidget, QWidget, QToolBar, QVBoxLayout, \
+from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
+from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
     QTableWidgetItem, QMenu, \
     QAbstractItemView, QTableView
-from PyQtAds import ads
+
+import pre_workbench.app
 from pre_workbench import guihelper
 
 from pre_workbench.configs import SettingsField
 from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText
 from pre_workbench.structinfo import xdrm
 from pre_workbench.structinfo.expr import Expression
-from pre_workbench.genericwidgets import showSettingsDlg
+from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.typeeditor import JsonView
-from pre_workbench.hexview import HexView2
+from pre_workbench.controls.hexview import HexView2
 from pre_workbench.objects import ByteBuffer, ByteBufferList
 from pre_workbench.typeregistry import DataWidgetTypes
 
@@ -171,7 +171,7 @@ class PacketListWidget(QWidget):
         dv = DynamicDataWidget()
         dv.setContents(data)
         dv.setWindowTitle("Data view")
-        guihelper.MainWindow.showChild(dv, True)
+        pre_workbench.app.MainWindow.showChild(dv, True)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -325,7 +325,7 @@ class ByteBufferWidget(QWidget):
         self.tabWidget.setContentsMargins(0,0,0,0)
         self.tabWidget.setDocumentMode(True)
         layout.addWidget(self.tabWidget)
-        self.textbox = HexView2(project=guihelper.CurrentProject, formatInfoContainer=guihelper.CurrentProject.formatInfoContainer)
+        self.textbox = HexView2(project=pre_workbench.app.CurrentProject, formatInfoContainer=pre_workbench.app.CurrentProject.formatInfoContainer)
         self.textbox.selectionChanged.connect(self._onSelectionChanged)
         self.textbox.onNewSubflowCategory.connect(self._newSubflowCategory)
         self.textbox.parseResultsUpdated.connect(self._onParseResultsUpdated)

@@ -2,7 +2,7 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QTreeWidgetItem
 
-from pre_workbench.genericwidgets import filledColorIcon
+from pre_workbench.guihelper import filledColorIcon
 from pre_workbench.util import truncate_str
 
 

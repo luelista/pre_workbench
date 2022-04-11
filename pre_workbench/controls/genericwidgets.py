@@ -15,16 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QFileInfo, QTimer
+from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QTimer
 from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor, QFont
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
-	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QDialog, \
-	QDialogButtonBox, QCompleter, QSpinBox, QFileDialog, \
-	QMessageBox, QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog
-from pre_workbench.guihelper import showWidgetDlg
+	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QCompleter, QSpinBox, QFileDialog, \
+	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog
 
-from pre_workbench.configs import getIcon, SettingsSection
+from pre_workbench.configs import getIcon
+from pre_workbench.guihelper import showWidgetDlg, filledColorIcon
 from pre_workbench.syshelper import get_current_rss
 
 
@@ -100,12 +99,6 @@ class FontSelectLineEdit(QLineEdit):
 		result, ok = QFontDialog.getFont(initial, self)
 		if ok:
 			self.setText(result.toString())
-
-
-def filledColorIcon(color, size):
-	pix = QPixmap(size, size)
-	pix.fill(QColor(color))
-	return QIcon(pix)
 
 
 class SettingsGroup(QGroupBox):
@@ -274,81 +267,6 @@ class ExpandWidget(QWidget):
 		else:
 			self.body.show()
 			self.setSizePolicy(self.body.sizePolicy())
-
-
-class MdiFile:
-	sequenceNumber = 1
-	def initMdiFile(self, fileName=None, isUntitled=False, patterns="All Files (*.*)", defaultNamePattern="untitled%d.txt"):
-		self.isUntitled = True
-		self.filePatterns = patterns
-		self.fileDefaultNamePattern = defaultNamePattern
-		if fileName == None or isUntitled:
-			self.setUntitledFile(fileName)
-		else:
-			self.setCurrentFile(fileName)
-			self.loadFile(fileName)
-
-	def saveParams(self):
-		self.params["fileName"] = self.curFile
-		self.params["isUntitled"] = self.isUntitled
-		return self.params
-
-	def setUntitledFile(self, fileName=None):
-		self.isUntitled = True
-		self.curFile = fileName or (self.fileDefaultNamePattern % MdiFile.sequenceNumber)
-		MdiFile.sequenceNumber += 1
-		self.setWindowTitle(self.curFile)# + '[*]')
-
-		#self.document().contentsChanged.connect(self.documentWasModified)
-
-	def setCurrentFile(self, fileName):
-		self.curFile = QFileInfo(fileName).canonicalFilePath()
-		self.isUntitled = False
-		#self.document().setModified(False)
-		self.setWindowModified(False)
-		self.setWindowTitle(QFileInfo(self.curFile).fileName())# + "[*]")
-
-	def documentWasModified(self, dummy=None):
-		self.setWindowModified(True)
-
-	def save(self):
-		if self.isUntitled:
-			self.setCurrentFile(self.curFile)
-			return self.saveAs()
-		else:
-			self.setCurrentFile(self.curFile)
-			return self.saveFile(self.curFile)
-
-	def saveAs(self):
-		fileName, _ = QFileDialog.getSaveFileName(self, "Save As", self.curFile, self.filePatterns)
-		if not fileName:
-			return False
-
-		return self.saveFile(fileName)
-
-	def maybeSave(self):
-		if self.isWindowModified():
-			ret = QMessageBox.warning(self, self.curFile,
-					"'%s' has been modified.\nDo you want to save your "
-					"changes?" % QFileInfo(self.curFile).fileName(),
-					QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
-
-			if ret == QMessageBox.Save:
-				return self.save()
-
-			if ret == QMessageBox.Cancel:
-				return False
-
-		return True
-
-	def closeEvent(self, e: QtGui.QCloseEvent) -> None:
-		if self.maybeSave():
-			e.accept()
-		else:
-			e.ignore()
-
-	def reloadFile(self):
-		self.loadFile(self.curFile)
 
 
 class MemoryUsageWidget(QLabel):

@@ -30,8 +30,9 @@ from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, 
 from pre_workbench import configs
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import setClipboardText, GlobalEvents, showWidgetDlg, getClipboardText
-from pre_workbench.hexview_selheur import SelectionHelpers
+from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText
+from pre_workbench.app import GlobalEvents
+from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext

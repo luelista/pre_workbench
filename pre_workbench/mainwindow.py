@@ -29,7 +29,8 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication
 from PyQtAds import ads
 
-from pre_workbench.guihelper import NavigateCommands, GlobalEvents, navigateBrowser
+from pre_workbench.guihelper import navigateBrowser
+from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
 from pre_workbench.windows.content import textfile
@@ -42,7 +43,7 @@ from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
-from pre_workbench.genericwidgets import MemoryUsageWidget, showPreferencesDlg
+from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
 # noinspection PyUnresolvedReferences
 from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.typeeditor import JsonView

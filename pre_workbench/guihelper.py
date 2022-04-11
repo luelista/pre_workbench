@@ -14,19 +14,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from PyQt5.QtCore import QObject, pyqtSignal, QUrl
-from PyQt5.QtGui import QColor, QPalette, QDesktopServices, QFont
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QColor, QPalette, QDesktopServices, QFont, QPixmap, QIcon
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
-
-MainWindow = None
-NavigateCommands = dict()
-
-class GlobalEventCls(QObject):
-    on_config_change = pyqtSignal()
-
-GlobalEvents = GlobalEventCls()
-
-CurrentProject = None
 
 
 def str_ellipsis(data, length):
@@ -51,38 +41,8 @@ def splitNavArgs(args):
 	if start is not None:
 		yield args[start:]
 
-
-def navigate(*args):
-	for item in splitNavArgs(args):
-		navigateSingle(*item)
-
-def navigateSingle(cmd, *args):
-	fun = NavigateCommands[cmd]
-	params = {}
-	for arg in args:
-		key, value = arg.split("=", 2)
-		params[key] = value
-	fun(**params)
-
-def navigateLink(link):
-	if QMessageBox.question(None, "Open from anchor?", str(link)) == QMessageBox.Yes:
-		navigate("OPEN", f'FileName={link}')
-
 def navigateBrowser(link):
 	QDesktopServices.openUrl(QUrl(link))
-
-"""
-
-	private void T_LinkClicked(object sender, LinkClickedEventArgs e) {
-		if (e.LinkText.StartsWith("file:")) {
-			App.Mgr.openFile(e.LinkText.Substring(5));
-		} else if (e.LinkText.StartsWith("\\\\@")) {
-			App.Mgr.Navigate(e.LinkText.Substring(3).Split('@'));
-		} else if (e.LinkText.StartsWith("http://") || e.LinkText.StartsWith("https://")) {
-			System.Diagnostics.Process.Start(e.LinkText);
-		}
-	}
-"""
 
 def getMonospaceFont():
 	font = QFont("monospace")
@@ -98,6 +58,10 @@ def setControlColors(ctrl, bg, fg=None):
 def qApp():
 	return QApplication.instance()
 
+def filledColorIcon(color, size):
+	pix = QPixmap(size, size)
+	pix.fill(QColor(color))
+	return QIcon(pix)
 
 def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	btn = QDialogButtonBox()

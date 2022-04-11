@@ -21,20 +21,21 @@ import weakref
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
-from PyQt5.QtGui import QDesktopServices, QColor, QFont
+from PyQt5.QtGui import QDesktopServices, QColor
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit
 
+import pre_workbench.app
 from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.genericwidgets import filledColorIcon
-from pre_workbench.guihelper import navigate, getMonospaceFont
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont
+from pre_workbench.app import navigate
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
-from pre_workbench.windows.content.textfile import SimplePythonEditor
+from pre_workbench.windows.content.textfile import ScintillaEdit
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.util import PerfTimer, truncate_str
@@ -174,11 +175,11 @@ class StructInfoTreeWidget(QWidget):
 		self.initUI()
 
 		self._updateContent()
-		guihelper.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
+		pre_workbench.app.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
 
 	def _updateContent(self):
 		try:
-			self.tree.set([(k,v.serialize()) for k,v in guihelper.CurrentProject.formatInfoContainer.definitions.items()])
+			self.tree.set([(k,v.serialize()) for k,v in pre_workbench.app.CurrentProject.formatInfoContainer.definitions.items()])
 		except:
 			logging.exception("failed to load StructInfoTree")
 
@@ -195,18 +196,18 @@ class StructInfoCodeWidget(QWidget):
 		super().__init__()
 		self.initUI()
 		self._updateContent()
-		guihelper.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
+		pre_workbench.app.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
 		self.editor.ctrlEnterPressed.connect(self._applyContent)
 
 	def _updateContent(self):
-		self.editor.setText(guihelper.CurrentProject.formatInfoContainer.to_text())
+		self.editor.setText(pre_workbench.app.CurrentProject.formatInfoContainer.to_text())
 
 	def _applyContent(self):
-		guihelper.CurrentProject.formatInfoContainer.load_from_string(self.editor.text())
-		guihelper.CurrentProject.formatInfoContainer.write_file(None)
+		pre_workbench.app.CurrentProject.formatInfoContainer.load_from_string(self.editor.text())
+		pre_workbench.app.CurrentProject.formatInfoContainer.write_file(None)
 
 	def initUI(self):
-		self.editor = SimplePythonEditor()
+		self.editor = ScintillaEdit()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.editor)
 		windowLayout.setContentsMargins(0,0,0,0)
@@ -220,7 +221,7 @@ class RangeTreeDockWidget(QWidget):
 		self.initUI()
 		#self.lastBuffer = lambda : None # dead weakref
 		self.lastHexView = lambda : None   # dead weakref
-		self.fiTreeWidget.formatInfoContainer = guihelper.CurrentProject.formatInfoContainer
+		self.fiTreeWidget.formatInfoContainer = pre_workbench.app.CurrentProject.formatInfoContainer
 
 	def initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
@@ -382,7 +383,7 @@ class SelectionHeuristicsConfigWidget(QWidget):
 		self.listView.itemChanged.connect(self.itemChanged)
 		self.listView.currentItemChanged.connect(self.currentItemChanged)
 
-		from pre_workbench.hexview_selheur import SelectionHelpers
+		from pre_workbench.controls.hexview_selheur import SelectionHelpers
 		for helper, meta in SelectionHelpers.types:
 			item = QListWidgetItem(helper.__name__ )
 			item.setData(self.HELPER_ROLE, helper)

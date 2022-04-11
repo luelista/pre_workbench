@@ -22,28 +22,17 @@ import platform
 import sys
 import argparse
 
-from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog, QMessageBox, QApplication
+from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog, QMessageBox
 
+import pre_workbench.app
 from pre_workbench import configs, guihelper, errorhandler
+from pre_workbench.app import WorkbenchApplication
 from pre_workbench.configs import SettingsSection
 from pre_workbench.mainwindow import WorkbenchMain
 from pre_workbench.project import Project
 from pre_workbench.syshelper import load_file_watch
 
-def parse_args():
-	parser = argparse.ArgumentParser(description='Protocol Reverse Engineering Workbench')
-	parser.add_argument('--reset-config', action='store_true',
-						help='Reset the configuration to defaults')
-	parser.add_argument('--gc-debug', action='store_true',
-						help='Print debug output from garbage collector')
-	parser.add_argument('--choose-project', action='store_true',
-						help='Force the project directory chooser to appear, instead of opening the last project')
-	parser.add_argument('project_dir', metavar='DIR', type=str, nargs='?',
-						help='Project directory')
-
-	return parser.parse_args()
 
 def find_project(args):
 	if not args.choose_project:
@@ -72,6 +61,7 @@ def find_project(args):
 
 	return None
 
+
 def run_app():
 	errorhandler.initLogging()
 	logging.info("pre_workbench running on %s", " ".join(platform.uname()))
@@ -81,16 +71,11 @@ def run_app():
 
 	sys.excepthook = errorhandler.excepthook
 
-	args = parse_args()
-	logging.debug("CMD args: %r", args)
-	if args.gc_debug:
-		gc.set_debug(gc.DEBUG_STATS)
-	if not args.reset_config:
+	app = WorkbenchApplication(sys.argv)
+	if not app.args.reset_config:
 		configs.loadFromFile()
 	else:
 		logging.warning("Resetting configuration!")
-
-	app = WorkbenchApplication(sys.argv)
 	splash = show_splash()
 
 	configs.registerOption(SettingsSection('View', 'View', 'Theme', 'Theme'),
@@ -98,18 +83,19 @@ def run_app():
 						   "fusion", lambda key, value: app.setStyle(value))
 	load_file_watch(app, os.path.join(os.path.dirname(__file__), "stylesheet.css"), lambda contents: app.setStyleSheet(contents))
 
-	prj_dir = find_project(args)
+	prj_dir = find_project(app.args)
 	if not prj_dir: sys.exit(1)
 	app_project = Project(prj_dir)
 	configs.updateMru("ProjectMru", prj_dir, 5)
-	guihelper.CurrentProject = app_project
+	pre_workbench.app.CurrentProject = app_project
 	configs.setValue("LastProjectDir", app_project.projectFolder)
 
-	guihelper.MainWindow = WorkbenchMain(app_project)
-	guihelper.MainWindow.show()
-	splash.finish(guihelper.MainWindow)
+	pre_workbench.app.MainWindow = WorkbenchMain(app_project)
+	pre_workbench.app.MainWindow.show()
+	splash.finish(pre_workbench.app.MainWindow)
 	# os.system("/home/mw/test/Qt-Inspector/build/qtinspector "+str(os.getpid())+" &")
 	sys.exit(app.exec_())
+
 
 def show_splash():
 	splashimg = configs.respath("icons/splash.jpg")
@@ -118,17 +104,3 @@ def show_splash():
 	return splash
 
 
-class WorkbenchApplication(QApplication):
-	def __init__(self, args):
-		super().__init__(args)
-		logging.debug("Initializing application...")
-
-	def event(self, e):
-		"""Handle macOS FileOpen events."""
-		if e.type() == QEvent.FileOpen:
-			logging.info("FileOpen Event: %s", e.file())
-			guihelper.MainWindow.openFile(e.file())
-		else:
-			return super().event(e)
-
-		return True

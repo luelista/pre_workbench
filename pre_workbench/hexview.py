@@ -218,6 +218,7 @@ class HexView2(QWidget):
 				menu = ctx.addMenu("Load annotation set")
 				for name in self.project.getAnnotationSetNames():
 					menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
+				menu.addAction("New...", lambda: self.loadAnnotations(QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0], self.selBuffer))
 
 			if self.formatInfoContainer:
 				menu = ctx.addMenu("Apply format info")
@@ -237,6 +238,8 @@ class HexView2(QWidget):
 			menu = ctx.addMenu("Load annotation set" + (" on all buffers" if len(self.buffers) > 0 else ""))
 			for name in self.project.getAnnotationSetNames():
 				menu.addAction(name, lambda name=name: self.loadAnnotations(name))
+			menu.addAction("New...", lambda: self.loadAnnotations(
+				QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0]))
 
 		if self.formatInfoContainer:
 			menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
@@ -259,8 +262,11 @@ class HexView2(QWidget):
 		self.redraw()
 		self.annotationSetName = set_name
 
-	def storeAnnotaton(self, range):
-		if not self.annotationSetName or not self.project: return
+	def storeAnnotation(self, range):
+		if not self.project: return
+		if not self.annotationSetName:
+			self.annotationSetName, ok = QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")
+			if not ok or not self.annotationSetName: return
 		self.project.storeAnnotation(self.annotationSetName, range)
 
 	def clearRanges(self):
@@ -285,7 +291,7 @@ class HexView2(QWidget):
 			self.buffers[self.selBuffer].addRange(selection)
 
 		match.metadata.update(kw)
-		self.storeAnnotaton(match)
+		self.storeAnnotation(match)
 		self.redraw()
 
 	def setSectionSelection(self):
@@ -303,7 +309,7 @@ class HexView2(QWidget):
 				match = selection
 				self.buffers[self.selBuffer].addRange(selection)
 			match.metadata.update(section=newTitle)
-			self.storeAnnotaton(match)
+			self.storeAnnotation(match)
 			self.redraw()
 
 	def deleteSelectedStyle(self):
@@ -312,7 +318,7 @@ class HexView2(QWidget):
 				self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
 			self.buffers[self.selBuffer].removeRange(match)
 			match.metadata["deleted"] = True
-			self.storeAnnotaton(match)
+			self.storeAnnotation(match)
 			self.redraw()
 		except StopIteration:
 			pass

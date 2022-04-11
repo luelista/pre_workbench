@@ -64,7 +64,9 @@ class stack_frame:
 
 
 class ParseContext:
-	def __init__(self, format_infos: FormatInfoContainer, buf: bytes = None):
+	logger = logging.getLogger("DataSource")
+
+	def __init__(self, format_infos: FormatInfoContainer, buf: bytes = None, logging_enabled=False):
 		self.format_infos = format_infos
 		self.stack = list()
 		self.id = ""
@@ -75,6 +77,7 @@ class ParseContext:
 		self.on_new_subflow_category = None
 		self.subflow_categories = dict()
 		self.failed = None
+		self.logging_enabled = logging_enabled
 		if buf is not None:
 			self.feed_bytes(buf)
 
@@ -102,7 +105,7 @@ class ParseContext:
 		self.id = by_name
 		result = self.get_fi_by_def_name(by_name).read_from_buffer(self)
 		if self.failed:
-			logging.getLogger("DataSource").exception("Failed to parse", exc_info=self.failed)
+			ParseContext.logger.exception("Failed to parse", exc_info=self.failed)
 			#self.failed.partial_result = result
 			#raise self.failed
 		return result
@@ -140,7 +143,11 @@ class ParseContext:
 		return ".".join(frame.id for frame in self.stack)
 
 	def log(self, *dat):
-		pass
+		if not self.logging_enabled: return
+		try:
+			ParseContext.logger._log(logging.INFO, "%s: %s", (self.get_path(), "\t".join(str(x) for x in dat)))
+		except Exception as ex:
+			ParseContext.logger.exception( self.get_path() + ": EXCEPTION IN LOGGING")
 
 	def remaining_bytes(self):
 		if self.buf_limit_end:
@@ -194,6 +201,7 @@ class ParseContext:
 		return self.buf[ self.stack[stack_index].buf_offset : self.buf_offset ]
 
 	def pack_value(self, value):
+		self.log("pack(L)",type(self.stack[-1].desc).__name__, self.top_offset(), self.top_length())#, value)
 		if self.on_new_subflow_category is not None:
 			try:
 				desc = self.stack[-1].desc
@@ -246,19 +254,6 @@ class ParseContext:
 			subflow_key.append(value)
 		return category, meta, tuple(subflow_key)
 
-class LoggingParseContext(ParseContext):
-	logger = logging.getLogger("DataSource")
-	def log(self, *dat):
-		#print("\t"*len(self.stack) + self.get_path(), end=": ")
-		try:
-			LoggingParseContext.logger._log(logging.INFO, "%s: %s", (self.get_path(), "\t".join(str(x) for x in dat)))
-		except Exception as ex:
-			LoggingParseContext.logger.exception( self.get_path() + ": EXCEPTION IN LOGGING")
-
-
-	def pack_value(self, value):
-		self.log("pack(L)",type(self.stack[-1].desc).__name__, self.top_offset(), self.top_length())#, value)
-		return value
 
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):

@@ -187,6 +187,7 @@ class RepeatStructFI:
 				if context.failed:
 					if isinstance(context.failed, incomplete) or (
 							isinstance(context.failed, invalid) and self.until_invalid):
+						context.log("repeat stopping gracefully", type(context.failed))
 						context.failed = None
 						o.pop()
 					break

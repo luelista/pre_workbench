@@ -23,7 +23,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name='pre_workbench',
-	version='0.3.2',
+	version='0.4.1',
 	author="Mira Weller",
 	author_email="mweller@seemoo.tu-darmstadt.de",
 	description="Protocol Reverse Engineering Workbench",

@@ -37,7 +37,7 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 
 
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
-					   "FontFamily", "Font Family", "text", {}, "monospace", None)
+					   "FontFamily", "Font Family", "text", {}, "", None)
 
 class SimplePythonEditor(QsciScintilla):
 	ARROW_MARKER_NUM = 8
@@ -87,7 +87,8 @@ class SimplePythonEditor(QsciScintilla):
 		#lexer.setDefaultFont(font)
 		self.setLexer(lexer)
 		fontFamily = configs.getValue("View.Scintilla.FontFamily").encode('utf-8')
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontFamily)
+		if fontFamily:
+			self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontFamily)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, 11)
 		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)

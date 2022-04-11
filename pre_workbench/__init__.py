@@ -22,9 +22,9 @@ import platform
 import sys
 import argparse
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QSplashScreen, QStyleFactory, QFileDialog, QMessageBox, QApplication
 
 from pre_workbench import configs, guihelper, errorhandler
 from pre_workbench.configs import SettingsSection
@@ -90,9 +90,7 @@ def run_app():
 	else:
 		logging.warning("Resetting configuration!")
 
-	from PyQt5.QtWidgets import QApplication
-
-	app = QApplication(sys.argv)
+	app = WorkbenchApplication(sys.argv)
 	splash = show_splash()
 
 	configs.registerOption(SettingsSection('View', 'View', 'Theme', 'Theme'),
@@ -118,3 +116,19 @@ def show_splash():
 	splash = QSplashScreen(QPixmap(splashimg))
 	splash.show()
 	return splash
+
+
+class WorkbenchApplication(QApplication):
+	def __init__(self, args):
+		super().__init__(args)
+		logging.debug("Initializing application...")
+
+	def event(self, e):
+		"""Handle macOS FileOpen events."""
+		if e.type() == QEvent.FileOpen:
+			logging.info("FileOpen Event: %s", e.file())
+			guihelper.MainWindow.openFile(e.file())
+		else:
+			return super().event(e)
+
+		return True

@@ -49,6 +49,7 @@ from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.windows.content.hexfile import HexFileWindow
 
+
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
 	zoom_updated = pyqtSignal(object)

@@ -18,13 +18,14 @@
 import errno
 import logging
 import os
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
+from PyQt5.QtCore import QByteArray
 from PyQt5.QtGui import QIcon
 from appdirs import AppDirs
 
 from pre_workbench.structinfo import xdrm
-from PyQt5.QtCore import QByteArray
+
 
 class SettingsSection:
 	def __init__(self, sectionId,sectionTitle,subsectionId,subsectionTitle):

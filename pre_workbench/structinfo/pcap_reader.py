@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from pre_workbench.objects import ByteBufferList, ByteBuffer
 from pre_workbench.structinfo.parsecontext import FormatInfoContainer
@@ -49,6 +50,7 @@ pcapng_block_payload switch block_type {
 	case 0x0A0D0D0A: pcapng_SHB
 	case 1: pcapng_IDB
 	case 6: pcapng_EPB
+	case 5: BYTES
 }
 
 pcapng_SHB struct {
@@ -68,7 +70,8 @@ pcapng_IDB struct {
 
 pcapng_EPB struct {
 	interface_id UINT32
-	timestamp UINT64
+	timestamp_hi UINT32
+	timestamp_lo UINT32
 	cap_length UINT32
 	orig_length UINT32
 	payload BYTES(size="cap_length")
@@ -83,23 +86,90 @@ pcapng_options repeat struct {
 	}
 """)
 
+
 def read_pcap_file(f):
 	from pre_workbench.structinfo.parsecontext import ParseContext
 	ctx = ParseContext(PcapFormats, f.read())
 	pcapfile = ctx.parse()
 	plist = ByteBufferList()
 	if 'header' in pcapfile:
-		#pcap classic
+		# pcap classic
 		plist.metadata.update(pcapfile['header'])
 		for packet in pcapfile['packets']:
 			plist.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
 	else:
-		#pcapNG
+		# pcapNG
+		plist.metadata['interfaces'] = []
 		for block_wrapper in pcapfile:
 			block = block_wrapper['block_payload']
-			if 'payload' in block:
-				meta = {k: v for (k, v) in block.items() if k in ['interface_id', 'timestamp', 'cap_length', 'orig_length',]}
+			if isinstance(block, dict) and 'payload' in block:
+				meta = {'interface_id': block['interface_id'],
+						'timestamp': datetime.fromtimestamp(
+							(block['timestamp_hi'] << 32 | block['timestamp_lo']) / 1000000.0),
+						'cap_length': block['cap_length'],
+						'orig_length': block['orig_length'],
+						}
 				plist.add(ByteBuffer(block['payload'], metadata=meta))
+			elif block_wrapper['block_type'] == 0x0A0D0D0A:  # SHB
+				plist.metadata['pcap_version'] = "%d.%d" % (block['version_major'], block['version_minor'])
+				for opt in block['options']:
+					update_option(plist.metadata, "SHB", opt["code"], opt["value"])
+			elif block_wrapper['block_type'] == 1:  # IDB
+				interface = {'linktype': block['linktype'], 'snaplen': block['snaplen']}
+				for opt in block['options']:
+					update_option(interface, "IDB", opt["code"], opt["value"])
+				plist.metadata['interfaces'].append(interface)
 			else:
 				logging.info("PCAPng - unhandled header block: %r", block_wrapper)
 	return plist
+
+
+opt_names = {
+	"*": {
+		1: ("opt_comment", True),  # yes
+	},
+	"SHB": {
+		2: ("shb_hardware", False),  # no
+		3: ("shb_os", False),  # no
+		4: ("shb_userappl", False),  # no
+	},
+	"IDB": {
+		2: ("if_name", False),  # variable	no
+		3: ("if_description", False),  # variable	no
+		4: ("if_IPv4addr", True),  # 8	yes
+		5: ("if_IPv6addr", True),  # 17	yes
+		6: ("if_MACaddr", False),  # 6	no
+		7: ("if_EUIaddr", False),  # 8	no
+		8: ("if_speed", False),  # 8	no
+		9: ("if_tsresol", False),  # 1	no
+		10: ("if_tzone", False),  # 4	no
+		11: ("if_filter", False),  # variable, minimum 1	no
+		12: ("if_os", False),  # variable	no
+		13: ("if_fcslen", False),  # 1	no
+		14: ("if_tsoffset", False),  # 8	no
+		15: ("if_hardware", False),  # variable	no
+		16: ("if_txspeed", False),  # 8	no
+		17: ("if_rxspeed", False),  # 8	no
+	}
+}
+
+
+def get_option_info(block_type, code):
+	if code in opt_names["*"]:
+		return opt_names["*"][code]
+	elif block_type in opt_names and code in opt_names[block_type]:
+		return opt_names[block_type][code]
+	else:
+		return "code_%d" % code, True
+
+
+def update_option(target, block_type, code, value):
+	if code == 0: return
+	name, multiple = get_option_info(block_type, code)
+	if multiple:
+		if not name in target:
+			target[name] = [value]
+		else:
+			target[name].append(value)
+	else:
+		target[name] = value

@@ -50,7 +50,7 @@ class PcapngFileWindow(QWidget, MdiFile):
 
 	def loadFile(self, fileName):
 		with open(fileName, "rb") as f:
-			from pre_workbench.structinfo.pcapfiles import read_pcap_file
+			from pre_workbench.structinfo.pcap_reader import read_pcap_file
 			self.packetList = read_pcap_file(f)
 			self.dataDisplay.setContents(self.packetList)
 

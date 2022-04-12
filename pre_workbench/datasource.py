@@ -22,7 +22,7 @@ from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete
-from pre_workbench.structinfo.pcapfiles import read_pcap_file
+from pre_workbench.structinfo.pcap_reader import read_pcap_file
 from pre_workbench.typeregistry import TypeRegistry
 from pre_workbench.tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
 

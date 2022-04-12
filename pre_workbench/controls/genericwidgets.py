@@ -50,6 +50,7 @@ def showPreferencesDlg(definition, values=None, title="Preferences", parent=None
 		sg = SettingsGroup(secDef, values, section.subsectionTitle)
 		tab.layout().addWidget(sg)
 
+	tabWidget.setMinimumWidth(600)
 	return showWidgetDlg(tabWidget, title, lambda: values, parent, ok_callback)
 
 

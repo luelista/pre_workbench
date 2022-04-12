@@ -39,12 +39,12 @@ def find_project(args):
 		if args.project_dir and os.path.isdir(args.project_dir):
 			return sys.argv[1]
 
-		if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
-			return os.getcwd()
-
 		last_prj = configs.getValue("LastProjectDir", None)
 		if last_prj and os.path.isfile(os.path.join(last_prj, ".pre_workbench")):
 			return last_prj
+
+		if os.path.isfile(os.path.join(os.getcwd(), ".pre_workbench")):
+			return os.getcwd()
 
 	if not args.choose_project:
 		QMessageBox.information(None, "Welcome", "Welcome to PRE Workbench!\n\n"

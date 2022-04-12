@@ -18,10 +18,11 @@ import logging
 
 from PyQt5.Qsci import QsciScintilla, QsciLexerCPP
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtGui import QColor, QStatusTipEvent
+from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont
 from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
 
 from pre_workbench import configs, SettingsSection
+from pre_workbench.app import GlobalEvents
 from pre_workbench.guihelper import makeDlgButtonBox
 
 
@@ -37,7 +38,7 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 
 
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
-					   "FontFamily", "Font Family", "text", {}, "", None)
+					   "Font", "Font", "font", {}, "monospace,12,-1,7,50,0,0,0,0,0", None)
 
 class ScintillaEdit(QsciScintilla):
 	ARROW_MARKER_NUM = 8
@@ -86,17 +87,8 @@ class ScintillaEdit(QsciScintilla):
 		lexer = QsciLexerFormatinfo()
 		#lexer.setDefaultFont(font)
 		self.setLexer(lexer)
-		fontFamily = configs.getValue("View.Scintilla.FontFamily").encode('utf-8')
-		if fontFamily:
-			self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontFamily)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, 11)
-		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Comment, 0x666666)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Keyword, 0x0000aa)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.KeywordSet2, 0x000055)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x00aa00)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x00aa00)
+		self._init_font()
+		GlobalEvents.on_config_change.connect(self._init_font)
 
 		self.SendScintilla(QsciScintilla.SCI_SETMULTIPLESELECTION, 1)
 		self.SendScintilla(QsciScintilla.SCI_SETSEARCHFLAGS, QsciScintilla.SCFIND_MATCHCASE)
@@ -113,6 +105,20 @@ class ScintillaEdit(QsciScintilla):
 
 		# not too small
 		#self.setMinimumSize(600, 450)
+
+	def _init_font(self):
+		font = QFont()
+		font.fromString(configs.getValue("View.Scintilla.Font"))
+		fontInfo = QFontInfo(font)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontInfo.family().encode('utf-8'))
+		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, fontInfo.pointSize())
+		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Comment, 0x666666)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Keyword, 0x0000aa)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.KeywordSet2, 0x000055)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x00aa00)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x00aa00)
 
 	def _on_margin_clicked(self, nmargin, nline, modifiers):
 		# Toggle marker for the line the margin was clicked on

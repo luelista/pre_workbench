@@ -24,7 +24,8 @@ from collections import namedtuple
 from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
-from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent, \
+	QFontInfo
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
 
 from pre_workbench import configs
@@ -43,7 +44,7 @@ configs.registerOption(group, 'Color', 'Address Color', 'color', {}, '#888888',N
 configs.registerOption(group, 'Format', 'Address Format', 'text', {}, '{:08x}',None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'hex', 'Hex Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Courier, 10',None)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'monospace,12,-1,7,50,0,0,0,0,0',None)
 configs.registerOption(group, 'Color', 'Hex Color', 'color', {}, '#ffffff', None)
 configs.registerOption(group, 'SpaceAfter', 'Hex SpaceAfter', 'int', {'min': 1, 'max': 1024}, 8, None)
 configs.registerOption(group, 'SpaceWidth', 'Hex SpaceWidth', 'int', {'min': 1, 'max': 1024}, 8, None)
@@ -58,7 +59,7 @@ group = SettingsSection('HexView2', 'Hex Editor', 'ascii', 'ASCII Styles')
 configs.registerOption(group, 'Color', 'ASCII Color', 'color', {}, '#bbffbb', None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'section', 'Section Styles')
-configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial, 10',None)
+configs.registerOption(group, 'Font', 'Font', 'font', {}, 'Arial,10,-1,0,50,0,0,0,0,0',None)
 configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', None)
 
 group = SettingsSection('HexView2', 'Hex Editor', 'general', 'General')

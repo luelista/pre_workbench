@@ -1,5 +1,10 @@
 import uuid
+
+import pytest
+
 from parse_helper import parse_me
+from pre_workbench.structinfo.exceptions import invalid
+
 
 def test_repeated_struct():
 	parse_me("""

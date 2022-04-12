@@ -12,13 +12,14 @@ from pre_workbench.structinfo.hexdump import hexdump
 class FormatInfoContainer:
 	def __init__(self, definitions=None, load_from_file=None, load_from_string=None):
 		self.definitions = {} if definitions is None else definitions
+		self.definition_comments = {}
 		self.main_name = None
 		self.file_name = None
 		if load_from_file is not None: self.load_from_file(load_from_file)
 		if load_from_string is not None: self.load_from_string(load_from_string)
 
 	def to_text(self, indent = 0):
-		return "\n\n".join(name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
+		return "\n\n".join((self.definition_comments[name]+"\n" if self.definition_comments.get(name) else "") + name+" "+value.to_text(indent, None) for name, value in self.definitions.items())
 
 	def load_from_file(self, fileName):
 		if fileName.endswith(".txt"):
@@ -34,6 +35,7 @@ class FormatInfoContainer:
 	def load_from_string(self, txt):
 		from pre_workbench.structinfo.parser import parse_definition_map_into_container
 		self.definitions = {}
+		self.definition_comments = {}
 		parse_definition_map_into_container(txt, self)
 
 	def write_file(self, fileName):

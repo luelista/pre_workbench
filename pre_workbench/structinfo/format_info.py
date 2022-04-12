@@ -104,22 +104,23 @@ class FormatInfo:
 @FITypes.register(type_id=2)
 class StructFI:
 	def init(self, children, **kw):
-		self.children = [(str(name), deserialize_fi(c)) for (name, c) in children]
+		self.children = [(str(name), deserialize_fi(c), comment) for (comment, name, c) in children]
 		try:
-			self.size = sum(c.size for (name, c) in self.children)
+			self.size = sum(c.size for (name, c, comment) in self.children)
 		except:
 			self.size = None
 
 	def _to_text(self, indent, refs, all_params):
 		x = "struct "+params_to_text(indent, refs, all_params, )+"{"+"\n"
-		for (name, c) in self.children:
+		for (name, c, comment) in self.children:
+			if comment: x += "\t"*(1+indent) + comment + "\n"
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
 	def _parse(self, context):
 		o = {}
 		context.set_top_value(o)
-		for name, child in self.children:
+		for name, child, comment in self.children:
 			context.id = name
 			o[name] = child.read_from_buffer(context)
 			if context.failed: break
@@ -393,15 +394,16 @@ class FieldFI:
 @FITypes.register(type_id=8)
 class UnionFI:
 	def init(self, children, **kw):
-		self.children = [(str(name), deserialize_fi(c)) for (name, c) in children]
+		self.children = [(str(name), deserialize_fi(c), comment) for (comment, name, c) in children]
 		try:
-			self.size = sum(c.size for (name, c) in self.children)
+			self.size = sum(c.size for (name, c, comment) in self.children)
 		except:
 			self.size = None
 
 	def _to_text(self, indent, refs, all_params):
 		x = "union "+params_to_text(indent, refs, all_params, )+"{"+"\n"
-		for (name, c) in self.children:
+		for (name, c, comment) in self.children:
+			if comment: x += "\t"*(1+indent) + comment + "\n"
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
 
@@ -409,7 +411,7 @@ class UnionFI:
 		o = {}
 		context.set_top_value(o)
 		start, end = context.buf_offset, context.buf_offset
-		for name, child in self.children:
+		for name, child, comment in self.children:
 			context.buf_offset = start
 			context.id = name
 			o[name] = child.read_from_buffer(context)

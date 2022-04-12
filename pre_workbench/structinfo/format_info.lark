@@ -21,6 +21,7 @@ start: field*
 
 params: ("(" [parampair ("," parampair)*] ")")?
 parampair: IDENTIFIER "=" value
+opt_comment: MULTILINE_COMMENT?
 
 ?anytype: variantfi
     | structfi
@@ -37,7 +38,7 @@ structfi: "struct" params "{" structfields "}"
 bitstructfi: "bits" params "{" bitstructfields "}"
 unionfi: "union" params "{" structfields "}"
 structfields: field*
-field: IDENTIFIER anytype ";"?
+field: opt_comment IDENTIFIER anytype ";"?
 bitstructfields: bitstructfield*
 bitstructfield: IDENTIFIER ":" number ";"?
 
@@ -68,6 +69,7 @@ number: NUMBER
 string : ESCAPED_STRING
 
 IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
+MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
 
 ?expression: fun_expr

@@ -40,15 +40,16 @@ def parse_definition_map_into_container(txt, container, start="start"):
 	ast = fi_parser.parse(txt, start=start)
 
 	for definition in ast.children:
-		container.definitions[definition.children[0]] = transformer.transform(definition.children[1])
-	container.main_name = ast.children[0].children[0]
+		container.definitions[definition.children[1]] = transformer.transform(definition.children[2])
+		container.definition_comments[definition.children[1]] = transformer.transform(definition.children[0])
+	container.main_name = ast.children[0].children[1]
 
 
 class MainTrans(Transformer):
 	def __init__(self):
 		super().__init__()
 
-	start = dict
+	start = list
 
 	def string(self, s):
 		return json.loads(s[0])
@@ -72,6 +73,9 @@ class MainTrans(Transformer):
 
 	def explicitnamedfi(self, node):
 		return node[0]
+
+	def opt_comment(self, node):
+		return str(node[0]) if node else None
 
 	null = lambda self, _: None
 	true = lambda self, _: True

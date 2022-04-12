@@ -95,7 +95,7 @@ class ConsoleWindowLogHandler(logging.Handler, QObject):
 
 
 def initLogging():
-	logging.basicConfig(level=10, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s', force=True,
+	logging.basicConfig(level=10, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s',
 						handlers=[
 							logging.StreamHandler(),
 							logging.FileHandler(filename=logFile, mode='w'),

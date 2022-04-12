@@ -1,2 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel", "Cython"]
+requires = ["setuptools", "wheel", "Cython", "setuptools_scm>=6.2"]
+
+[tool.setuptools_scm]
+write_to = "pre_workbench/_version.py"

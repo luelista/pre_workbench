@@ -10,6 +10,8 @@ import urllib.request
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QMessageBox, QCheckBox, QInputDialog
 
+from pre_workbench.util import get_app_version
+
 logFile = tempfile.gettempdir()+'/pre_workbench.log'
 
 enableReports = False
@@ -23,7 +25,8 @@ def report_error(logFile, excType, excValue, trace, desc):
 			'excValue': str(excValue),
 			'traceback': trace,
 			'platform': platform.uname(),
-			'desc': desc
+			'desc': desc,
+			'version': get_app_version(),
 		}).encode("utf-8"), headers={
 			"Content-Type": "application/json",
 		})

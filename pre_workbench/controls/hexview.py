@@ -97,8 +97,6 @@ class HexView2(QWidget):
 		self.partialLineScrollY = 0
 		self.setFocusPolicy(Qt.StrongFocus)
 
-		self.initUI()
-
 		self.backgroundPixmap = QPixmap()
 		self.textPixmap = QPixmap()
 		GlobalEvents.on_config_change.connect(self._loadOptions)
@@ -119,14 +117,6 @@ class HexView2(QWidget):
 			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-	def initUI(self):
-		pass
-		#self.fiTreeWidget = RangeTreeWidget(self)
-		#self.fiTreeWidget.show()
-		#self.fiTreeWidget.currentItemChanged.connect(self._fiTreeItemSelected)
-		#self.fiTreeWidget.formatInfoUpdated.connect(self.applyFormatInfo)
-
 
 	def _loadOptions(self, *dummy):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
@@ -437,7 +427,7 @@ class HexView2(QWidget):
 		while start > 0:
 			if not matcher(buf.buffer[start - 1]): break
 			start -= 1
-		while end < buf.length:
+		while end < buf.length - 1:
 			if not matcher(buf.buffer[end + 1]): break
 			end += 1
 		return (start,end)
@@ -446,19 +436,17 @@ class HexView2(QWidget):
 		x, y = point.x(), point.y()
 		linePos = None
 		if (x >= self.xAscii):
-			pos = floor((x - self.xAscii) / self.dxAscii);
-			if (pos < self.bytesPerLine): linePos = pos; region = 'ascii' #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+			pos = floor((x - self.xAscii) / self.dxAscii)
+			if (pos < self.bytesPerLine): linePos = pos; region = 'ascii'
 		elif (x >= self.xHex):
 			xx = (x - self.xHex)
 			xx -= floor(xx / (self.dxHex*self.hexSpaceAfter + self.hexSpaceWidth)) * self.hexSpaceWidth # correction factor for hex grouping
-			pos = floor(xx / self.dxHex);
-			if (pos < self.bytesPerLine): linePos = pos; region = 'hex' #//return {'hit':'ascii', 'line':i+self.firstLine, 'pos':pos, ''}
+			pos = floor(xx / self.dxHex)
+			if (pos < self.bytesPerLine): linePos = pos; region = 'hex'
 
-		#//console.log(x,y,linePos);
 		if (linePos is None): return None
 
 		for i in range(linePos, len(self.itemY), self.bytesPerLine):
-			#//console.log(i,self.itemY[i],y,self.itemY[i] <= y , y <= self.itemY[i]+self.dyLine)
 			bufIdx, bufOffset, itemY = self.itemY[i]
 			if itemY is not None and itemY <= y and y <= itemY+self.dyLine:
 				return HitTestResult(bufIdx, bufOffset, region)
@@ -475,14 +463,14 @@ class HexView2(QWidget):
 	def selRange(self):
 		return Range(min(self.selStart,self.selEnd), max(self.selStart,self.selEnd)+1, buffer_idx=self.selBuffer)
 
-	def clipPosition(self, bufferIdx, pos):
+	def _clipPosition(self, bufferIdx, pos):
 		if bufferIdx >= len(self.buffers): return 0
 		return max(0, min(len(self.buffers[bufferIdx]) - 1, pos))
 
 	def select(self, start:int, end:int, bufferIdx=None, scrollIntoView=False):
 		if bufferIdx is None: bufferIdx = self.selBuffer
 		#TODO ensure that start, end are in valid range
-		self.selStart = self.clipPosition(bufferIdx, start); self.selEnd = self.clipPosition(bufferIdx, end)
+		self.selStart = self._clipPosition(bufferIdx, start); self.selEnd = self._clipPosition(bufferIdx, end)
 		self.selBuffer = bufferIdx
 		if scrollIntoView:
 			self.scrollIntoView(bufferIdx, self.selEnd)
@@ -530,7 +518,7 @@ class HexView2(QWidget):
 			arrow = self.selEnd + self.bytesPerLine * floor(self.height() / self.dyLine * 0.9)
 
 		if arrow is not None:
-			arrow = self.clipPosition(self.selBuffer, arrow)
+			arrow = self._clipPosition(self.selBuffer, arrow)
 			self.scrollIntoView(self.selBuffer, arrow)
 
 		if arrow is not None and mod == Qt.ShiftModifier:
@@ -616,7 +604,7 @@ class HexView2(QWidget):
 	############ RENDERING ############################################################
 
 	def resizeEvent(self, e):
-		self.redraw();
+		self.redraw()
 		#self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
 
 	def sizeHint(self):
@@ -641,7 +629,7 @@ class HexView2(QWidget):
 			qpBg.begin(self.backgroundPixmap)
 			qpTxt = QPainter()
 			qpTxt.begin(self.textPixmap)
-			self.drawLines(qpTxt, qpBg)
+			self._drawLines(qpTxt, qpBg)
 			qpBg.end()
 			qpTxt.end()
 
@@ -660,15 +648,15 @@ class HexView2(QWidget):
 				qp = QPainter()
 				qp.begin(self)
 				qp.drawPixmap(0, 0, self.backgroundPixmap)
-				self.drawSelection(qp)
-				self.drawHover(qp)
+				self._drawSelection(qp)
+				self._drawHover(qp)
 				qp.drawPixmap(0, 0, self.textPixmap)
 				#self.drawQuicktip(qp)
 				qp.end()
 			except:
 				logging.exception("Failed to render HexView")
 
-	def drawLines(self, qpTxt, qpBg):
+	def _drawLines(self, qpTxt, qpBg):
 		y = 0 - self.partialLineScrollY
 		canvasHeight = self.size().height()
 		self.itemY = list()
@@ -679,10 +667,10 @@ class HexView2(QWidget):
 			while len(self.itemY) % self.bytesPerLine != 0:
 				self.itemY.append((None, None, None))
 
-			y = self.drawLine(qpTxt, qpBg, lineNumber, y)
+			y = self._drawLine(qpTxt, qpBg, lineNumber, y)
 			lineNumber+=1
 	
-	def drawLine(self, qpTxt, qpBg, lineNumber, y):
+	def _drawLine(self, qpTxt, qpBg, lineNumber, y):
 		TXT_DY = self.fontAscent + self.linePadding #floor(self.dyLine*0.8)
 		#qpTxt.set
 		bufIdx, offset, _ = self.lineNumberToByteOffset(lineNumber)
@@ -739,10 +727,9 @@ class HexView2(QWidget):
 			qpTxt.drawText(self.xAscii + ii * self.dxAscii, y+TXT_DY, asciichar);
 			ii += 1
 
-
 		return y + self.dyLine
 
-	def drawSelection(self, qp):
+	def _drawSelection(self, qp):
 		if len(self.buffers) == 0 or len(self.itemY) == 0: return
 
 		selMin = min(self.selStart, self.selEnd)
@@ -761,7 +748,7 @@ class HexView2(QWidget):
 				with PerfTimer("execution of selectionHelper (%s)", helper.__name__):
 					helper(self, qp, self.buffers[self.selBuffer], (self.selBuffer, selMin, selMax), configs.getValue("SelHeur."+helper.__name__+".options", {}))
 
-	def drawHover(self, qp):
+	def _drawHover(self, qp):
 		if self.lastHit is not None:
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(self.lastHit.buffer, self.lastHit.offset)
 			if dy is not None:

@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 
-from pre_workbench.rangetree import InteractiveFormatInfoContainer
+from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
 from pre_workbench.structinfo import xdrm
 
 class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):

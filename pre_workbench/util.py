@@ -17,3 +17,10 @@ class PerfTimer:
 def truncate_str(s, length=256):
     s = str(s)
     return s if len(s) < length else s[:length] + "[...]"
+
+def get_app_version():
+    try:
+        import pre_workbench._version
+        return pre_workbench._version.version
+    except:
+        return "dev"

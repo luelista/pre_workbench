@@ -1,3 +1,7 @@
+from PyQt5 import QtCore
+
+from pre_workbench.util import get_app_version
+
 print("PRE-Workbench")
 
 import logging
@@ -83,6 +87,7 @@ def run_app():
 def show_splash():
 	splashimg = configs.respath("icons/splash.jpg")
 	splash = QSplashScreen(QPixmap(splashimg))
+	splash.showMessage("Version "+get_app_version(), QtCore.Qt.AlignBottom|QtCore.Qt.AlignLeft, QtCore.Qt.white)
 	splash.show()
 	return splash
 

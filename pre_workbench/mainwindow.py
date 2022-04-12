@@ -36,6 +36,7 @@ from pre_workbench import configs
 from pre_workbench import windows
 from pre_workbench.configs import getIcon
 from pre_workbench.datawidgets import DynamicDataWidget
+from pre_workbench.util import get_app_version
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
@@ -375,7 +376,8 @@ class WorkbenchMain(QMainWindow):
 		self.show()
 
 	def showAboutBox(self):
-		QMessageBox.about(self, "PRE Workbench", "Protocol Reverse Engineering Workbench\n\n"
+		QMessageBox.about(self, "PRE Workbench", "Protocol Reverse Engineering Workbench\n"
+												 "Version "+get_app_version()+"\n\n"
 												 "Copyright (c) 2022 Mira Weller\n"
 												 "Licensed under the GNU General Public License Version 3\n\n"
 												 "https://github.com/luelista/pre_workbench")

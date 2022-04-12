@@ -196,8 +196,12 @@ dmypy.json
 .pyre/
 
 # End of https://www.gitignore.io/api/python,intellij
+
 pyappcrash.log
 /pre_workbench/algo/*.html
 /pre_workbench/algo/*.c
 dist_pyi
 pre_workbench/_version.py
+.pre_workbench
+.idea/dataSources.xml
+.DS_Store

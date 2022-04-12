@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GitSharedSettings">
+    <option name="FORCE_PUSH_PROHIBITED_PATTERNS">
+      <list />
+    </option>
+  </component>
   <component name="VcsDirectoryMappings">
-    <mapping directory="$PROJECT_DIR$/../doc" vcs="Git" />
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/bro" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/hachoir" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/netzob" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/pyhy" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/pyhy/libhydrogen" vcs="Git" />
   </component>
 </project>

@@ -15,6 +15,9 @@
       <excludeFolder url="file://$MODULE_DIR$/pyhy" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
       <excludeFolder url="file://$MODULE_DIR$/wireshark" />
+      <excludeFolder url="file://$MODULE_DIR$/pre_workbench/cpp/qtcolorpicker/build" />
+      <excludeFolder url="file://$MODULE_DIR$/pre_workbench/cpp/qtcolorpicker/testenv" />
+      <excludeFolder url="file://$MODULE_DIR$/dist_pyi" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

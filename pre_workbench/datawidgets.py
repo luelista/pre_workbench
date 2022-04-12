@@ -188,6 +188,8 @@ class PacketListWidget(QWidget):
         self.packetlist.customContextMenuRequested.connect(self.onPacketlistContextMenu)
         self.packetlist.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
         self.packetlist.horizontalHeader().customContextMenuRequested.connect(self.onHeaderContextMenu)
+        self.packetlist.horizontalHeader().setSectionsClickable(False)
+        self.packetlist.horizontalHeader().setSectionsMovable(True)
         self.packetlist.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.packetlistmodel = PacketListModel()
         #self.packetlistmodel.rowsInserted.connect(lambda a,b,c: tabs.setTabText(0, "Raw Frames (%d)"%self.packetlistmodel.rowCount(QModelIndex())))

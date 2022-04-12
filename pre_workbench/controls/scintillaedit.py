@@ -21,8 +21,9 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont
 from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
 
-from pre_workbench import configs, SettingsSection
+from pre_workbench import configs
 from pre_workbench.app import GlobalEvents
+from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import makeDlgButtonBox
 from pre_workbench.structinfo import format_info
 

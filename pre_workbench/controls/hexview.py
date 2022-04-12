@@ -380,8 +380,8 @@ class HexView2(QWidget):
 		logging.debug("wheelEvent deltaY=%d scrollY=%d partial=%d",deltaY,self.scrollY,self.partialLineScrollY)
 		self.redraw()
 
-	def scrollIntoView(self, offset):
-		line = floor(offset / self.bytesPerLine)
+	def scrollIntoView(self, bufIndex:int, offset:int):
+		line = self.byteOffsetToLineNumber(bufIndex, offset)
 		if line < self.firstLine:
 			self._setFirstLine(line - 2)
 		elif line >= self.maxVisibleLine():
@@ -485,8 +485,8 @@ class HexView2(QWidget):
 		self.selStart = self.clipPosition(bufferIdx, start); self.selEnd = self.clipPosition(bufferIdx, end)
 		self.selBuffer = bufferIdx
 		if scrollIntoView:
-			self.scrollIntoView(self.selEnd)
-			self.scrollIntoView(self.selStart)
+			self.scrollIntoView(bufferIdx, self.selEnd)
+			self.scrollIntoView(bufferIdx, self.selStart)
 
 		self.redrawSelection()
 		logging.debug("selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
@@ -531,7 +531,7 @@ class HexView2(QWidget):
 
 		if arrow is not None:
 			arrow = self.clipPosition(self.selBuffer, arrow)
-			self.scrollIntoView(arrow)
+			self.scrollIntoView(self.selBuffer, arrow)
 
 		if arrow is not None and mod == Qt.ShiftModifier:
 			self.select(self.selStart, arrow)
@@ -769,7 +769,7 @@ class HexView2(QWidget):
 				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
 
 	########### CALCULATION    #########################
-	def lineNumberToByteOffset(self, lineNumber:int):
+	def lineNumberToByteOffset(self, lineNumber:int) -> HitTestResult:
 		bufOffset = lineNumber * self.bytesPerLine
 		bufIdx = 0
 		while bufIdx < len(self.buffers) and bufOffset >= len(self.buffers[bufIdx]):
@@ -777,13 +777,17 @@ class HexView2(QWidget):
 			bufIdx += 1
 		return HitTestResult(bufIdx, bufOffset, None)
 
+	def byteOffsetToLineNumber(self, bufIndex:int, offset:int) -> int:
+		linesBefore = sum(ceil(len(buffer) / self.bytesPerLine) for buffer in self.buffers[:bufIndex-1]) if bufIndex > 0 else 0
+		return linesBefore + floor(offset / self.bytesPerLine)
+
 	def maxLine(self):
 		return sum(ceil(len(buffer) / self.bytesPerLine) for buffer in self.buffers);
 
 	def maxVisibleLine(self):
 		return self.firstLine + ceil(len(self.itemY)/self.bytesPerLine)
 
-	def offsetToClientPos(self, buffer, offset):
+	def offsetToClientPos(self, buffer:int, offset:int):
 		column = offset % self.bytesPerLine
 		for bufIdx, bufOffset, itemY in self.itemY:
 			if bufIdx == buffer and bufOffset == offset:

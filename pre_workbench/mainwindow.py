@@ -37,7 +37,7 @@ from pre_workbench import windows
 from pre_workbench.configs import getIcon
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
-	StructInfoCodeWidget, DataInspectorWidget
+	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
 from pre_workbench.typeeditor import JsonView
@@ -57,7 +57,7 @@ class WorkbenchMain(QMainWindow):
 		self.project = project
 		self.mappedChildActions = list()
 		self.curChildMeta = dict()
-		self.initUI()
+		self._initUI()
 		self.restoreChildren()
 		self.mdiArea.restoreState(self.project.getValue("DockState", b""))
 
@@ -322,7 +322,19 @@ class WorkbenchMain(QMainWindow):
 
 		self.createDockWnd("Selection Heuristics", "clipboard-task.png", SelectionHeuristicsConfigWidget())
 
-	def initUI(self):
+		self.createDockWnd("Binwalk", "user-detective-gray.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.selected_bytes_updated.connect(self.dockWidgets["Binwalk"].on_select_bytes)
+
+		self.createDockWnd("External Tools", "user-detective-gray.png", ExtToolDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.selected_bytes_updated.connect(self.dockWidgets["External Tools"].on_select_bytes)
+
+		self.createDockWnd("Search", "user-detective-gray.png", SearchDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.meta_updated.connect(self.dockWidgets["Search"].on_meta_updated)
+
+
+
+
+	def _initUI(self):
 		ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)
 		ads.CDockManager.setConfigFlag(ads.CDockManager.MiddleMouseButtonClosesTab, True)
 		ads.CDockManager.setConfigFlag(ads.CDockManager.AllTabsHaveCloseButton, True)

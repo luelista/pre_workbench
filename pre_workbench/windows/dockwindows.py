@@ -17,13 +17,17 @@
 import inspect
 import logging
 import os
+import re
+import subprocess
+import tempfile
 import weakref
+import shlex
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices, QColor
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
-	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit
+	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox
 
 import pre_workbench.app
 from pre_workbench import configs
@@ -46,10 +50,10 @@ class FileBrowserWidget(QWidget):
 	on_open = pyqtSignal(str)
 	def __init__(self, rootFolder):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 		self.setRoot(rootFolder)
 
-	def initUI(self):
+	def _initUI(self):
 		self.model = QFileSystemModel()
 		self.tree = QTreeView()
 		self.tree.setModel(self.model)
@@ -126,9 +130,9 @@ class FileBrowserWidget(QWidget):
 class MdiWindowListWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 
-	def initUI(self):
+	def _initUI(self):
 		self.list = QListWidget()
 		#self.list.doubleClicked.connect(self.onDblClick)
 		self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -173,7 +177,7 @@ class MdiWindowListWidget(QWidget):
 class StructInfoTreeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 
 		self._updateContent()
 		pre_workbench.app.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
@@ -184,7 +188,7 @@ class StructInfoTreeWidget(QWidget):
 		except:
 			logging.exception("failed to load StructInfoTree")
 
-	def initUI(self):
+	def _initUI(self):
 		self.tree = JsonView(schema="format_info.tes", rootTypeDefinition="FormatInfoFile")
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.tree)
@@ -195,7 +199,7 @@ class StructInfoTreeWidget(QWidget):
 class StructInfoCodeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 		self._updateContent()
 		pre_workbench.app.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
 		self.editor.ctrlEnterPressed.connect(self._applyContent)
@@ -207,7 +211,7 @@ class StructInfoCodeWidget(QWidget):
 		pre_workbench.app.CurrentProject.formatInfoContainer.load_from_string(self.editor.text())
 		pre_workbench.app.CurrentProject.formatInfoContainer.write_file(None)
 
-	def initUI(self):
+	def _initUI(self):
 		self.editor = ScintillaEdit()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.editor)
@@ -219,12 +223,12 @@ class StructInfoCodeWidget(QWidget):
 class RangeTreeDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 		#self.lastBuffer = lambda : None # dead weakref
 		self.lastHexView = lambda : None   # dead weakref
 		self.fiTreeWidget.formatInfoContainer = pre_workbench.app.CurrentProject.formatInfoContainer
 
-	def initUI(self):
+	def _initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.fiTreeWidget)
@@ -285,7 +289,7 @@ class DataInspectorWidget(QWidget):
 	def __init__(self):
 		super().__init__()
 		self.selbytes = None
-		self.initUI()
+		self._initUI()
 		self.loadFormatInfo()
 		self.fiTreeWidget.formatInfoContainer.updated.connect(self.parse)
 
@@ -310,7 +314,7 @@ class DataInspectorWidget(QWidget):
 				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
 			self.fiTreeWidget.updateTree([fi_tree])
 
-	def initUI(self):
+	def _initUI(self):
 		self.fiTreeWidget = RangeTreeWidget()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.fiTreeWidget)
@@ -331,9 +335,9 @@ class DataInspectorWidget(QWidget):
 class RangeListWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 
-	def initUI(self):
+	def _initUI(self):
 		self.treeView = QTreeWidget()
 		self.treeView.setColumnCount(4)
 		self.treeView.setColumnWidth(1, 300)
@@ -350,7 +354,7 @@ class RangeListWidget(QWidget):
 		with PerfTimer("RangeListWidget update"):
 			if event_id != "hexview_range" or sender is None or not self.isVisible(): return
 			self.treeView.clear()
-			for d in sender.buffers[0].matchRanges(overlaps=sender.selRange()):
+			for d in sender.buffers[sender.selBuffer].matchRanges(overlaps=sender.selRange()):
 				root = QTreeWidgetItem(self.treeView)
 				if "color" in d.metadata:
 					root.setIcon(1, filledColorIcon(QColor(d.metadata["color"]), 16))
@@ -371,9 +375,9 @@ class SelectionHeuristicsConfigWidget(QWidget):
 
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 
-	def initUI(self):
+	def _initUI(self):
 		self.listView = QListWidget()
 		self.infoBox = QTextEdit()
 		windowLayout = QVBoxLayout()
@@ -430,21 +434,159 @@ class SelectionHeuristicsConfigWidget(QWidget):
 class RpcDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 
-	def initUI(self):
+	def _initUI(self):
 		pass
+
+
+class BinwalkDockWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self._initUI()
+		self.selBytes = None
+
+	def _initUI(self):
+		toolbar = QToolBar()
+		toolbar.addAction("Run", self._runBinwalk)
+		self.treeView = QTreeWidget()
+		self.treeView.setColumnCount(3)
+		self.treeView.setColumnWidth(1, 300)
+		self.treeView.headerItem().setText(0, "Name")
+		self.treeView.headerItem().setText(1, "Offset")
+		self.treeView.headerItem().setText(2, "Description")
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(toolbar)
+		windowLayout.addWidget(self.treeView)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def on_select_bytes(self, selBytes):
+		self.selBytes = selBytes
+
+	def _runBinwalk(self):
+		self.treeView.clear()
+		if not self.selBytes: return
+		import binwalk
+		result = binwalk.scan(self.selBytes.decode('latin1'), string=True, signature=True)
+		for module in result:
+			root = QTreeWidgetItem(self.treeView)
+			root.setText(0, module.name)
+			for result in module.results:
+				x = QTreeWidgetItem(root)
+				x.setText(0, result.file.name)
+				x.setText(1, "0x%.8X"%result.offset)
+				x.setText(2, result.description)
+
+
+class ExtToolDockWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self._initUI()
+		self.selBytes = None
+
+	def _initUI(self):
+		toolbar = QToolBar()
+		toolbar.addAction("Run", self._runTool)
+		self.cmdLineEdit = QComboBox(editable=True, minimumWidth=200)
+		self._updateMru()
+		toolbar.addWidget(self.cmdLineEdit)
+		self.treeView = QTreeWidget()
+		self.treeView.setColumnCount(1)
+		self.treeView.setColumnWidth(1, 300)
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(toolbar)
+		windowLayout.addWidget(self.treeView)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def _updateMru(self):
+		self.cmdLineEdit.clear()
+		self.cmdLineEdit.addItems(configs.getValue("ExtToolMru", []))
+
+	def on_select_bytes(self, selBytes):
+		self.selBytes = selBytes
+
+	def _runTool(self):
+		commandLine = self.cmdLineEdit.currentText()
+		configs.updateMru("ExtToolMru", commandLine, 10)
+		self._updateMru()
+		self.treeView.clear()
+		if not self.selBytes: return
+		with tempfile.NamedTemporaryFile() as f:
+			f.write(self.selBytes)
+			f.flush()
+			result = subprocess.run(commandLine.format(shlex.quote(f.name)), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			for line in result.stdout.decode('latin1').split('\n'):
+				root = QTreeWidgetItem(self.treeView)
+				root.setText(0, line)
+
+
+
+class SearchDockWidget(QWidget):
+	def __init__(self):
+		super().__init__()
+		self._initUI()
+		self.hexview = None
+
+	def _initUI(self):
+		toolbar = QToolBar()
+		toolbar.addAction("Find", self._runTool)
+		self.cmdLineEdit = QComboBox(editable=True, minimumWidth=200)
+		self._updateMru()
+		toolbar.addWidget(self.cmdLineEdit)
+		self.treeView = QTreeWidget()
+		self.treeView.setColumnCount(2)
+		self.treeView.setColumnWidth(1, 300)
+		self.treeView.itemClicked.connect(self._itemClicked)
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(toolbar)
+		windowLayout.addWidget(self.treeView)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def _updateMru(self):
+		self.cmdLineEdit.clear()
+		self.cmdLineEdit.addItems(configs.getValue("FindMru", []))
+
+	def on_meta_updated(self, event_id, sender):
+		if event_id != "hexview_range" or sender is None: return
+		self.hexview = sender
+
+	def _runTool(self):
+		findStr = self.cmdLineEdit.currentText()
+		configs.updateMru("FindMru", findStr, 10)
+		self._updateMru()
+		self.treeView.clear()
+		if not self.hexview: return
+		pattern = re.compile(findStr.encode('latin1'))
+		for i,buf in enumerate(self.hexview.buffers):
+			root = QTreeWidgetItem(self.treeView)
+			root.setText(0, "Buffer %d"%i)
+			root.setExpanded(True)
+			for match in pattern.finditer(buf.buffer):
+				x = QTreeWidgetItem(root)
+				x.setText(0, match.group(0).decode('latin1'))
+				x.setText(1, str(match.start()))
+				x.setData(0, QtCore.Qt.UserRole, Range(match.start(), match.end(), buffer_idx=i))
+
+	def _itemClicked(self, item):
+		range = item.data(0, QtCore.Qt.UserRole)
+		if range:
+			self.hexview.selectRange(range, True)
+
+
 
 
 class LogWidget(QWidget):
 	def __init__(self, logger_name = ""):
 		super().__init__()
-		self.initUI()
+		self._initUI()
 		self.logger = logging.getLogger(logger_name)
 		self.handler = ConsoleWindowLogHandler()
 		self.handler.sigLog.connect(self.logEvent)
 
-	def initUI(self):
+	def _initUI(self):
 		self.textBox = QTextEdit()
 		self.textBox.setFont(getMonospaceFont())
 		windowLayout = QVBoxLayout()

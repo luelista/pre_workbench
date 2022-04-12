@@ -310,7 +310,7 @@ class WorkbenchMain(QMainWindow):
 		self.selected_bytes_updated.connect(self.dockWidgets["Data Inspector"].on_select_bytes)
 
 		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
-		self.createDockWnd("Application Log", "terminal--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
+		self.createDockWnd("Application Log", "bug--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
 
 		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
 		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
@@ -321,15 +321,15 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget())
 		self.meta_updated.connect(self.dockWidgets["Selected Ranges"].on_meta_update)
 
-		self.createDockWnd("Selection Heuristics", "clipboard-task.png", SelectionHeuristicsConfigWidget())
+		self.createDockWnd("Selection Heuristics", "table-select-cells.png", SelectionHeuristicsConfigWidget())
 
-		self.createDockWnd("Binwalk", "user-detective-gray.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.createDockWnd("Binwalk", "regular-expression-search-match.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
 		self.selected_bytes_updated.connect(self.dockWidgets["Binwalk"].on_select_bytes)
 
-		self.createDockWnd("External Tools", "user-detective-gray.png", ExtToolDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.createDockWnd("External Tools", "toolbox--arrow.png", ExtToolDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
 		self.selected_bytes_updated.connect(self.dockWidgets["External Tools"].on_select_bytes)
 
-		self.createDockWnd("Search", "user-detective-gray.png", SearchDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		self.createDockWnd("Search", "magnifier-left.png", SearchDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
 		self.meta_updated.connect(self.dockWidgets["Search"].on_meta_updated)
 
 

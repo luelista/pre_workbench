@@ -84,8 +84,8 @@ class PacketListModel(QAbstractItemModel):
     def autoCols(self):
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
-                (ColumnInfo("hex(payload)"),),
-                (ColumnInfo("${\"" + x + "\"}") for x in self.listObject.buffers[0].metadata.keys()),
+                (ColumnInfo("hex(payload)", "payload"),),
+                (ColumnInfo("${\"" + x + "\"}", x) for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo(x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
 
@@ -219,9 +219,10 @@ class PacketListWidget(QWidget):
         ctx = QMenu("Context menu", self.packetlist)
         if index.isValid():
             bbuf = self.listObject.buffers[index.row()]
-            ctx.addAction("Item details", lambda: self.showData(bbuf))
+            ctx.addAction("Item Details", lambda: self.showData(bbuf))
+            ctx.addAction("Mark/Unmark Packet", lambda: self.showData(bbuf))
             ctx.addSeparator()
-        ctx.addAction("Select all", lambda: self.packetlist.selectAll())
+        ctx.addAction("Select All", lambda: self.packetlist.selectAll())
 
         ctx.exec(self.packetlist.viewport().mapToGlobal(point))
 
@@ -232,25 +233,25 @@ class PacketListWidget(QWidget):
         if index > -1:
             ctx.addAction("Header "+str(index))
             ctx.addAction("Edit", lambda: self.onEditColumn(index))
-            ctx.addAction("Remove column", lambda: self.packetlistmodel.removeColumn(index))
+            ctx.addAction("Remove Column", lambda: self.packetlistmodel.removeColumn(index))
             ctx.addSeparator()
         addIdx = None if index == -1 else index
-        ctx.addAction("Add column ...", lambda: self.onAddColumn(addIdx))
+        ctx.addAction("Add Column ...", lambda: self.onAddColumn(addIdx))
         for key in sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False)):
             ctx.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
         ctx.addSeparator()
         for key in sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True)):
             ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("fields[\""+key+"\"]"), addIdx))
         ctx.addSeparator()
-        ctx.addAction("Copy header state", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
+        ctx.addAction("Copy Header State", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
         if getClipboardText().startswith("PL-HS:"):
-            ctx.addAction("Paste header state", lambda: self.restoreState(xdrm.loads(b64decode(getClipboardText()[6:].encode("ascii")))))
+            ctx.addAction("Paste Header State", lambda: self.restoreState(xdrm.loads(b64decode(getClipboardText()[6:].encode("ascii")))))
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
 
     def getColumnInfoDefinition(self):
         return [
             SettingsField("expr_str", "Expression", "text", {"autocomplete":self.listObject.getAllKeys()}),
-            SettingsField("title", "Column title", "text", {}),
+            SettingsField("title", "Column Title", "text", {}),
             #SettingsField("src", "Data source", "select", {"options":[("meta","Packet meta data"), ("field","Packet field")]}),
             #SettingsField("show", "Display mode", "select", {"options":[ ("show","Display contents"), ("showname","Tree display contents"), ("hex","Hex value") ]}),
         ]
@@ -393,7 +394,7 @@ class DynamicDataWidget(QWidget):
     def setContents(self, data):
         typ = type(data)
         if data is None:
-            self.setErrMes("Data is 'None'")
+            self.setErrMes(title="No data selected")
         else:
             if hasattr(data, "metadata"):
                 self.metadataWidget.setContents(data.metadata)

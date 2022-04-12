@@ -19,6 +19,7 @@ import struct
 
 from PyQt5.QtGui import QColor, QPen, QPainter
 
+from pre_workbench.configs import SettingsField
 from pre_workbench.objects import ByteBuffer
 from pre_workbench.typeregistry import TypeRegistry
 
@@ -80,8 +81,10 @@ def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
 		qp.drawLine(xAscii+1, y+dy, xAscii+editor.dxAscii-2, y+dy)
 
 
-@SelectionHelpers.register(color="#ff00ff", defaultEnabled=True)
-def selectionLengthMatcher(editor, qp, bbuf, sel):
+@SelectionHelpers.register(color="#ff00ff", defaultEnabled=True, options=[
+	SettingsField("minLength", "Minimum Selection Length", "int", {"default":2}),
+])
+def selectionLengthMatcher(editor, qp, bbuf, sel, options):
 	"""
 	Searches for the length of the selection in various formats in the 16 bytes preceding, the selection itself and the 16 bytes following the selection.
 
@@ -89,13 +92,13 @@ def selectionLengthMatcher(editor, qp, bbuf, sel):
 	"""
 	(bufIdx, start, end) = sel
 	sellen = end - start + 1
-	if sellen == 0: return
+	if sellen < options.get("minLength", 2): return
 	for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen)):
 		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
 
 
 @SelectionHelpers.register(color="#993399", defaultEnabled=False)
-def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel):
+def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel, options):
 	"""
 	Same as selectionLengthMatcher, but searches for the length +1, +2 and +4.
 	"""
@@ -108,7 +111,7 @@ def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel):
 
 
 @SelectionHelpers.register(color="#775511", defaultEnabled=False)
-def debug_highlightMatchRange(editor, qp, bbuf, sel):
+def debug_highlightMatchRange(editor, qp, bbuf, sel, options):
 	"""
 	Highlights the 16 bytes preceding the selection, because they are searched for other matches
 
@@ -119,7 +122,7 @@ def debug_highlightMatchRange(editor, qp, bbuf, sel):
 
 
 @SelectionHelpers.register(color="#555555", defaultEnabled=True)
-def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
+def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel, options):
 	"""
 	Parses the current selection as integer and uses the value as a length, to highlight the range with this length
 	following the selection.
@@ -140,14 +143,16 @@ def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel):
 		return
 
 
-@SelectionHelpers.register(color="#009999", defaultEnabled=True)
-def highlightRepetitions(editor, qp, bbuf, sel):
+@SelectionHelpers.register(color="#009999", defaultEnabled=True, options=[
+	SettingsField("minLength", "Minimum Selection Length", "int", {"default":2}),
+])
+def highlightRepetitions(editor, qp, bbuf, sel, options):
 	"""
 	Searches for the byte values of the selection in the whole visible buffer, highlighting all occurrences.
 	"""
 	(bufIdx, selstart, selend) = sel
 	sellen = selend - selstart + 1
-	if sellen == 0: return
+	if sellen < options.get("minLength", 2): return
 	selbytes = bbuf.getBytes(selstart, sellen)
 	logging.debug("highlightRepetitions: searching for %r", selbytes)
 	(firstBuf, firstOffset), (lastBuf, lastOffset) = editor.visibleRange()

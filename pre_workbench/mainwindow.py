@@ -33,10 +33,6 @@ from pre_workbench.guihelper import navigateBrowser
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
-from pre_workbench.windows.content import textfile
-# noinspection PyUnresolvedReferences
-from pre_workbench import typeeditor
-# noinspection PyUnresolvedReferences
 from pre_workbench import windows
 from pre_workbench.configs import getIcon
 from pre_workbench.datawidgets import DynamicDataWidget
@@ -44,8 +40,6 @@ from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWi
 	StructInfoCodeWidget, DataInspectorWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
-# noinspection PyUnresolvedReferences
-from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.windows.content.hexfile import HexFileWindow
@@ -300,24 +294,32 @@ class WorkbenchMain(QMainWindow):
 
 	def _initDockWindows(self):
 		self.dockWidgets = {}
+
 		self.createDockWnd("Project Files", "folder-tree.png", FileBrowserWidget(self.project.projectFolder), ads.LeftDockWidgetArea, showFirstRun=True)
 		self.dockWidgets["Project Files"].on_open.connect(self.openFile)
+
 		self.createDockWnd("Window List", "applications-stack.png", MdiWindowListWidget(), ads.LeftDockWidgetArea)
+
 		self.zoomWindow = DynamicDataWidget()
 		self.zoomWindow.meta_updated.connect(self.onMetaUpdateRaw)
-		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea)
-		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content))
+		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea, showFirstRun=True)
+		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content) if content is not None else None)
+
 		self.createDockWnd("Data Inspector", "user-detective-gray.png", DataInspectorWidget(), ads.BottomDockWidgetArea, showFirstRun=True)
 		self.selected_bytes_updated.connect(self.dockWidgets["Data Inspector"].on_select_bytes)
+
 		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
 		self.createDockWnd("Application Log", "terminal--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
 
 		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
 		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
+
 		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
 		self.meta_updated.connect(self.dockWidgets["Grammar Parse Result"].on_meta_update)
-		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget(), showFirstRun=True)
+
+		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget())
 		self.meta_updated.connect(self.dockWidgets["Selected Ranges"].on_meta_update)
+
 		self.createDockWnd("Selection Heuristics", "clipboard-task.png", SelectionHeuristicsConfigWidget())
 
 	def initUI(self):

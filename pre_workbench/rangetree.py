@@ -42,6 +42,7 @@ class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
 				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create formatinfo '"+def_name+"'")
 				if params is None: raise
 				self.definitions[def_name] = deserialize_fi(params)
+				self.write_file(self.file_name)
 				return self.definitions[def_name]
 			else:
 				raise

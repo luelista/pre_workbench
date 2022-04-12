@@ -426,8 +426,9 @@ class BitStructFI:
 
 	def _to_text(self, indent, refs, all_params):
 		x = "bits "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		namelen = max(len(name) for name, bits in self.children)
 		for (name, bits) in self.children:
-			x += "\t"*(1+indent) + name + " : " + str(bits) + "\n"
+			x += "%s%s : %2d\n" % ("\t"*(1+indent), name.ljust(namelen), bits)
 		return x + "\t"*indent+"}"
 
 	def _parse(self, context):

@@ -759,7 +759,7 @@ class HexView2(QWidget):
 		for helper, meta in SelectionHelpers.types:
 			if configs.getValue("SelHeur." + helper.__name__ + ".enabled", meta.get("defaultEnabled", False)):
 				with PerfTimer("execution of selectionHelper (%s)", helper.__name__):
-					helper(self, qp, self.buffers[self.selBuffer], (self.selBuffer, selMin, selMax))
+					helper(self, qp, self.buffers[self.selBuffer], (self.selBuffer, selMin, selMax), configs.getValue("SelHeur."+helper.__name__+".options", {}))
 
 	def drawHover(self, qp):
 		if self.lastHit is not None:

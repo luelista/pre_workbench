@@ -26,9 +26,10 @@ from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, Q
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit
 
 import pre_workbench.app
-from pre_workbench import configs, guihelper
+from pre_workbench import configs
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon
+from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
 from pre_workbench.guihelper import filledColorIcon, getMonospaceFont
 from pre_workbench.app import navigate
@@ -382,21 +383,48 @@ class SelectionHeuristicsConfigWidget(QWidget):
 		self.setLayout(windowLayout)
 		self.listView.itemChanged.connect(self.itemChanged)
 		self.listView.currentItemChanged.connect(self.currentItemChanged)
+		self.listView.itemDoubleClicked.connect(self.itemDoubleClicked)
+		self.listView.customContextMenuRequested.connect(self.customContextMenuRequested)
+		self.listView.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 
 		from pre_workbench.controls.hexview_selheur import SelectionHelpers
 		for helper, meta in SelectionHelpers.types:
 			item = QListWidgetItem(helper.__name__ )
 			item.setData(self.HELPER_ROLE, helper)
 			item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-			item.setCheckState(QtCore.Qt.Checked if configs.getValue("SelHeur."+helper.__name__+".enabled", meta.get("defaultEnabled",False)) else QtCore.Qt.Unchecked)
-			item.setIcon(filledColorIcon(configs.getValue("SelHeur."+helper.__name__+".color", meta.get("color","#000000")), 16))
+			item.setCheckState(QtCore.Qt.Checked if configs.getValue(f'SelHeur.{helper.__name__}.enabled', meta.get("defaultEnabled", False)) else QtCore.Qt.Unchecked)
+			item.setIcon(filledColorIcon(configs.getValue(f'SelHeur.{helper.__name__}.color', meta.get("color", "#000000")), 16))
 			self.listView.addItem(item)
 
 	def currentItemChanged(self, current, previous):
 		self.infoBox.setText(inspect.cleandoc(current.data(self.HELPER_ROLE).__doc__) if current is not None else "")
 
 	def itemChanged(self, item):
-		configs.setValue("SelHeur." + item.data(self.HELPER_ROLE).__name__ + ".enabled", item.checkState() == QtCore.Qt.Checked)
+		configs.setValue(f'SelHeur.{item.data(self.HELPER_ROLE).__name__}.enabled', item.checkState() == QtCore.Qt.Checked)
+
+	def itemDoubleClicked(self, item):
+		helper = item.data(self.HELPER_ROLE)
+		if not hasattr(helper, "options"): return
+		def ok(values):
+			configs.setValue(f"SelHeur.{helper.__name__}.options", values)
+		showSettingsDlg(helper.options, configs.getValue(f"SelHeur.{helper.__name__}.options", {}), f"Preferences for {helper.__name__}", self, ok)
+
+	def customContextMenuRequested(self, point):
+		item = self.listView.itemAt(point)
+		ctx = QMenu("Context menu", self)
+		if item:
+			if hasattr(item.data(self.HELPER_ROLE), "options"):
+				ctx.addAction("Preferences", lambda: self.itemDoubleClicked(item))
+			else:
+				ctx.addAction("Preferences").setEnabled(False)
+			ctx.addSeparator()
+		ctx.addAction("Enable All", lambda: self.setAllChecked(True))
+		ctx.addAction("Disable All", lambda: self.setAllChecked(False))
+		ctx.exec(self.listView.viewport().mapToGlobal(point))
+
+	def setAllChecked(self, checked):
+		for i in range(self.listView.count()):
+			self.listView.item(i).setCheckState(QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked)
 
 
 class RpcDockWidget(QWidget):

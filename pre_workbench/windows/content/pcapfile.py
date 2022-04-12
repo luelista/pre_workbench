@@ -41,7 +41,9 @@ class PcapngFileWindow(QWidget, MdiFile):
 		return QSize(600,400)
 
 	def _initUI(self):
-		self.setLayout(QVBoxLayout())
+		layout = QVBoxLayout()
+		layout.setContentsMargins(0, 0, 0, 0)
+		self.setLayout(layout)
 		self.dataDisplay = PacketListWidget()
 		self.dataDisplay.meta_updated.connect(self.meta_updated.emit)
 		self.layout().addWidget(self.dataDisplay)

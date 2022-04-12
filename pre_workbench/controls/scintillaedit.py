@@ -24,21 +24,12 @@ from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
 from pre_workbench import configs, SettingsSection
 from pre_workbench.app import GlobalEvents
 from pre_workbench.guihelper import makeDlgButtonBox
-
-
-class QsciLexerFormatinfo(QsciLexerCPP):
-	def keywords(self, p_int):
-		if p_int == 1:
-			return "variant struct switch case repeat true false null bytes fixed"
-		elif p_int == 2:
-			return "uint8 int8 uint16 int16 uint32 int32"
-		else:
-			return super().keywords(p_int)
-
+from pre_workbench.structinfo import format_info
 
 
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
 					   "Font", "Font", "font", {}, "monospace,12,-1,7,50,0,0,0,0,0", None)
+
 
 class ScintillaEdit(QsciScintilla):
 	ARROW_MARKER_NUM = 8
@@ -49,18 +40,7 @@ class ScintillaEdit(QsciScintilla):
 	def __init__(self, parent=None):
 		super().__init__(parent)
 
-		# Set the default font
-		#font = QFont()
-		#font.setFamilies(['Monaco', 'Courier New'])
-		#font.setFixedPitch(True)
-		#font.setPointSize(11)
-		#self.setFont(font)
-		#self.setMarginsFont(font)
-
 		# Margin 0 is used for line numbers
-		#fontmetrics = QFontMetrics(font)
-		#self.setMarginsFont(font)
-		#self.setMarginWidth(0, fontmetrics.width("00000") + 6)
 		self.setMarginWidth(0, 45)
 		self.setMarginLineNumbers(0, True)
 		self.setMarginsBackgroundColor(QColor("#cccccc"))
@@ -76,35 +56,26 @@ class ScintillaEdit(QsciScintilla):
 
 		# Brace matching: enable for a brace immediately before or after
 		# the current position
-		#
 		self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
 
 		# Current line visible with special background color
 		self.setCaretLineVisible(True)
 		self.setCaretLineBackgroundColor(QColor("#ffe4e4"))
 
-		#lexer = QsciLexerPython()
+		# Configure Lexer
 		lexer = QsciLexerFormatinfo()
-		#lexer.setDefaultFont(font)
 		self.setLexer(lexer)
+
+		# Set the default font
 		self._init_font()
 		GlobalEvents.on_config_change.connect(self._init_font)
 
+		# Enable Multi Select
 		self.SendScintilla(QsciScintilla.SCI_SETMULTIPLESELECTION, 1)
 		self.SendScintilla(QsciScintilla.SCI_SETSEARCHFLAGS, QsciScintilla.SCFIND_MATCHCASE)
 		self.SendScintilla(QsciScintilla.SCI_TARGETWHOLEDOCUMENT, 0)
 		self.SendScintilla(QsciScintilla.SCI_SETADDITIONALSELECTIONTYPING, 1)
 		self.SendScintilla(QsciScintilla.SCI_SETMULTIPASTE, QsciScintilla.SC_MULTIPASTE_EACH)
-		#self.SendScintilla(QsciScintilla.SCI_ASSIGNCMDKEY, ord("G") + (QsciScintilla.SCMOD_CTRL << 16), QsciScintilla.SCI_MULTIPLESELECTADDNEXT)
-		#self.SendScintilla(QsciScintilla.SCI_ASSIGNCMDKEY, ord("G") + ((QsciScintilla.SCMOD_CTRL + QsciScintilla.SCMOD_META) << 16), QsciScintilla.SCI_MULTIPLESELECTADDEACH)
-
-		# Don't want to see the horizontal scrollbar at all
-		# Use raw message to Scintilla here (all messages are documented
-		# here: http://www.scintilla.org/ScintillaDoc.html)
-		#self.SendScintilla(QsciScintilla.SCI_SETHSCROLLBAR, 0)
-
-		# not too small
-		#self.setMinimumSize(600, 450)
 
 	def _init_font(self):
 		font = QFont()
@@ -119,6 +90,9 @@ class ScintillaEdit(QsciScintilla):
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.KeywordSet2, 0x000055)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x00aa00)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x00aa00)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACELIGHT, 0xdddd33)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACEBAD, 0x3333ff)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciScintilla.STYLE_BRACEBAD, 0xffffff)
 
 	def _on_margin_clicked(self, nmargin, nline, modifiers):
 		# Toggle marker for the line the margin was clicked on
@@ -166,6 +140,14 @@ class ScintillaEdit(QsciScintilla):
 		super().keyPressEvent(event)
 
 
+class QsciLexerFormatinfo(QsciLexerCPP):
+	def keywords(self, p_int):
+		if p_int == 1:
+			return "variant struct bits union switch case repeat true false null"
+		elif p_int == 2:
+			return " ".join(format_info.builtinTypes.keys())
+		else:
+			return super().keywords(p_int)
 
 
 def showScintillaDialog(parent, title, content, ok_callback):

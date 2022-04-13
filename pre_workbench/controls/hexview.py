@@ -177,9 +177,9 @@ class HexView2(QWidget):
 		ctxMenu.exec(self.mapToGlobal(point))
 
 	def _buildSelectionContextMenu(self, ctx):
-		ctx.addAction(QAction("Copy selection hex\tCtrl-C", ctx, triggered=lambda: self.copySelection(), shortcut="Ctrl+C"))
-		ctx.addAction("Copy selection C Array", lambda: self.copySelection((", ", "0x%02X")))
-		ctx.addAction("Copy selection hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
+		ctx.addAction(QAction("Copy Selection as Hex\tCtrl-C", ctx, triggered=lambda: self.copySelection(), shortcut="Ctrl+C"))
+		ctx.addAction("Copy Selection C Array", lambda: self.copySelection((", ", "0x%02X")))
+		ctx.addAction("Copy Selection Hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
 		#ctx.addAction("Copy selected annotations", lambda: self.copySelection("hexdump"))
 		ctx.addSeparator()
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
@@ -188,7 +188,7 @@ class HexView2(QWidget):
 			match = next(
 				self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
 
-			ctx.addAction("&Delete selected style\tX", lambda: self.deleteSelectedStyle())
+			ctx.addAction("&Delete Selected Style\tX", lambda: self.deleteSelectedStyle())
 
 			ctx.addSeparator()
 		except StopIteration:
@@ -201,19 +201,19 @@ class HexView2(QWidget):
 
 		if self.selLength() > 1:
 			if self.project:
-				menu = ctx.addMenu( "Apply annotation set for selection")
+				menu = ctx.addMenu( "Apply annotation Set For Selection")
 				for name in self.project.getAnnotationSetNames():
 					#TODO implement this
 					menu.addAction(name, lambda name=name: print(name))
 		else:
 			if self.project:
-				menu = ctx.addMenu("Load annotation set")
+				menu = ctx.addMenu("Load Annotation Set")
 				for name in self.project.getAnnotationSetNames():
 					menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
 				menu.addAction("New...", lambda: self.loadAnnotations(QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0], self.selBuffer))
 
 			if self.formatInfoContainer:
-				menu = ctx.addMenu("Apply format info")
+				menu = ctx.addMenu("Parse Buffer")
 				for name in self.formatInfoContainer.definitions.keys():
 					menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
 				#menu.addAction("New...", lambda: )
@@ -224,17 +224,17 @@ class HexView2(QWidget):
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		menu = ctx.addMenu("Paste as")
 		menu.addAction("Base64", lambda: self.setBuffer(ByteBuffer(b64decode(getClipboardText()))))
-		ctx.addAction("Clear ranges", lambda: self.clearRanges())
+		ctx.addAction("Clear Annotations" + (" on All Buffers" if len(self.buffers) > 0 else ""), lambda: self.clearRanges())
 
 		if self.project:
-			menu = ctx.addMenu("Load annotation set" + (" on all buffers" if len(self.buffers) > 0 else ""))
+			menu = ctx.addMenu("Load Annotation Set" + (" on All Buffers" if len(self.buffers) > 0 else ""))
 			for name in self.project.getAnnotationSetNames():
 				menu.addAction(name, lambda name=name: self.loadAnnotations(name))
 			menu.addAction("New...", lambda: self.loadAnnotations(
 				QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0]))
 
 		if self.formatInfoContainer:
-			menu = ctx.addMenu("Apply format info" + (" on all buffers" if len(self.buffers) > 0 else ""))
+			menu = ctx.addMenu("Parse " + (" All Buffers" if len(self.buffers) > 0 else " Buffer"))
 			for name in self.formatInfoContainer.definitions.keys():
 				menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
 
@@ -262,7 +262,8 @@ class HexView2(QWidget):
 		self.project.storeAnnotation(self.annotationSetName, range)
 
 	def clearRanges(self):
-		self.buffers[0].clearRanges()
+		for buf in self.buffers:
+			buf.clearRanges()
 		self.redraw()
 
 	def getRangeString(self, range, style=(" ","%02X")):

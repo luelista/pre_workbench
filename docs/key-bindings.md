@@ -27,8 +27,9 @@ title: Key Bindings Reference
 | ctrl-plus | Zoom in |
 | ctrl-minus | Zoom out |
 | ctrl-0 | Reset zoom level |
-| X | Delete selected annotation |
 | R, G, Y, L, M, T | Annotate with background color (Red, Green, Yellow, bLue, Magenta, Turqoise) |
+| X | Delete selected annotation |
+| ctrl-shift-K | Delete all annotations |
 
 
 

@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from parse_helper import parse_me
-from pre_workbench.structinfo.exceptions import invalid
+from pre_workbench.structinfo.exceptions import invalid, incomplete
 
 
 def test_repeated_struct():
@@ -93,6 +93,7 @@ def test_strings_types():
 def test_magic_fail():
 	with pytest.raises(invalid):
 		parse_me(def1, "11223344     02 0005 0000000000    0004  f09f8c88  0009 4dfcdf696767616e67    4dc3bcc39f696767616e67 00    4dfcdf696767616e67 00", {})
+
 
 
 def test_tagged_type_strings_endianness():
@@ -219,26 +220,3 @@ def test_ws_bytes():
 				 'uint_string': 'ABCDE'
 	})
 
-test_variant_reset_offset_code = """
-	capture_file variant {
-		pcap_file(endianness=">")
-		pcap_file(endianness="<")
-	}
-	pcap_file struct {
-		dummy UINT32
-		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)
-	}
-	"""
-def test_variant_reset_offset_1():
-	parse_me(test_variant_reset_offset_code,
-	"  00000001 A1B2C3D4 ", {
-		'dummy': 1,
-		'magic_number': 0xA1B2C3D4
-	})
-
-def test_variant_reset_offset_2():
-	parse_me(test_variant_reset_offset_code,
-	 "  01000000 D4C3B2A1 ", {
-		 'dummy': 1,
-		 'magic_number': 0xA1B2C3D4
-	 })

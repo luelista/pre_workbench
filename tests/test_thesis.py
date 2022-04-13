@@ -31,7 +31,7 @@ def test_thesis_variant():
 		pcap_file(endianness="<")
 	}
 	pcap_file struct {
-		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)
+		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=0xA1B2C3D4)
 	}
 	""",
 	"  A1B2C3D4 ", {

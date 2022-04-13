@@ -210,7 +210,7 @@ header bits(endianness="<") {
 
 # Expressions
 
-
+TODO: describe expression syntax 
 
 
 [charsets]: <https://docs.python.org/3/library/codecs.html#standard-encodings>

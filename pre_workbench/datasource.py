@@ -54,7 +54,7 @@ class FileDataSource(DataSource):
 	def getConfigFields():
 		return [
 			SettingsField("fileName", "File name", "text", {"fileselect":"open"}),
-			SettingsField("formatInfo", "Format info", "text", {"fileselect":"open"})
+			SettingsField("formatInfo", "Grammar file", "text", {"fileselect":"open"})
 		]
 	def startFetch(self):
 		bbuf = ByteBuffer(metadata={'fileName':self.params['fileName'],

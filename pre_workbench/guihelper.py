@@ -89,3 +89,7 @@ def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None)
 	makeDlgButtonBox(dlg, ok_callback, retval_callback)
 	if dlg.exec() == QDialog.Rejected: return None
 	if not ok_callback: return retval_callback()
+
+
+def TODO():
+	QMessageBox.warning(None, "TODO", "Not implemented yet")

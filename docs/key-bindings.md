@@ -23,7 +23,7 @@ title: Key Bindings Reference
 | ctrl-A | Select all of current buffer |
 | ctrl-C | Copy selection as undelimited hex string |
 | ctrl-shift-C | Copy selection as formatted hex dump |
-| ctrl-F5 | Re-apply format info |
+| ctrl-F5 | Re-apply grammar |
 | ctrl-plus | Zoom in |
 | ctrl-minus | Zoom out |
 | ctrl-0 | Reset zoom level |

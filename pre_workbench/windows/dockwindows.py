@@ -307,11 +307,7 @@ class DataInspectorWidget(QWidget):
 		with PerfTimer("DataInspector parsing"):
 			if not self.selbytes: return
 			parse_context = AnnotatingParseContext(self.fiTreeWidget.formatInfoContainer, self.selbytes) #buffer.getBytes(range.start, range.length()))
-			try:
-				fi_tree = parse_context.parse()
-			except parse_exception as ex:
-				logging.exception("Failed to apply format info")
-				logging.getLogger("DataSource").error("Failed to apply format info: "+str(ex))
+			fi_tree = parse_context.parse()
 			self.fiTreeWidget.updateTree([fi_tree])
 
 	def _initUI(self):

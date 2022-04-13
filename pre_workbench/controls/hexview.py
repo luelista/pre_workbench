@@ -324,21 +324,19 @@ class HexView2(QWidget):
 
 	def _parseBuffer(self, buf):
 		if buf.fi_root_name is None: return
-		try:
-			# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
-			buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
-			parse_context = BytebufferAnnotatingParseContext(self.formatInfoContainer, buf)
-			parse_context.on_new_subflow_category = self._newSubflowCategory
-			buf.fi_tree = parse_context.parse(buf.fi_root_name)
-		except parse_exception as ex:
-			logging.exception("Failed to apply format info")
-			logging.getLogger("DataSource").error("Failed to apply format info: " + str(ex))
+		# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
+		buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
+		parse_context = BytebufferAnnotatingParseContext(self.formatInfoContainer, buf)
+		parse_context.on_new_subflow_category = self._newSubflowCategory
+		buf.fi_tree = parse_context.parse(buf.fi_root_name)
+		if parse_context.failed:
+			logging.exception("Failed to apply grammar definition", exc_info=parse_context.failed)
+			logging.getLogger("DataSource").error("Failed to apply grammar definition: " + str(parse_context.failed))
 
 	def applyFormatInfo(self, root_name=None, bufIdx=None):
 		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
 			if root_name is not None: buf.fi_root_name = root_name
 			self._parseBuffer(buf)
-		# QMessageBox.warning(self, "Failed to apply format info", str(ex))
 		self.parseResultsUpdated.emit([buf.fi_tree for buf in self.buffers])
 		self.redraw()
 

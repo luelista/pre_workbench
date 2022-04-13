@@ -374,6 +374,9 @@ class ByteBufferWidget(QWidget):
     def run_ndis(self):
         pass
 
+    def clearRanges(self):
+        self.textbox.clearRanges()
+
 
 class DynamicDataWidget(QWidget):
     meta_updated = pyqtSignal(str, object)
@@ -425,3 +428,7 @@ class DynamicDataWidget(QWidget):
         except:
             logging.debug(str(childType)+" has no meta_updated signal")
         self.layout().addWidget(self.childWidget,66)
+
+    def childActionProxy(self):
+        return self.childWidget
+

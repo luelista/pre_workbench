@@ -29,7 +29,7 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication
 from PyQtAds import ads
 
-from pre_workbench.guihelper import navigateBrowser
+from pre_workbench.guihelper import navigateBrowser, TODO
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
@@ -195,10 +195,10 @@ class WorkbenchMain(QMainWindow):
 				statusTip="Reload the grammar from disk")
 		self.mapChildAction(self.reloadGrammarAct, "reloadGrammar")
 
-		self.openGrammarAct = QAction("&Open grammar", self,
-				shortcut="Ctrl+Shift+I",
-				statusTip="Open a grammar file to parse the current buffer")
-		self.mapChildAction(self.openGrammarAct, "openGrammar")
+		self.clearRangesAct = QAction("&Clear Annotations", self,
+				shortcut="Ctrl+Shift+K",
+				statusTip="Remove all annotations on the current buffer")
+		self.mapChildAction(self.clearRangesAct, "clearRanges")
 
 	def _initMenu(self):
 		menubar = self.menuBar()
@@ -259,10 +259,17 @@ class WorkbenchMain(QMainWindow):
 		self.mapChildAction(a, "zoomReset")
 		viewMenu.addAction(a)
 
+		##### Annotations #####
+		annotationsMenu = menubar.addMenu('&Annotations')
+		annotationsMenu.addAction(self.clearRangesAct)
+		self.loadAnnotationSetMenu = annotationsMenu.addMenu("Load Annotation Set")
+		annotationsMenu.aboutToShow.connect(self._updateParserMenu)
+
 		##### PARSER #####
 		parserMenu = menubar.addMenu('&Parser')
-		parserMenu.addAction(self.openGrammarAct)
 		parserMenu.addAction(self.reloadGrammarAct)
+		self.applyFormatInfoMenu = parserMenu.addMenu("Parse Buffer")
+		parserMenu.aboutToShow.connect(self._updateParserMenu)
 
 		##### TOOLS #####
 		toolsMenu = menubar.addMenu('&Tools')
@@ -275,8 +282,8 @@ class WorkbenchMain(QMainWindow):
 
 		##### WINDOW #####
 		self.windowMenu = menubar.addMenu("&Window")
-		self.updateWindowMenu()
-		self.windowMenu.aboutToShow.connect(self.updateWindowMenu)
+		self._updateWindowMenu()
+		self.windowMenu.aboutToShow.connect(self._updateWindowMenu)
 
 		##### HELP #####
 		helpMenu = menubar.addMenu("&Help")
@@ -400,7 +407,7 @@ class WorkbenchMain(QMainWindow):
 				self.mruActions[i].setText(os.path.basename(mru[i]))
 				self.mruActions[i].setData(mru[i])
 
-	def updateWindowMenu(self):
+	def _updateWindowMenu(self):
 		#TODO
 		return
 		self.windowMenu.clear()
@@ -425,6 +432,17 @@ class WorkbenchMain(QMainWindow):
 			action.setChecked(child is self.activeMdiChild())
 			action.triggered.connect(self.windowMapper.map)
 			self.windowMapper.setMapping(action, window)
+
+	def _updateParserMenu(self):
+		self.loadAnnotationSetMenu.clear()
+		self.applyFormatInfoMenu.clear()
+		for name in self.project.getAnnotationSetNames():
+			self.loadAnnotationSetMenu.addAction(name, TODO)
+		self.loadAnnotationSetMenu.addAction("New...", TODO)
+
+		for name in self.project.formatInfoContainer.definitions.keys():
+			self.applyFormatInfoMenu.addAction(name, TODO)
+		#menu.addAction("New...", lambda: )
 
 	def onSubWindowActivated(self, old: ads.CDockWidget, now: ads.CDockWidget):
 		logging.debug("onSubWindowActivated")

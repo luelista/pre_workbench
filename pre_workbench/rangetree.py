@@ -111,10 +111,10 @@ class RangeTreeWidget(QTreeWidget):
 		else:
 			ctx.addAction("Edit ...", lambda: self.editField(self.formatInfoContainer.definitions[self.formatInfoContainer.main_name]))
 
-		ctx.addAction("New format info ...", self.newFormatInfo)
-		ctx.addAction("Load format info ...", self.fileOpenFormatInfo)
+		ctx.addAction("New grammar file ...", self.newFormatInfo)
+		ctx.addAction("Load grammar file ...", self.fileOpenFormatInfo)
 		if self.formatInfoContainer and self.formatInfoContainer.file_name:
-			ctx.addAction("Save format info", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
+			ctx.addAction("Save grammar file", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
 		ctx.addAction(QAction(parent=ctx, text="Only printable", triggered=self._toggleOnlyPrintable, checkable=True, checked=self.onlyPrintable))
 		ctx.exec(self.mapToGlobal(point))
 
@@ -184,9 +184,9 @@ class RangeTreeWidget(QTreeWidget):
 	################################################
 
 	def newFormatInfo(self):
-		fileName, _ = QFileDialog.getSaveFileName(self, "Save format info",
+		fileName, _ = QFileDialog.getSaveFileName(self, "Save Grammar File",
 												  configs.getValue(self.optionsConfigKey + "_lastOpenFile", ""),
-												  "Format Info files (*.pfi *.txt)")
+												  "Grammar Files (*.pfi *.txt)")
 		if not fileName: return
 		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
 		self.formatInfoContainer.load_from_string("DEFAULT struct(endianness="<") {}")
@@ -194,7 +194,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	def fileOpenFormatInfo(self):
-		fileName, _ = QFileDialog.getOpenFileName(self,"Load format info", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Format Info files (*.pfi *.txt)")
+		fileName, _ = QFileDialog.getOpenFileName(self,"Load Grammar File", configs.getValue(self.optionsConfigKey+"_lastOpenFile",""),"Grammar Files (*.pfi *.txt)")
 		if fileName:
 			configs.setValue(self.optionsConfigKey+"_lastOpenFile", fileName)
 			self.loadFormatInfo(load_from_file=fileName)
@@ -204,7 +204,7 @@ class RangeTreeWidget(QTreeWidget):
 			self.formatInfoContainer = InteractiveFormatInfoContainer(**loadSrc)
 		except Exception as ex:
 			traceback.print_exc()
-			QMessageBox.warning(self, "Failed to parse format info description", str(ex))
+			QMessageBox.warning(self, "Failed to parse Grammar File", str(ex))
 			return
 
 	def saveFormatInfo(self, fileName):

@@ -21,9 +21,9 @@ class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
 		try:
 			return self.definitions[def_name]
 		except KeyError:
-			if QMessageBox.question(pre_workbench.app.MainWindow, "Format Info", "Reference to undefined formatinfo '" + def_name + "'. Create it now?") == QMessageBox.Yes:
+			if QMessageBox.question(pre_workbench.app.MainWindow, "Parser", "Reference to undefined type '" + def_name + "'. Create it now?") == QMessageBox.Yes:
 				from pre_workbench.typeeditor import showTypeEditorDlg
-				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create formatinfo '"+def_name+"'")
+				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create type '"+def_name+"'")
 				if params is None: raise
 				self.definitions[def_name] = deserialize_fi(params)
 				self.write_file(self.file_name)

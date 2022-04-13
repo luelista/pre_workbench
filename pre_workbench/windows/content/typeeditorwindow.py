@@ -38,6 +38,6 @@ class TypeEditorFileWindow(QScrollArea, MdiFile):
 class TypeEditorSchemaFileWindow(TypeEditorFileWindow):
 	pass
 
-@WindowTypes.register(fileExts=['.pfi'], schema=respath('format_info.tes'), typeName='FormatInfoFile', description='Protocol Format Info Specification')
+@WindowTypes.register(fileExts=['.pfi'], schema=respath('format_info.tes'), typeName='FormatInfoFile', description='Grammar Definition File')
 class ProtocolFormatInfoFileWindow(TypeEditorFileWindow):
 	pass

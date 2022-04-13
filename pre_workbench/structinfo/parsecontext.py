@@ -83,6 +83,16 @@ class ParseContext:
 		if buf is not None:
 			self.feed_bytes(buf)
 
+	def set_failed(self, ex):
+		if not isinstance(ex, parse_exception):
+			raise TypeError("Argument to set_failed must be of type parse_exception")
+		self.failed = ex
+		self.log("Marking context as failed", str(ex))
+
+	def clear_failed(self):
+		self.failed = None
+		self.log("Resetting context failed")
+
 	def hexdump_context(self, ptr, context=16):
 		start = ptr - (ptr%16) - context
 		end = start + 2*context
@@ -164,7 +174,7 @@ class ParseContext:
 		return struct.unpack_from(self.get_param('endianness') + format_string, self.buf, self.buf_offset)
 
 	def peek_int(self, n, signed):
-		return int.from_bytes(self.buf[self.buf_offset:self.buf_offset+n], signed=signed, byteorder='little' if self.get_param('endianness') == '<' else 'big')
+		return int.from_bytes(self.buf[self.buf_offset:self.buf_offset+n], signed=signed, byteorder='little' if n == 1 or self.get_param('endianness') == '<' else 'big')
 
 	def peek_bytes(self, n):
 		return self.buf[self.buf_offset : self.buf_offset + n]

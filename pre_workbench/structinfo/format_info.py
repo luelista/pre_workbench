@@ -78,17 +78,18 @@ class FormatInfo:
 				logging.info("%s %s: \t%r", "+ " * len(context.stack), self.params["print"], result.value if hasattr(result, "value") else result)
 			return result
 		except parse_exception as ex:
-			context.log("parse_exception: "+str(ex))
+			context.log("[!!!] parse_exception: "+str(ex))
 			context.restore_offset()
 			if not context.get_param("ignore_errors", False, raise_if_missing=False):
-				context.failed = ex
+				context.set_failed(ex)
 			return context.pack_error(ex)
 		except Exception as ex:
-			context.log("UNHANDLED Exception in FI parse: "+str(ex))
+			context.log("[!!!] UNHANDLED Exception in FI parse: "+str(ex))
 			context.restore_offset()
+			ex = parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex), cause=ex)
 			if not context.get_param("ignore_errors", False, raise_if_missing=False):
-				context.failed = ex
-			return context.pack_error(parse_exception(context, "UNHANDLED Exception in FI parse: "+str(ex), cause=ex))
+				context.set_failed(ex)
+			return context.pack_error(ex)
 		#except Exception as ex:
 		#	context.log("UNHANDLED Exception in FI parse: "+str(ex))
 		#	traceback.print_exc()
@@ -141,15 +142,17 @@ class VariantStructFI:
 		return x + "\t"*indent+"}"
 
 	def _parse(self, context):
+		start_offset = context.buf_offset
 		for i, variant in enumerate(self.children):
+			context.buf_offset = start_offset
 			context.id = "var-%d"%i
 			result = context.pack_value(variant.read_from_buffer(context))
 
 			if context.failed and isinstance(context.failed, invalid):
 				#TODO verhalten bei unterschiedlich langen varianten??? -  noch zu überlegen
 				# aktuell: invalid ist es nur, wenn alle invalid sind - incomplete schon, sobald das erste incomplete ist
-				print("variant %d no match: %r"%(i, context.failed))
-				context.failed = None
+				context.log("variant %d no match: %r"%(i, context.failed))
+				context.clear_failed()
 				continue
 
 
@@ -181,15 +184,14 @@ class RepeatStructFI:
 		context.set_top_value(o)
 		if self.times_expr is None:
 			i = 0
-			while True:
+			while context.remaining_bytes() > 0:
 				pos = context.offset()
 				context.id = "[%d]"%i
 				o.append(self.children.read_from_buffer(context))
 				if context.failed:
-					if isinstance(context.failed, incomplete) or (
-							isinstance(context.failed, invalid) and self.until_invalid):
+					if isinstance(context.failed, invalid) and self.until_invalid:
 						context.log("repeat stopping gracefully", type(context.failed))
-						context.failed = None
+						context.clear_failed()
 						o.pop()
 					break
 				if pos == context.offset():
@@ -295,9 +297,9 @@ builtinTypes = {
 	"NONE": 	(0, lambda c,b: None, ),   			#	/* used for text labels with no value */
 	#"PROTOCOL": (NOT_IMPL, None, ),   	#
 	"BOOLEAN": 	(1, lambda c,n: c.peek_structformat("?")[0], ),   			#	/* TRUE and FALSE come from <glib.h> */
-	"CHAR": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#	/* 1-octet character as 0-255 */
+	"CHAR": 	(1, _parse_unsigned_int, ),   			#	/* 1-octet character as 0-255 */
 	"E_UINT": 	(EXPR_LEN, _parse_unsigned_int, ),
-	"UINT8": 	(1, lambda c,n: c.peek_structformat("B")[0], ),   			#
+	"UINT8": 	(1, _parse_unsigned_int, ),   			#
 	"UINT16": 	(2, lambda c,n: c.peek_structformat("H")[0], ),   			#
 	"UINT24": 	(3, _parse_unsigned_int, ),   			#	/* really a UINT32,  but displayed as 6 hex-digits if FD_HEX*/
 	"UINT32": 	(4, lambda c,n: c.peek_structformat("L")[0], ),   			#
@@ -306,7 +308,7 @@ builtinTypes = {
 	"UINT56": 	(7, _parse_unsigned_int, ),   			#	/* really a UINT64,  but displayed as 14 hex-digits if FD_HEX*/
 	"UINT64": 	(8, lambda c,n: c.peek_structformat("Q")[0], ),   			#
 	"E_INT": 	(EXPR_LEN, _parse_signed_int, ),
-	"INT8": 	(1, lambda c,n: c.peek_structformat("b")[0], ),   			#
+	"INT8": 	(1, _parse_signed_int, ),   			#
 	"INT16": 	(2, lambda c,n: c.peek_structformat("h")[0], ),   			#
 	"INT24": 	(3, _parse_signed_int, ),   			#	/* same as for UINT24 */
 	"INT32": 	(4, lambda c,n: c.peek_structformat("l")[0], ),   			#

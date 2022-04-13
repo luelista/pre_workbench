@@ -15,8 +15,14 @@ pcap_file variant {
 		header pcap_header
 		packets repeat pcap_packet
 	}
-	repeat(endianness="<", section="pcapNG file, little endian") pcapng_block
-	repeat(endianness=">", section="pcapNG file, big endian") pcapng_block
+	struct (endianness="<", section="pcapNG file, little endian"){
+		first_block pcapng_first_block
+		rest_blocks repeat pcapng_block
+	}
+	struct (endianness=">", section="pcapNG file, big endian"){
+		first_block pcapng_first_block
+		rest_blocks repeat pcapng_block
+	}
 }
 
 pcap_header struct (section="pcap file header"){
@@ -39,6 +45,19 @@ pcap_packet struct {
 	payload BYTES(size=(pheader.incl_len))
 }
 
+pcapng_first_block struct (section="pcapNG first block"){
+	block_type UINT32(magic=0x0A0D0D0A, color="#999900", show="0x%08X")
+	block_length UINT32(color="#666600")
+	block_payload struct {
+		byte_order_magic UINT32(magic=439041101, color="green", show="0x%08X")
+		version_major UINT16
+		version_minor UINT16
+		section_length INT64
+		options BYTES(size=(block_length-28), parse_with=pcapng_options)
+	}
+	block_length2 UINT32(color="#666600")
+}
+
 pcapng_block struct (section="pcapNG block"){
 	block_type UINT32(color="#999900", show="0x%08X")
 	block_length UINT32(color="#666600")
@@ -49,8 +68,9 @@ pcapng_block struct (section="pcapNG block"){
 pcapng_block_payload switch block_type {
 	case 0x0A0D0D0A: pcapng_SHB
 	case 1: pcapng_IDB
-	case 6: pcapng_EPB
+	case 3: pcapng_SPB
 	case 5: BYTES
+	case 6: pcapng_EPB
 }
 
 pcapng_SHB struct {
@@ -78,6 +98,12 @@ pcapng_EPB struct {
 	payload_padding BYTES(size="3-((cap_length-1)&3)", textcolor="#888888")
 }
 
+pcapng_SPB struct {
+	orig_length UINT32
+	payload BYTES(size=(block_length - 16))
+	payload_padding BYTES(size=(pad(4)), textcolor="#888888")
+}
+
 pcapng_options repeat struct {
 		code UINT16(color="#660666")
 		length UINT16
@@ -98,15 +124,16 @@ def read_pcap_file(f):
 		for packet in pcapfile['packets']:
 			plist.add(ByteBuffer(packet['payload'], metadata=packet['pheader']))
 	else:
+		blocks = [ pcapfile['first_block'] ] + pcapfile['rest_blocks']
 		# pcapNG
 		plist.metadata['interfaces'] = []
-		for block_wrapper in pcapfile:
+		for block_wrapper in blocks:
 			block = block_wrapper['block_payload']
 			if isinstance(block, dict) and 'payload' in block:
-				meta = {'interface_id': block['interface_id'],
+				meta = {'interface_id': block.get('interface_id', 0),
 						'timestamp': datetime.fromtimestamp(
-							(block['timestamp_hi'] << 32 | block['timestamp_lo']) / 1000000.0),
-						'cap_length': block['cap_length'],
+							(block.get('timestamp_hi', 0) << 32 | block.get('timestamp_lo', 0)) / 1000000.0),
+						'cap_length': block.get('cap_length', 0),
 						'orig_length': block['orig_length'],
 						}
 				plist.add(ByteBuffer(block['payload'], metadata=meta))

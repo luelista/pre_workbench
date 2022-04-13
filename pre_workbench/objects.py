@@ -202,6 +202,9 @@ class ByteBufferList(QObject):
 			if fieldKeys: s.update(bbuf.fields.keys())
 		return s
 
+	def __repr__(self):
+		return "ByteBufferList(metadata=%r, buffers=%r)" % (self.metadata, self.buffers)
+
 
 
 

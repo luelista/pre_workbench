@@ -6,7 +6,7 @@ def test_thesis_struct():
 	parse_me("""
 	pascal_string struct {
 		length UINT16(endianness=">")
-		value STRING(size=(length))
+		value STRING(size=(length), charset="ascii")
 	}
 	""",
 	"  0004 41414141 ", {
@@ -62,13 +62,13 @@ def test_thesis_switch():
 def test_thesis_union():
 	parse_me("""
 	u_s union {
-		unsigned UINT16
-		signed INT16
+		unsigned UINT8
+		signed INT8
 	}
 	""",
 	"  FF ", {
 		'unsigned': 255,
-		'signed': -127
+		'signed': -1
 	})
 
 

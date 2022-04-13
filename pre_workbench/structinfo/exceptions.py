@@ -11,6 +11,8 @@ class parse_exception(Exception):
 class incomplete(parse_exception):
 	def __init__(self, context, need, got):
 		super().__init__(context, "incomplete: needed %d, got %d bytes" %(need,got))
+		self.needed_bytes = need
+		self.got_bytes = got
 
 
 class invalid(parse_exception):

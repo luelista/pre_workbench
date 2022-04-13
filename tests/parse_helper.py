@@ -1,3 +1,4 @@
+import os.path
 
 from binascii import unhexlify
 
@@ -11,5 +12,10 @@ def parse_me(definition, hexstring, expected):
 	result = pc.parse()
 	if pc.failed:
 		raise pc.failed
+	print(result)
 	assert result == expected
+
+
+def open_fixture(name, mode="rb"):
+	return open(os.path.join(os.path.dirname(__file__), "fixtures/" + name), mode)
 

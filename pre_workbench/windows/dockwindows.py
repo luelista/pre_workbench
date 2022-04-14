@@ -533,7 +533,9 @@ class SearchDockWidget(QWidget):
 		toolbar.addWidget(self.cmdLineEdit)
 		self.treeView = QTreeWidget()
 		self.treeView.setColumnCount(2)
-		self.treeView.setColumnWidth(1, 300)
+		self.treeView.setColumnWidth(0, 300)
+		self.treeView.headerItem().setText(0, "Result")
+		self.treeView.headerItem().setText(1, "Offset")
 		self.treeView.itemClicked.connect(self._itemClicked)
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(toolbar)
@@ -557,10 +559,12 @@ class SearchDockWidget(QWidget):
 		if not self.hexview: return
 		pattern = re.compile(findStr.encode('latin1'))
 		for i,buf in enumerate(self.hexview.buffers):
-			root = QTreeWidgetItem(self.treeView)
-			root.setText(0, "Buffer %d"%i)
-			root.setExpanded(True)
+			root = None
 			for match in pattern.finditer(buf.buffer):
+				if not root:
+					root = QTreeWidgetItem(self.treeView)
+					root.setText(0, "Buffer %d: %r" % (i, buf.metadata))
+					root.setExpanded(True)
 				x = QTreeWidgetItem(root)
 				x.setText(0, match.group(0).decode('latin1'))
 				x.setText(1, str(match.start()))

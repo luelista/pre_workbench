@@ -27,10 +27,10 @@ from pre_workbench.guihelper import showWidgetDlg, filledColorIcon
 from pre_workbench.syshelper import get_current_rss
 
 
-def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None):
+def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None, min_width=400):
 	if values == None: values = {}
 	sg = SettingsGroup(definition, values)
-	return showWidgetDlg(sg, title, lambda: values, parent, ok_callback)
+	return showWidgetDlg(sg, title, lambda: values, parent, ok_callback, min_width)
 
 def showPreferencesDlg(definition, values=None, title="Preferences", parent=None, ok_callback=None):
 	if values == None: values = {}
@@ -176,7 +176,7 @@ class SettingsGroup(QGroupBox):
 		elif mode == "save":
 			r, _ = QFileDialog.getSaveFileName(self, caption, field.text(), filter)
 		elif mode == "dir":
-			r, _ = QFileDialog.getExistingDirectory(self, caption, field.text())
+			r = QFileDialog.getExistingDirectory(self, caption, field.text())
 		else:
 			raise Exception("Invalid fileselect mode "+mode)
 		if r:

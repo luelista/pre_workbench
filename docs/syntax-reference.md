@@ -212,5 +212,21 @@ header bits(endianness="<") {
 
 TODO: describe expression syntax 
 
+## Built-in functions
+
+Currently, all functions have exactly one parameter.
+
+| name    | description |
+| ------- | ----------- |
+| hex     | Returns a hex string representation of the parameter.   |
+| dec     | Returns a decimal string representation of the parameter.   |
+| dotted_quad | Returns a dot-separated decimal representation of the bytes passed as a parameter, like in an IPv4 address.   |
+| ip6     | Returns a colon-separated hexadecimal representation, like in an IPv6 or Ethernet address.   |
+| dec     | Returns a decimal string representation of the parameter.   |
+| len     | Returns the length of the parameter.  |
+| snip    | Truncates the parameter to 32 bytes, if longer. |
+| pad     | Returns the number of bytes required to pad the current buffer to a multiple of N bytes. |
+
+
 
 [charsets]: <https://docs.python.org/3/library/codecs.html#standard-encodings>

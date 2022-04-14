@@ -14,11 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import glob
 import logging
 import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
+from pre_workbench import app
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete
@@ -48,30 +50,59 @@ class DataSource(QObject):
 	def cancelFetch(self):
 		pass
 
-@DataSourceTypes.register(DisplayName = "Binary file")
+
+@DataSourceTypes.register(DisplayName="Binary file")
 class FileDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			SettingsField("fileName", "File name", "text", {"fileselect":"open"}),
-			SettingsField("formatInfo", "Grammar file", "text", {"fileselect":"open"})
+			SettingsField("fileName", "File name", "text", {"fileselect": "open"}),
+			SettingsField("formatInfo", "Grammar definition", "text", {})
 		]
+
 	def startFetch(self):
-		bbuf = ByteBuffer(metadata={'fileName':self.params['fileName'],
+		bbuf = ByteBuffer(metadata={'fileName': self.params['fileName'],
 									'fileTimestamp': os.path.getmtime(self.params['fileName'])})
 		with open(self.params['fileName'], "rb") as f:
 			bbuf.setContent(f.read())
 
-		if self.params["formatInfo"] != "":
-			from pre_workbench.structinfo.parsecontext import FormatInfoContainer, BytebufferAnnotatingParseContext
-			bbuf.fi_container = FormatInfoContainer(load_from_file=self.params["formatInfo"])
-			parse_context = BytebufferAnnotatingParseContext(bbuf.fi_container, bbuf)
-			#parse_context.on_new_subflow_category = self.newSubflowCategory
-			bbuf.fi_tree = parse_context.parse()
+		apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
 
 		self.on_finished.emit()
 		return bbuf
-		
+
+	def cancelFetch(self):
+		# cancel reading file
+		pass
+
+
+@DataSourceTypes.register(DisplayName="Directory of binary files")
+class DirectoryOfBinFilesDataSource(DataSource):
+	@staticmethod
+	def getConfigFields():
+		return [
+			SettingsField("dirName", "Directory", "text", {"fileselect": "dir"}),
+			SettingsField("filePattern", "Search pattern", "text", {"default":"*"}),
+			SettingsField("formatInfo", "Grammar definition", "text", {})
+		]
+
+	def startFetch(self):
+		globStr = self.params['dirName'] + '/' + self.params['filePattern']
+		plist = ByteBufferList()
+		for fileName in sorted(glob.glob(globStr)):
+			if not os.path.isfile(fileName): continue
+			bbuf = ByteBuffer(metadata={'fileName': os.path.basename(fileName),
+										'fileTimestamp': os.path.getmtime(fileName)})
+			with open(fileName, "rb") as f:
+				bbuf.setContent(f.read())
+
+			apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
+
+			plist.add(bbuf)
+
+		self.on_finished.emit()
+		return plist
+
 	def cancelFetch(self):
 		# cancel reading file
 		pass
@@ -82,12 +113,16 @@ class PcapFileDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			SettingsField("fileName", "File name", "text", {"fileselect":"open"})
+			SettingsField("fileName", "File name", "text", {"fileselect":"open"}),
+			SettingsField("formatInfo", "Grammar definition", "text", {})
 		]
 
 	def startFetch(self):
 		with open(self.params['fileName'], "rb") as f:
 			plist = read_pcap_file(f)
+
+		for bbuf in plist.buffers:
+			apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
 
 		self.on_finished.emit()
 		return plist
@@ -226,3 +261,9 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 
 
+def apply_grammar_on_bbuf(bbuf, grammarDefName):
+	if not grammarDefName: return
+	from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
+	bbuf.fi_container = app.CurrentProject.formatInfoContainer
+	parse_context = BytebufferAnnotatingParseContext(bbuf.fi_container, bbuf)
+	bbuf.fi_tree = parse_context.parse(grammarDefName)

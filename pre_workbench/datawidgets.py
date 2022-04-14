@@ -86,7 +86,7 @@ class PacketListModel(QAbstractItemModel):
             self.columns = list(itertools.islice(itertools.chain(
                 (ColumnInfo("hex(payload)", "payload"),),
                 (ColumnInfo("${\"" + x + "\"}", x) for x in self.listObject.buffers[0].metadata.keys()),
-                (ColumnInfo(x) for x in self.listObject.buffers[0].fields.keys())
+                (ColumnInfo("fields[\"" + x + "\"]", x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
 
     def onNewPacket(self, count):
@@ -259,13 +259,13 @@ class PacketListWidget(QWidget):
         ]
 
     def onAddColumn(self, insertBefore):
-        par = showSettingsDlg(self.getColumnInfoDefinition())
+        par = showSettingsDlg(self.getColumnInfoDefinition(), min_width=450)
         if par is not None:
             if par["title"] == "": par["title"] = par["expr_str"]
             self.packetlistmodel.addColumn(ColumnInfo(**par), insertBefore)
 
     def onEditColumn(self, index):
-        par = showSettingsDlg(self.getColumnInfoDefinition(), self.packetlistmodel.columns[index].toDict())
+        par = showSettingsDlg(self.getColumnInfoDefinition(), self.packetlistmodel.columns[index].toDict(), min_width=450)
         if par is not None:
             if par["title"] == "": par["title"] = par["key"]
             self.packetlistmodel.removeColumn(index)

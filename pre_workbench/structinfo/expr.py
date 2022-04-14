@@ -22,6 +22,8 @@ import logging
 
 from lark import Lark, Transformer
 
+from pre_workbench.structinfo import display_styles
+
 grammar_file = os.path.join(os.path.dirname(__file__), "format_info.lark")
 logging.info("grammar_file: %s", grammar_file)
 fi_parser = Lark(open(grammar_file), parser="lalr", start=["start","anytype","expression"])
@@ -88,13 +90,12 @@ class Evaluator(Transformer):
 
 	def fun_expr(self, node):
 		name, param = node
-		if name == "hex":
-			if type(param) in (bytes, bytearray):
-				return binascii.hexlify(param).decode('ascii')
-			else:
-				return hex(param)
-		elif name == "snip":
+		if name == "snip":
 			return str(param)[:32]
+		elif name == "len":
+			return len(param)
+		elif hasattr(display_styles, name):
+			return getattr(display_styles, name)(param)
 		else:
 			raise Exception("Call to unknown function '"+name+"'")
 

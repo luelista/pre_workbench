@@ -81,8 +81,9 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	return btn
 
 
-def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None):
+def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300):
 	dlg = QDialog(parent)
+	dlg.setMinimumWidth(min_width)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.layout().addWidget(widget)

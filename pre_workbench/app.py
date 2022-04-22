@@ -119,7 +119,7 @@ class WorkbenchApplication(QApplication):
 									"If it does not exist already, a project database file (named \".pre_workbench\") "
 									"will automatically be created in this directory.")
 
-		dlg = QFileDialog(self)
+		dlg = QFileDialog(self.splash)
 		dlg.setFileMode(QFileDialog.DirectoryOnly)
 		dlg.setWindowTitle("Choose project directory")
 		if dlg.exec() == QFileDialog.Accepted:

@@ -49,6 +49,18 @@ def getMonospaceFont():
 	font.setStyleHint(QFont.Monospace)
 	return font
 
+def getHighlightStyles():
+	#TODO maybe make these user definable
+	return [
+		("R", "Red", {"color": "#aa0000"}),
+		("G", "Green", {"color": "#00aa00"}),
+		("Y", "Yellow", {"color": "#aaaa00"}),
+		("L", "Blue", {"color": "#0000aa"}),
+		("M", "Magenta", {"color": "#aa00aa"}),
+		("T", "Turqoise", {"color": "#00aaaa"}),
+	]
+
+
 def setControlColors(ctrl, bg, fg=None):
 	pal = ctrl.palette()
 	if bg is not None: pal.setColor(ctrl.backgroundRole(), QColor(bg))

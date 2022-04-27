@@ -57,7 +57,8 @@ class WorkbenchMain(QMainWindow):
 		super().__init__()
 		self.project = project
 		self.mappedChildActions = list()
-		self.curChildMeta = dict()
+		self.activeDocumentMeta = dict()
+		self.activeDocumentWindow = None
 		self._initUI()
 		self.restoreChildren()
 		self.mdiArea.restoreState(self.project.getValue("DockState", b""))
@@ -319,7 +320,7 @@ class WorkbenchMain(QMainWindow):
 		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
 		self.createDockWnd("Application Log", "bug--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
 
-		self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
+		#self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
 		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
 
 		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
@@ -448,12 +449,23 @@ class WorkbenchMain(QMainWindow):
 		logging.debug("onSubWindowActivated")
 		self.updateMappedChildActions()
 		if now is None or not hasattr(now.widget(), 'child_wnd_meta'): return
+
+		try:
+			self.activeDocumentWindow.widget().meta_updated.disconnect(self.onMetaUpdateChild)
+		except:
+			pass
+		self.activeDocumentWindow = now
+		try:
+			now.widget().meta_updated.connect(self.onMetaUpdateChild)
+		except:
+			pass
+
 		new_meta = now.widget().child_wnd_meta
 		# TODO what about metas only contained in new_meta?
-		for ident, oldval in self.curChildMeta.items():
+		for ident, oldval in self.activeDocumentMeta.items():
 			newval = new_meta.get(ident)
 			if newval != oldval:
-				self.curChildMeta[ident] = newval
+				self.activeDocumentMeta[ident] = newval
 				if hasattr(self, ident+"_updated"): getattr(self, ident+"_updated").emit(newval)
 				self.meta_updated.emit(ident, newval)
 
@@ -510,7 +522,7 @@ class WorkbenchMain(QMainWindow):
 			self.setActiveSubWindow(childWnd)
 
 	@pyqtSlot(str, str)
-	def navigateWindow(self, Type, FileName):
+	def navigateWindow(self, Type, FileName, **kw):
 		childWnd = self.findWindow(Type=Type, FileName=FileName)
 		if childWnd:
 			logging.debug("switching to childWnd: %s", childWnd)
@@ -522,7 +534,7 @@ class WorkbenchMain(QMainWindow):
 			QMessageBox.critical(self, "Failed to open window", "Failed to open window of unknown type "+Type)
 			return
 		try:
-			wnd = winType(fileName=FileName)
+			wnd = winType(fileName=FileName, **kw)
 			self.showChild(wnd)
 		except Exception as ex:
 			msg = QMessageBox(QMessageBox.Critical, "Failed to open file", "Failed to open window of type "+winType.__name__+"\n\n"+str(ex), QMessageBox.Ok, self)
@@ -558,7 +570,7 @@ class WorkbenchMain(QMainWindow):
 
 	def onMetaUpdateChild(self, ident, newval):
 		self.sender().child_wnd_meta[ident] = newval
-		self.curChildMeta[ident] = newval
+		self.activeDocumentMeta[ident] = newval
 		if hasattr(self, ident+"_updated"): getattr(self, ident+"_updated").emit(newval)
 		self.meta_updated.emit(ident, newval)
 
@@ -570,9 +582,6 @@ class WorkbenchMain(QMainWindow):
 		subwnd.setFeature(ads.CDockWidget.DockWidgetForceCloseWithArea, True)
 		subwnd.setWindowIcon(getIcon(type(widget).icon if hasattr(type(widget), 'icon') else 'document.png'))
 		widget.child_wnd_meta = dict()
-		try:
-			widget.meta_updated.connect(self.onMetaUpdateChild)
-		except: pass
 		widget.destroyed.connect(self.updateChildWindowList)
 		if not widget.objectName(): widget.setObjectName(str(uuid.uuid1()))
 		subwnd.setObjectName(widget.objectName())

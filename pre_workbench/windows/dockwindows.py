@@ -87,6 +87,9 @@ class FileBrowserWidget(QWidget):
 			selectedFile = file.absoluteFilePath()
 			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
 			if file.isDir():
+				ctx.addAction("Open as directory of binary files", lambda: navigate("WINDOW", "Type=ObjectWindow", "FileName=" + selectedFile,
+																			   "dataSourceType=DirectoryOfBinFilesDataSource"))
+				ctx.addSeparator()
 				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 			else:
 				for wndTyp, meta in WindowTypes.types:
@@ -94,6 +97,7 @@ class FileBrowserWidget(QWidget):
 					ctx.addAction(QAction(text, self, statusTip=text, icon=getIcon(meta.get('icon', 'document.png')),
 											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
 				ctx.addSeparator()
+				ctx.addAction("Open in default application", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 		else:
 			ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.model.rootPath())))
 		#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))

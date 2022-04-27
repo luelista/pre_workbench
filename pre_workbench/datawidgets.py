@@ -239,11 +239,12 @@ class PacketListWidget(QWidget):
             ctx.addSeparator()
         addIdx = None if index == -1 else index
         ctx.addAction("Add Column ...", lambda: self.onAddColumn(addIdx))
+        quick = ctx.addMenu("Quick Add Metadata Column")
         for key in sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False)):
-            ctx.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
-        ctx.addSeparator()
+            quick.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
+        quick = ctx.addMenu("Quick Add Field Column")
         for key in sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True)):
-            ctx.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("fields[\""+key+"\"]"), addIdx))
+            quick.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("fields[\""+key+"\"]"), addIdx))
         ctx.addSeparator()
         ctx.addAction("Copy Header State", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
         if getClipboardText().startswith("PL-HS:"):

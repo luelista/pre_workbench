@@ -1,4 +1,3 @@
-
 # PRE Workbench
 # Copyright (C) 2022 Mira Weller
 #
@@ -16,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import traceback
+import os.path
 
 from PyQt5.QtCore import pyqtSignal, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
@@ -31,9 +31,9 @@ from pre_workbench.typeregistry import WindowTypes
 class ObjectWindow(QWidget):
 	meta_updated = pyqtSignal(str, object)
 
-	def __init__(self, name="Untitled", dataSourceType="", collapseSettings=False, **kw):
+	def __init__(self, name=None, dataSourceType="", collapseSettings=False, **kw):
 		super().__init__()
-		kw["name"] = name
+		kw["name"] = name if name is not None else os.path.basename(kw["fileName"]) if "fileName" in kw else "Untitled"
 		kw["dataSourceType"] = dataSourceType
 		kw["collapseSettings"] = collapseSettings
 		self.params = {}
@@ -43,17 +43,16 @@ class ObjectWindow(QWidget):
 		self._initUI(collapseSettings)
 		self.setConfig(kw)
 
-
 	def saveParams(self):
 		self.params["collapseSettings"] = not self.sourceConfig.isVisible()
 		return self.params
 
 	def sizeHint(self):
-		return QSize(600,400)
+		return QSize(600, 400)
 
 	def _initUI(self, collapseSettings):
-		layout=QVBoxLayout()
-		layout.setContentsMargins(0,0,0,0)
+		layout = QVBoxLayout()
+		layout.setContentsMargins(0, 0, 0, 0)
 		layout.setSpacing(0)
 		self.setLayout(layout)
 		#tb = QToolBox(self)
@@ -115,16 +114,17 @@ class ObjectWindow(QWidget):
 			#        self.loadDataSource()
 
 	def onDataSourceTypeSelected(self):
-		logging.debug("dst="+self.params["dataSourceType"])
+		logging.debug("dst=" + self.params["dataSourceType"])
 		confFields = []
 		if self.params["dataSourceType"]:
 			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
 			confFields = clz.getConfigFields()
 			self.dataSourceType = self.params["dataSourceType"]
 		self.sourceConfig.setFields([
-			SettingsField("name", "Name", "text", {}),
-			SettingsField("dataSourceType", "Data Source Type", "select", {"options":DataSourceTypes.getSelectList("DisplayName")}),
-		] + confFields)
+										SettingsField("name", "Name", "text", {}),
+										SettingsField("dataSourceType", "Data Source Type", "select",
+													  {"options": DataSourceTypes.getSelectList("DisplayName")}),
+									] + confFields)
 
 	def onFinished(self):
 		self.cancelAction.setEnabled(False)
@@ -132,8 +132,9 @@ class ObjectWindow(QWidget):
 	def onCancelFetch(self):
 		self.dataSource.cancelFetch()
 
-	def reloadFile(self): #action Ctrl-R
+	def reloadFile(self):  # action Ctrl-R
 		self.reload()
+
 	def reload(self):
 		try:
 			self.cancelAction.setEnabled(True)

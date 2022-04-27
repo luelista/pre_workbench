@@ -8,7 +8,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QMenu, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator, QMessageBox, QAction
 
-from pre_workbench import configs
+from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
@@ -108,6 +108,9 @@ class RangeTreeWidget(QTreeWidget):
 				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
 				ctx.addSeparator()
+				for key, name, style in guihelper.getHighlightStyles():
+					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))
+				ctx.addSeparator()
 		else:
 			ctx.addAction("Edit ...", lambda: self.editField(self.formatInfoContainer.definitions[self.formatInfoContainer.main_name]))
 
@@ -148,6 +151,10 @@ class RangeTreeWidget(QTreeWidget):
 		parent.updateParams(**params)
 		self._afterUpdate()
 
+	def styleSelection(self, parent, **styles):
+		parent.updateParams(**styles)
+		self._afterUpdate()
+
 	def editField(self, element: FormatInfo):
 		"""
 		params = showTypeEditorDlg("format_info.tes", "AnyFI", element.serialize())
@@ -175,6 +182,7 @@ class RangeTreeWidget(QTreeWidget):
 		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
 
 	def _afterUpdate(self):
+		# TODO BUG - this causes a parse of the wrong container to be shown in the Grammar Parse Result!
 		self.saveFormatInfo(self.formatInfoContainer.file_name)
 
 	#endregion

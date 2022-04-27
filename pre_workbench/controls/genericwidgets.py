@@ -129,7 +129,7 @@ class SettingsGroup(QGroupBox):
 				if "autocomplete" in d.params:
 					field.setCompleter(QCompleter(QStringListModel(list(d.params["autocomplete"]), field), field))
 				if "fileselect" in d.params:
-					act = QAction(getIcon("select.png"), "Select file", field)
+					act = QAction(getIcon("folder-open-document.png"), "Select file", field)
 					act.triggered.connect(lambda c,params=d.params, field=field:
 										  self.selectFile(field, params["fileselect"],
 														  params.get("caption","Select file"),
@@ -158,15 +158,14 @@ class SettingsGroup(QGroupBox):
 				if 'max' in d.params: field.setMaximum(d.params['max'])
 				empty = 0
 			else:
-				self.layout.addRow(d.title+" (invalid type:  "+d.fieldType+")",None)
-				continue
+				raise TypeError(d.title+" (invalid settings widget type:  "+d.fieldType+")")
 			field.setObjectName(d.id)
 			self.layout.addRow(d.title, field)
 			if d.id in self.values:
-				self.updateField(d.id)
+				self.updateField(d.id, field)
 			elif "default" in d.params:
 				self.values[d.id] = d.params["default"]
-				self.updateField(d.id)
+				self.updateField(d.id, field)
 			else:
 				self.values[d.id] = empty
 
@@ -207,9 +206,9 @@ class SettingsGroup(QGroupBox):
 		self.values[fieldId] = value
 		self.item_changed.emit(fieldId, str(value))
 
-	def updateField(self, fieldId):
+	def updateField(self, fieldId,fieldRef=None):
 		value = self.values[fieldId]
-		field = self.findChild(QWidget, fieldId)
+		field = fieldRef or self.findChild(QWidget, fieldId)
 		if isinstance(field, QLineEdit):
 			field.setText(value)
 		elif isinstance(field, QSpinBox):

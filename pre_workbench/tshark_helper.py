@@ -20,9 +20,10 @@ import subprocess
 from xml.etree.ElementTree import XMLParser
 import binascii, os, shutil
 
+from bbuf_parsing import BytebufferAnnotatingParseContext
 from pre_workbench.configs import getValue
 from pre_workbench.objects import ByteBuffer
-from pre_workbench.structinfo.parsecontext import ParseContext, BytebufferAnnotatingParseContext
+from pre_workbench.structinfo.parsecontext import ParseContext
 
 
 class PdmlToPacketListParser:

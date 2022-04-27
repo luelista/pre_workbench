@@ -28,15 +28,14 @@ from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEven
 	QFontInfo
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
 
-from pre_workbench import configs
+from bbuf_parsing import apply_grammar_on_bbuf
+from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText
 from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
-from pre_workbench.structinfo.exceptions import parse_exception
-from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
 from pre_workbench.util import PerfTimer
 
 group = SettingsSection('HexView2', 'Hex Editor', 'address', 'Address Styles')
@@ -75,20 +74,12 @@ class HexView2(QWidget):
 	parseResultsUpdated = pyqtSignal(list)
 	selectionChanged = pyqtSignal(object)
 
-	userStyles = [
-		("R", "Red", {"color": "#aa0000"}),
-		("G", "Green", {"color": "#00aa00"}),
-		("Y", "Yellow", {"color": "#aaaa00"}),
-		("L", "Blue", {"color": "#0000aa"}),
-		("M", "Magenta", {"color": "#aa00aa"}),
-		("T", "Turqoise", {"color": "#00aaaa"}),
-	]
-
 	def __init__(self, byteBuffer=None, annotationSetDefaultName="", options=dict(), optionsConfigKey="HexViewParams", project=None, formatInfoContainer=None):
 		super().__init__()
 		self.project = project
 		self.formatInfoContainer = formatInfoContainer
 		if self.formatInfoContainer: self.formatInfoContainer.updated.connect(self._formatInfoUpdated)
+		logging.debug("HexView - formatInfoContainer = %r", self.formatInfoContainer)
 		self.annotationSetDefaultName = annotationSetDefaultName
 		self.annotationSetName = None
 		self.buffers = list()
@@ -193,15 +184,15 @@ class HexView2(QWidget):
 			ctx.addSeparator()
 		except StopIteration:
 			pass
-		for key, name, style in HexView2.userStyles:
-			ctx.addAction(name+"\t"+key, lambda: self.styleSelection(**style))
+		for key, name, style in guihelper.getHighlightStyles():
+			ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(**style))
 		ctx.addSeparator()
 		ctx.addAction("&Start Section...", lambda: self.setSectionSelection())
 		ctx.addSeparator()
 
 		if self.selLength() > 1:
 			if self.project:
-				menu = ctx.addMenu( "Apply annotation Set For Selection")
+				menu = ctx.addMenu( "Apply Annotation Set For Selection")
 				for name in self.project.getAnnotationSetNames():
 					#TODO implement this
 					menu.addAction(name, lambda name=name: print(name))
@@ -234,7 +225,7 @@ class HexView2(QWidget):
 				QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0]))
 
 		if self.formatInfoContainer:
-			menu = ctx.addMenu("Parse " + (" All Buffers" if len(self.buffers) > 0 else " Buffer"))
+			menu = ctx.addMenu("Parse" + (" All Buffers" if len(self.buffers) > 0 else " Buffer"))
 			for name in self.formatInfoContainer.definitions.keys():
 				menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
 
@@ -322,21 +313,10 @@ class HexView2(QWidget):
 	def _formatInfoUpdated(self):
 		self.applyFormatInfo()
 
-	def _parseBuffer(self, buf):
-		if buf.fi_root_name is None: return
-		# clear out the old ranges from the last run, but don't delete ranges from other sources (e.g. style, bidi-buf)
-		buf.setRanges(buf.matchRanges(doesntHaveMetaKey='_sdef_ref'))
-		parse_context = BytebufferAnnotatingParseContext(self.formatInfoContainer, buf)
-		parse_context.on_new_subflow_category = self._newSubflowCategory
-		buf.fi_tree = parse_context.parse(buf.fi_root_name)
-		if parse_context.failed:
-			logging.exception("Failed to apply grammar definition", exc_info=parse_context.failed)
-			logging.getLogger("DataSource").error("Failed to apply grammar definition: " + str(parse_context.failed))
-
 	def applyFormatInfo(self, root_name=None, bufIdx=None):
 		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
 			if root_name is not None: buf.fi_root_name = root_name
-			self._parseBuffer(buf)
+			apply_grammar_on_bbuf(buf, buf.fi_root_name, self._newSubflowCategory)
 		self.parseResultsUpdated.emit([buf.fi_tree for buf in self.buffers])
 		self.redraw()
 
@@ -550,7 +530,8 @@ class HexView2(QWidget):
 
 			if Qt.Key_A <= e.key() <= Qt.Key_Z:
 				letter = chr(e.key() - Qt.Key_A + 0x41)
-				info = next((x for x in HexView2.userStyles if x[0] == letter), None)
+				styles = guihelper.getHighlightStyles()
+				info = next((x for x in styles if x[0] == letter), None)
 				if info:
 					self.styleSelection(**info[2])
 

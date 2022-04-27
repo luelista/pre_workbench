@@ -282,21 +282,3 @@ class AnnotatingParseContext(ParseContext):
 		while isinstance(packed_value, Range):
 			packed_value = packed_value.value
 		return packed_value
-
-class BytebufferAnnotatingParseContext(AnnotatingParseContext):
-	def __init__(self, format_infos: FormatInfoContainer, bbuf):
-		super().__init__(format_infos, bbuf.buffer)
-		self.bbuf = bbuf
-
-	def pack_value(self, value):
-		from pre_workbench.structinfo.format_info import FormatInfo
-		range = super().pack_value(value)
-		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
-		fi = self.stack[-1].desc
-		if isinstance(fi, FormatInfo):
-			range.metadata.update(fi.extra_params(context=self))
-		elif isinstance(fi, dict):
-			range.metadata.update(fi)
-		self.bbuf.addRange(range)
-		return range
-

@@ -20,7 +20,7 @@ import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
-from pre_workbench import app
+from bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete
@@ -81,13 +81,13 @@ class DirectoryOfBinFilesDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
-			SettingsField("dirName", "Directory", "text", {"fileselect": "dir"}),
+			SettingsField("fileName", "Directory", "text", {"fileselect": "dir"}),
 			SettingsField("filePattern", "Search pattern", "text", {"default":"*"}),
 			SettingsField("formatInfo", "Grammar definition", "text", {})
 		]
 
 	def startFetch(self):
-		globStr = self.params['dirName'] + '/' + self.params['filePattern']
+		globStr = self.params['fileName'] + '/' + self.params['filePattern']
 		plist = ByteBufferList()
 		for fileName in sorted(glob.glob(globStr)):
 			if not os.path.isfile(fileName): continue
@@ -260,10 +260,3 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.waitForFinished(500)
 		self.process.kill()
 
-
-def apply_grammar_on_bbuf(bbuf, grammarDefName):
-	if not grammarDefName: return
-	from pre_workbench.structinfo.parsecontext import BytebufferAnnotatingParseContext
-	bbuf.fi_container = app.CurrentProject.formatInfoContainer
-	parse_context = BytebufferAnnotatingParseContext(bbuf.fi_container, bbuf)
-	bbuf.fi_tree = parse_context.parse(grammarDefName)

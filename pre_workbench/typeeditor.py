@@ -33,6 +33,8 @@ from pre_workbench.controls.genericwidgets import showWidgetDlg
 from pre_workbench.windows.mdifile import MdiFile
 from pre_workbench.typeregistry import WindowTypes, DataWidgetTypes
 
+logger = logging.getLogger(__name__)
+
 FILE_MAGIC = b"\xde\xca\xf9\x30"
 
 Type_Struct=0; Type_Choice=1; Type_List=2; Type_Named=3; Type_Primitive=4
@@ -599,7 +601,7 @@ class JsonView(QTreeWidget):
 
 	def editField(self, item):
 		typeDef = item.data(1, QtCore.Qt.UserRole + 1)
-		logging.debug("editField: typeDef %r",typeDef)
+		logger.debug("editField: typeDef %r",typeDef)
 		data = self.tree_fetch(item)
 		if typeDef is not None:
 			showTypeEditorDlg(self.schema, typeDef, data, "Edit item", ok_callback=lambda res: self.tree_set_row(item, res, typeDef))
@@ -670,7 +672,7 @@ class JsonView(QTreeWidget):
 		return me
 
 	def tree_set_row(self, me, val, origtypeDef):
-		logging.debug("tree_set_row: origTypeDef = %r", origtypeDef)
+		logger.debug("tree_set_row: origTypeDef = %r", origtypeDef)
 		me.setData(1, QtCore.Qt.UserRole, type(val))
 		me.setData(1, QtCore.Qt.UserRole + 1, origtypeDef)
 		if self.schema is not None and origtypeDef is not None:
@@ -690,13 +692,13 @@ class JsonView(QTreeWidget):
 		for i in reversed(range(me.childCount())):
 			me.removeChild(me.child(i))
 
-		logging.debug("tree_set_row: typeDef = %r",typeDef)
+		logger.debug("tree_set_row: typeDef = %r",typeDef)
 		if isinstance(val, dict):
 			if typeDef is None:
 				childTypeDefs = {}
 			else:
 				childTypeDefs = {field['name'] : field['type'] for field in typeDef[1]['fields']}
-			logging.debug("tree_set_row: defs = %r",childTypeDefs)
+			logger.debug("tree_set_row: defs = %r",childTypeDefs)
 			for key, cc in val.items():
 				self.tree_add_row(key, cc, me, childTypeDefs.pop(key, None))
 			me.setData(1, QtCore.Qt.UserRole + 2, childTypeDefs)
@@ -710,7 +712,7 @@ class JsonView(QTreeWidget):
 			choiceItem = getChoiceSubtypeById(typeDef, val)
 			if choiceItem is not None:
 				me.setData(1, QtCore.Qt.UserRole + 2, val[0])
-				logging.debug("tree_set_row: choiceItem = %r",choiceItem)
+				logger.debug("tree_set_row: choiceItem = %r",choiceItem)
 				self.tree_add_row(choiceItem['name'], val[1], me, choiceItem['type'])
 			else:
 				if typeKind == Type_List:

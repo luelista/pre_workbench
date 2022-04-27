@@ -1,6 +1,8 @@
 import argparse
 import gc
+import json
 import logging
+import logging.config
 import os.path
 import platform
 import sys
@@ -19,7 +21,6 @@ from pre_workbench.util import get_app_version
 
 MainWindow = None
 NavigateCommands = dict()
-
 
 class GlobalEventCls(QObject):
 	on_config_change = pyqtSignal()
@@ -54,6 +55,9 @@ class WorkbenchApplication(QApplication):
 		logging.debug("Initializing application...")
 
 		self.args = self._parse_args()
+		logging.getLogger().setLevel(self.args.log_level)
+		if self.args.log_config:
+			logging.config.dictConfig(json.load(open(self.args.log_config,"r")))
 		logging.debug("CMD args: %r", self.args)
 		if self.args.gc_debug:
 			gc.set_debug(gc.DEBUG_STATS)
@@ -91,6 +95,10 @@ class WorkbenchApplication(QApplication):
 		parser = argparse.ArgumentParser(description='Protocol Reverse Engineering Workbench')
 		parser.add_argument('--reset-config', action='store_true',
 							help='Reset the configuration to defaults')
+		parser.add_argument('--log-level', default='DEBUG',
+							help='Set the log level', choices=['TRACE','DEBUG','INFO','WARNING','ERROR'])
+		parser.add_argument('--log-config', metavar='FILE',
+							help='Load detailed logging config from file')
 		parser.add_argument('--gc-debug', action='store_true',
 							help='Print debug output from garbage collector')
 		parser.add_argument('--choose-project', action='store_true',

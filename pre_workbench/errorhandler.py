@@ -1,5 +1,6 @@
 import json
 import logging
+import logging.config
 import platform
 import sys
 import tempfile
@@ -98,7 +99,7 @@ class ConsoleWindowLogHandler(logging.Handler, QObject):
 
 
 def initLogging():
-	logging.basicConfig(level=10, format='%(asctime)s %(module)s:%(lineno)s [%(levelname)s] %(message)s',
+	logging.basicConfig(level=10, format='%(asctime)s %(name)s - %(module)s:%(lineno)s [%(levelname)s] %(message)s',
 						handlers=[
 							logging.StreamHandler(),
 							logging.FileHandler(filename=logFile, mode='w'),

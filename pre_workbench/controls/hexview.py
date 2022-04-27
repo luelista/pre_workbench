@@ -24,11 +24,10 @@ from collections import namedtuple
 from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
-from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent, \
-	QFontInfo
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
 
-from bbuf_parsing import apply_grammar_on_bbuf
+from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection

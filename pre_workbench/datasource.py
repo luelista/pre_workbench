@@ -20,7 +20,7 @@ import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
 
-from bbuf_parsing import apply_grammar_on_bbuf
+from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete

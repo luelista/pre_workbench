@@ -43,7 +43,7 @@ setuptools.setup(
 		'lark-parser>=0.7.5',
 		'psutil>=5.0.0',
 		'bitstring>=3.1.9',
-		'PyQtAds==3.8.1',
+		'PyQtAds>=3.8.1',
 	],
 	classifiers=[
 		"Programming Language :: Python :: 3",

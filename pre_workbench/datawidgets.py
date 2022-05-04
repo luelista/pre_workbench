@@ -1,4 +1,3 @@
-
 # PRE Workbench
 # Copyright (C) 2022 Mira Weller
 #
@@ -82,12 +81,14 @@ class PacketListModel(QAbstractItemModel):
         self.endResetModel()
 
     def autoCols(self):
+        self.packetlistmodel.beginResetModel()
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
                 (ColumnInfo("hex(payload)", "payload"),),
                 (ColumnInfo("${\"" + x + "\"}", x) for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo("fields[\"" + x + "\"]", x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
+        self.packetlistmodel.endResetModel()
 
     def onNewPacket(self, count):
         if count < 1: return
@@ -203,8 +204,6 @@ class PacketListWidget(QWidget):
         self.listObject = lstObj
         logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
-        #for bbuf in lstObj.buffers:
-        #    self.addPacketToList(bbuf)
         self.packetlistmodel.setList(self.listObject)
 
     def onPacketlistSelectionChanged(self, selected, deselected):
@@ -249,6 +248,7 @@ class PacketListWidget(QWidget):
         ctx.addAction("Copy Header State", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
         if getClipboardText().startswith("PL-HS:"):
             ctx.addAction("Paste Header State", lambda: self.restoreState(xdrm.loads(b64decode(getClipboardText()[6:].encode("ascii")))))
+        ctx.addAction("Reset Header", lambda: self.packetlistmodel.autoCols())
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
 
     def getColumnInfoDefinition(self):
@@ -274,22 +274,6 @@ class PacketListWidget(QWidget):
 
     def run_ndis(self):
         pass
-
-    def addPacketToList(self, bbuf):
-        idx = self.packetlist.rowCount()
-        self.packetlist.insertRow(idx)
-        c = 0
-        #print(bbuf.ranges)
-        for k,v in bbuf.metadata.items():
-            #print(k,v)
-            self.packetlist.setItem(idx, c, QTableWidgetItem(str(v)))
-            c += 1
-            if c > 10: break
-        for rr in bbuf.ranges:
-            #print(rr)
-            self.packetlist.setItem(idx, c, QTableWidgetItem(str(rr.metadata)))
-            c += 1
-            if c > 10: break
 
     def saveState(self):
         return {

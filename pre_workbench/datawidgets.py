@@ -70,25 +70,25 @@ class PacketListModel(QAbstractItemModel):
         #self.rootItem = TreeItem(("Model", "Status","Location"))
 
     def setList(self, plist: ByteBufferList):
-        self.beginResetModel()
         if self.listObject is not None:
             self.listObject.on_new_packet.disconnect(self.onNewPacket)
+        self.beginResetModel()
         self.listObject = plist
+        self.endResetModel()
         if len(self.columns) == 0:
             self.autoCols()
         if self.listObject is not None:
             self.listObject.on_new_packet.connect(self.onNewPacket)
-        self.endResetModel()
 
     def autoCols(self):
-        self.packetlistmodel.beginResetModel()
+        self.beginResetModel()
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
                 (ColumnInfo("hex(payload)", "payload"),),
                 (ColumnInfo("${\"" + x + "\"}", x) for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo("fields[\"" + x + "\"]", x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
-        self.packetlistmodel.endResetModel()
+        self.endResetModel()
 
     def onNewPacket(self, count):
         if count < 1: return

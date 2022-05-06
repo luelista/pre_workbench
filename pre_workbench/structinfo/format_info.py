@@ -171,7 +171,6 @@ class VariantStructFI:
 				context.clear_failed()
 				continue
 
-
 			return result
 		#
 		context.log("no variant matched")

@@ -226,6 +226,10 @@ class WorkbenchMain(QMainWindow):
 		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
+		exportMenu = fileMenu.addMenu('Export')
+		exportMenu.addAction("As Python Script")
+		exportMenu.addAction("As Wireshark Lua Dissector")
+		fileMenu.addSeparator()
 
 		fileMenu.addAction(self.loadProjectAct)
 		recentProjectMenu = fileMenu.addMenu('&Recent projects')

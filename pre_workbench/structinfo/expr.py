@@ -344,7 +344,7 @@ class Expression:
 
 
 if __name__ == "__main__":
-	from pre_workbench import ParseContext
+	from pre_workbench.structinfo.parsecontext import ParseContext
 	import sys
 	e = Expression(sys.argv[1])
 	print(e.expr_tree.pretty())

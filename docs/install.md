@@ -2,7 +2,14 @@
 title: Installing PRE Workbench
 ---
 
-# Install on macOS (Intel)
+# Install on macOS
+
+## App Bundle
+
+Download PRE Workbench as an application bundle from [here](https://github.com/luelista/pre_workbench_release/releases). Extract the zip file, right click the `PRE Workbench.app` and choose "Open". The application is not code-signed, therefore you need to allow the execution of untrusted applications in the following dialog.
+
+
+## Install via pip (Intel)
 
 You need a recent version of pip, the Python package manager. The version supplied with 
 macOS might not be sufficient. Therefore run `sudo pip3 install -U pip` first.
@@ -14,7 +21,7 @@ Run with `prewb` or `python3 -m pre_workbench`.
 Prebuilt binary wheels exist for macOS 11 on Intel chips. 
 
 
-# Install on macOS (M1)
+## Install via pip (M1)
 
 The Qt framework (version 5), which is used by pre_workbench, is not compatible 
 with M1 Macs. However, you can run the application on the Rosetta compatibility layer.

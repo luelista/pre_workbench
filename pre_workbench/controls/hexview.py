@@ -63,6 +63,7 @@ configs.registerOption(group, 'Color', 'Section Color', 'color', {}, '#aaaaaa', 
 group = SettingsSection('HexView2', 'Hex Editor', 'general', 'General')
 configs.registerOption(group, 'lineHeight', 'lineHeight', 'double', {'min': 0.1, 'max': 10}, 1.3, None)
 configs.registerOption(group, 'bytesPerLine', 'bytesPerLine', 'int', {'min': 1, 'max': 1024}, 16, None)
+configs.registerOption(group, 'backgroundColor', 'backgroundColor', 'color', {}, '#333333', None)
 
 pattern_heading = re.compile("[#]{0,6}")
 
@@ -112,6 +113,14 @@ class HexView2(QWidget):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
 		self.addressFormat = configs.getValue('HexView2.address.Format')
 		self.hexFormat = configs.getValue('HexView2.hex.Format')
+		bgcolor = configs.getValue('HexView2.general.backgroundColor')
+		if bgcolor == 'auto':
+			import darkdetect
+			if darkdetect.isDark():
+				bgcolor = '#333333'
+			else:
+				bgcolor = '#ffffff'
+		self.backgroundColor = QColor(bgcolor)
 
 		self.fontAddress = self.fontHex = self.fontAscii = QFont()
 		self.fontHex.fromString(configs.getValue('HexView2.hex.Font'))
@@ -601,7 +610,7 @@ class HexView2(QWidget):
 			if self.size() != self.backgroundPixmap.size():
 				self.backgroundPixmap = QPixmap(self.size())
 				self.textPixmap = QPixmap(self.size())
-			self.backgroundPixmap.fill(QColor("#333333"))
+			self.backgroundPixmap.fill(self.backgroundColor)
 			self.textPixmap.fill(QColor("#00000000"))
 
 			qpBg = QPainter()

@@ -40,6 +40,10 @@ specific types only, but can also be declared on any surrounding container type,
 | segment_meta |  | experimental??? |
 
 
+# Further Examples
+
+For further examples, have a look at the test cases for the [parser](https://github.com/luelista/pre_workbench/blob/master/tests/test_grammar_parser.py) 
+and [syntax](https://github.com/luelista/pre_workbench/blob/master/tests/test_grammar_code_syntax.py).
 
 # Type Definitions
 

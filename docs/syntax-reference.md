@@ -14,17 +14,33 @@ params: ("(" [parampair ("," parampair)*] ")")?
 parampair: IDENTIFIER "=" value
 ```
 
+# Example
+The following grammar definition defines a simple protocol, with a magic number in the beginning of the packet,
+followed by repeated TLV (type-length-value) items.
 ```
-MyProto repeat(until_invalid=true) struct {
-    header MyHeader
-    payload BYTES(size=(header.length))
+
+MyProto struct (endianness=">"){
+	magic UINT32(magic=2864434397, color="#aa0000")
+	tlvs repeat MyTLV
 }
 
-MyHeader struct(endianness=">") {
-    magic UINT32(magic=0xaabbccdd)
-    length UINT32
+MyTLV struct {
+	header struct {
+		type UINT16(color="#aaaa00")
+		length UINT16(color="#00aa00")
+	}
+	payload BYTES(size=(header.length), color="#0000aa")
 }
 ```
+
+Parsing the following example data, consisting of the magic number and two TLV items, with MyProto from above grammar, gives us the results shown in the screenshot below:
+```
+00000000: AA BB CC DD 00 DD 00 04  41 41 41 41 00 EE 00 10  ........AAAA....
+00000010: 00 11 22 33 44 55 66 77  88 99 AA BB CC DD EE FF  .."3DUfw........
+```
+
+![Parser Result](images/example-parse-result.png)
+
 
 # Parameters
 

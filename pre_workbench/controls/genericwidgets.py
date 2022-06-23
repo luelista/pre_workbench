@@ -20,7 +20,7 @@ from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QTimer
 from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor, QFont
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QCompleter, QSpinBox, QFileDialog, \
-	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog
+	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem
 
 from pre_workbench.configs import getIcon
 from pre_workbench.guihelper import showWidgetDlg, filledColorIcon
@@ -53,6 +53,14 @@ def showPreferencesDlg(definition, values=None, title="Preferences", parent=None
 	tabWidget.setMinimumWidth(600)
 	return showWidgetDlg(tabWidget, title, lambda: values, parent, ok_callback)
 
+def showListSelectDialog(listOptions, selectedOption, title="Select ...", parent=None, ok_callback=None):
+	widget = QListWidget()
+	for value, text in listOptions:
+		w = QListWidgetItem(text, widget)
+		w.setData(1000, value)
+		if value == selectedOption:
+			widget.setCurrentItem(w)
+	return showWidgetDlg(widget, title, lambda: widget.currentItem().data(1000), parent, ok_callback)
 
 class FileDropLineEdit(QLineEdit):
 	def __init__(self, *__args):
@@ -103,7 +111,7 @@ class FontSelectLineEdit(QLineEdit):
 
 
 class SettingsGroup(QGroupBox):
-	item_changed = pyqtSignal(str, str)
+	item_changed = pyqtSignal(str, object)
 
 	def __init__(self, definition: list, values, title=""):
 		super().__init__(title)
@@ -131,9 +139,14 @@ class SettingsGroup(QGroupBox):
 				if "fileselect" in d.params:
 					act = QAction(getIcon("folder-open-document.png"), "Select file", field)
 					act.triggered.connect(lambda c,params=d.params, field=field:
-										  self.selectFile(field, params["fileselect"],
+										  self._selectFile(field, params["fileselect"],
 														  params.get("caption","Select file"),
 														  params.get("filter","All files (*.*)")))
+					field.addAction(act, QLineEdit.TrailingPosition)
+				if "listselectcallback" in d.params:
+					act = QAction(getIcon("navigation-270-button.png"), "Select ...", field)
+					act.triggered.connect(lambda c,params=d.params, field=field:
+										  self._selectList(field, params["listselectcallback"]))
 					field.addAction(act, QLineEdit.TrailingPosition)
 			elif d.fieldType == "color":
 				field = ColorSelectLineEdit()
@@ -169,7 +182,7 @@ class SettingsGroup(QGroupBox):
 			else:
 				self.values[d.id] = empty
 
-	def selectFile(self, field, mode, caption, filter):
+	def _selectFile(self, field, mode, caption, filter):
 		if mode == "open":
 			r, _ = QFileDialog.getOpenFileName(self, caption, field.text(), filter)
 		elif mode == "save":
@@ -179,6 +192,12 @@ class SettingsGroup(QGroupBox):
 		else:
 			raise Exception("Invalid fileselect mode "+mode)
 		if r:
+			field.setText(r)
+
+	def _selectList(self, field, callback):
+		options = callback(self)
+		r = showListSelectDialog(options, field.text(), parent=self)
+		if r is not None:
 			field.setText(r)
 
 	@pyqtSlot(str)
@@ -204,7 +223,7 @@ class SettingsGroup(QGroupBox):
 	def onFieldChanged(self, value):
 		fieldId = self.sender().objectName()
 		self.values[fieldId] = value
-		self.item_changed.emit(fieldId, str(value))
+		self.item_changed.emit(fieldId, value)
 
 	def updateField(self, fieldId,fieldRef=None):
 		value = self.values[fieldId]

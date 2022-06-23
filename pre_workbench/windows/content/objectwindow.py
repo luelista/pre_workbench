@@ -145,7 +145,7 @@ class ObjectWindow(QWidget):
 			self.dataDisplay.setContents(result)
 
 		except Exception as e:
-			self.dataDisplay.setErrMes(traceback.format_exc())
+			self.dataDisplay.setErrMes(traceback.format_exc(), "Error: " + str(e))
 			self.cancelAction.setEnabled(False)
 
 	def childActionProxy(self):

@@ -33,7 +33,7 @@ setuptools.setup(
 	#packages=['pre_workbench'],
 	packages=setuptools.find_packages(),
 	entry_points={
-		'console_scripts': ['prewb=pre_workbench.app:run_app']
+		'console_scripts': ['prewb=pre_workbench.app:run_app', 'prewb_parse=pre_workbench.structinfo.cli:run_cli']
 	},
 	install_requires=[
 		'scapy>=2.4.3',

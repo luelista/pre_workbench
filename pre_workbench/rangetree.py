@@ -123,6 +123,7 @@ class RangeTreeWidget(QTreeWidget):
 				ctx.addAction("Edit tree ...", lambda: self.editField2(source))
 				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
+				ctx.addAction("Hide", lambda: self.styleSelection(source, hide=1))
 				ctx.addSeparator()
 				for key, name, style in guihelper.getHighlightStyles():
 					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))

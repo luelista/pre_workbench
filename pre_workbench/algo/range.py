@@ -42,7 +42,7 @@ class Range:
 			if x.metadata.get("color"): color = x.metadata["color"]
 			if x.metadata.get("print"): print.append(x.metadata["print"])
 
-		if len(print) > 0 or not printableOnly or x.exception is not None:
+		if ((len(print) > 0 or not printableOnly) and not x.metadata.get("hide")) or x.exception is not None:
 			me = QTreeWidgetItem(parent)
 			me.setData(0, Range.RangeRole, self)
 			me.setData(0, Range.BytesOffsetRole, self.start)

@@ -29,4 +29,4 @@ def dotted_quad(b):
 def ip6(b):
 	return ":".join("%x" % i for i in b)
 
-
+str = str

@@ -28,6 +28,7 @@ class Range:
 
 	def addToTree(self, parent, printableOnly=False):
 		x = self
+		collapse = x.field_name.startswith("_")
 		text0 = x.field_name
 		text1 = str(x.start) + "+" + str(x.bytes_size)
 		text2 = str(x.source_desc)
@@ -36,6 +37,7 @@ class Range:
 		if x.metadata.get("print"): print.append(x.metadata["print"])
 		while type(x.value) == Range:
 			x = x.value
+			if x.field_name.startswith("_"): collapse = True
 			text0 += " >> " + x.field_name
 			text1 += " >> " + str(x.start) + "+" + str(x.bytes_size)
 			text2 += " >> " + str(x.source_desc)
@@ -56,11 +58,11 @@ class Range:
 				me.setForeground(3, QColor("red"))
 				me.setText(3, str(x.exception).split("\n", 1)[0])
 			elif type(x.value) == dict:
-				me.setExpanded(True)
+				if not collapse: me.setExpanded(True)
 				for item in x.value.values():
 					item.addToTree(me, printableOnly)
 			elif type(x.value) == list:
-				me.setExpanded(True)
+				if not collapse:me.setExpanded(True)
 				for item in x.value:
 					item.addToTree(me, printableOnly)
 			else:

@@ -54,6 +54,7 @@ specific types only, but can also be declared on any surrounding container type,
 | reassemble_into | list (Expression or string) |  |
 | store_into | list (Expression or string) |  |
 | segment_meta |  | experimental??? |
+| hide |  | If specified, this field is hidden from the Grammar Parse Result tree view |
 
 
 # Further Examples
@@ -116,7 +117,7 @@ pascal_string struct {
 # note: a pascal_string could be defined more easily using the UINT_STRING built-in, as shown above
 ```
 
-
+If the name of a struct field starts with an underscore, it's contents will be collapsed in the tree view by default.
 
 
 

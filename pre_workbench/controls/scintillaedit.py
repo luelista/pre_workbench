@@ -16,7 +16,7 @@
 
 import logging
 
-from PyQt5.Qsci import QsciScintilla, QsciLexerCPP
+from PyQt5.Qsci import QsciScintilla, QsciLexerCPP, QsciAPIs
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont
 from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
@@ -64,8 +64,17 @@ class ScintillaEdit(QsciScintilla):
 		self.setCaretLineBackgroundColor(QColor("#ffe4e4"))
 
 		# Configure Lexer
-		lexer = QsciLexerFormatinfo()
-		self.setLexer(lexer)
+		self._lexer = QsciLexerFormatinfo()
+
+		autocompletions = format_info.builtinTypes.keys()
+		self._api = QsciAPIs(self._lexer)
+		for ac in autocompletions:
+			self._api.add(ac)
+		print("added "+str(len(autocompletions))+" ac's")
+		self._api.prepare()
+		print("prep'd")
+
+		self.setLexer(self._lexer)
 
 		# Set the default font
 		self._init_font()
@@ -77,6 +86,20 @@ class ScintillaEdit(QsciScintilla):
 		self.SendScintilla(QsciScintilla.SCI_TARGETWHOLEDOCUMENT, 0)
 		self.SendScintilla(QsciScintilla.SCI_SETADDITIONALSELECTIONTYPING, 1)
 		self.SendScintilla(QsciScintilla.SCI_SETMULTIPASTE, QsciScintilla.SC_MULTIPASTE_EACH)
+
+		"""
+		Customization - AUTOCOMPLETION (Partially usable without a lexer)
+		"""
+		# Set the autocompletions to case INsensitive
+		self.setAutoCompletionCaseSensitivity(True)
+		# Set the autocompletion to not replace the word to the right of the cursor
+		self.setAutoCompletionReplaceWord(False)
+		# Set the autocompletion source to be the words in the
+		# document
+		self.setAutoCompletionSource(QsciScintilla.AcsAll)
+		# Set the autocompletion dialog to appear as soon as 1 character is typed
+		self.setAutoCompletionThreshold(1)
+
 
 	def _init_font(self):
 		font = QFont()

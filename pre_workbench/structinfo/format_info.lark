@@ -68,7 +68,7 @@ pair : string ":" value
 number: NUMBER
 string : ESCAPED_STRING
 
-IDENTIFIER: LETTER [LETTER | DIGIT | "_"]*
+IDENTIFIER: (LETTER | "_") [LETTER | DIGIT | "_"]*
 MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
 
@@ -92,7 +92,7 @@ paren_expr: "(" expression ")"
 compare_expr: expression COMP_OP expression
 param_expr: "$" IDENTIFIER | "${" expression "}"
 fun_expr: IDENTIFIER "(" expression ")"
-DOTS: "_"+
+DOTS: "^"+
 hierarchy_expr: DOTS
 array_expr: expression "[" expression "]"
 member_expr: expression "." IDENTIFIER

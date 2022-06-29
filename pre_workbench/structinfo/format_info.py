@@ -361,7 +361,7 @@ builtinTypes = {
 
 @FITypes.register(type_id=7)
 class FieldFI:
-	def init(self, format_type, base="DEC", bitmask=0, size=None, size_len=None, parse_with=None, **kw):
+	def init(self, format_type, base="DEC", bitmask=0, size=None, size_len=None, parse_with=None, value=None, **kw):
 		self.format_type = format_type
 		self.base = base
 		self.bitmask = bitmask
@@ -369,6 +369,7 @@ class FieldFI:
 		self.size_expr = deserialize_expr(size) if size else None
 		self.size_len_expr = deserialize_expr(size_len) if size_len else None
 		self.parse_with = parse_with
+		self.value_expr = deserialize_expr(value) if value else None
 
 	def _to_text(self, indent, refs, all_params):
 		return  self.format_type+""+params_to_text(indent, refs, all_params, ignore=['children', 'def_name', 'format_type'])
@@ -403,6 +404,9 @@ class FieldFI:
 		magic = context.get_param("magic", raise_if_missing=False)
 		if magic is not None and value != magic:
 			raise invalid(context, "found magic value %r doesn't match spec %r" % (value, magic))
+
+		if self.value_expr:
+			value = self.value_expr.evaluate(context)
 
 		context.consume_bytes(n)
 		return context.pack_value(value)

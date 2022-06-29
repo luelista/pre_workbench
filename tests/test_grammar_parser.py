@@ -220,3 +220,30 @@ def test_ws_bytes():
 				 'uint_string': 'ABCDE'
 	})
 
+
+def test_custom_values():
+	parse_me("""
+		datum struct {
+			_bitfeld bits (endianness=">", hide=1){
+				year_lo :  3
+				day     :  5
+				year_hi :  4
+				month   :  4
+			}
+			year NONE(value=(2000 + (_bitfeld.year_hi << 3) + _bitfeld.year_lo), hide=1)
+			datum NONE(value=(str(_bitfeld.day) + "." + str(_bitfeld.month) + "." + str(year)))
+		}
+		""",
+		"1f 15",
+		 {
+			"_bitfeld": {
+				"year_lo": 0,
+				"day": 31,
+				"year_hi": 1,
+				"month": 5,
+			},
+			"year": 2008,
+			"datum": "31.5.2008",
+		 }
+	)
+

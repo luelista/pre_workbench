@@ -58,9 +58,10 @@ class HexFileWindow(QWidget, MdiFile):
 			pre_workbench.app.CurrentProject.getRelativePath(self.params.get("fileName")))
 
 	def saveFile(self, fileName):
-		#bin = self.dataDisplay.buffers[0].buffer
-		#with open(fileName, "wb") as f:
-		#	f.write(bin)
+		bin = self.dataDisplay.buffers[0].buffer
+		with open(fileName, "wb") as f:
+			f.write(bin)
+		self.setCurrentFile(fileName)
 		return True
 
 	def zoomIn(self):

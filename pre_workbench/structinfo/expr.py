@@ -139,7 +139,7 @@ class ParseContextEvaluator(Evaluator):
 			else:
 				return param - (len % param)
 		else:
-			super().fun_expr(node)
+			return super().fun_expr(node)
 
 def generic_unpack_value(packed_value):
 	while hasattr(packed_value, 'value'):
@@ -217,7 +217,7 @@ class Stringifier(Transformer):
 		super().__init__()
 
 	def string_expr(self, s):
-		return json.dumps(s[0])
+		return s[0]
 
 	def number_expr(self, n):
 		return str(n[0])

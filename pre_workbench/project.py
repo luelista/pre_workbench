@@ -88,3 +88,16 @@ class Project:
         self.db.commit()
         range.metadata['rowid'] = cur.lastrowid
 
+    def deleteAnnotationSet(self, set_name):
+        cur = self.db.cursor()
+        cur.execute('''DELETE FROM annotations WHERE set_name = ?''',
+                    (set_name,))
+        self.db.commit()
+
+    def renameAnnotationSet(self, set_name, new_set_name):
+        cur = self.db.cursor()
+        cur.execute('''UPDATE annotations SET set_name = ? WHERE set_name = ?''',
+                    (new_set_name, set_name,))
+        self.db.commit()
+
+

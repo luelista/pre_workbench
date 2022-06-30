@@ -35,7 +35,7 @@ title: Welcome to PRE Workbench Docs
 - Applying a grammar to multiple packages
 - Display of fields from grammar in table
 
-##Other features
+## Other features
 ### Data inspector
 Parse the selection as different data types (Signed/Unsigned Int, Big/Little Endian, ...).
 

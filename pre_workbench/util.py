@@ -17,6 +17,8 @@
 import logging
 import time
 
+from PyQt5.QtCore import QThread, pyqtSignal
+
 logging.addLevelName(5, "TRACE")
 logging.TRACE = 5
 
@@ -40,3 +42,13 @@ def get_app_version():
         return pre_workbench._version.version
     except:
         return "dev"
+
+class SimpleThread(QThread):
+    resultReturned = pyqtSignal(object)
+    def __init__(self, parent, thread_fn, finish_fn):
+        super().__init__(parent)
+        self.thread_fn = thread_fn
+        self.resultReturned.connect(finish_fn)
+        self.start()
+    def run(self) -> None:
+        self.resultReturned.emit(self.thread_fn())

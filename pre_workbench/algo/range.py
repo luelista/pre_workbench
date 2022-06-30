@@ -2,7 +2,7 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QTreeWidgetItem
 
-from pre_workbench.guihelper import filledColorIcon
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont
 from pre_workbench.util import truncate_str
 
 
@@ -50,7 +50,7 @@ class Range:
 			me.setData(0, Range.BytesOffsetRole, self.start)
 			me.setData(0, Range.BytesSizeRole, self.bytes_size)
 			me.setData(0, Range.SourceDescRole, x.source_desc)
-
+			me.setFont(5, getMonospaceFont())
 			me.setText(0, truncate_str(text0))
 			me.setText(1, truncate_str(text1))
 			me.setText(2, truncate_str(text2))

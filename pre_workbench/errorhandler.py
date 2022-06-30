@@ -53,6 +53,16 @@ def report_error(logFile, excType, excValue, trace, desc):
 		logging.exception("Error reporting failed :(")
 		print(e.read())
 
+def check_for_updates():
+	try:
+		req = urllib.request.Request("https://pypi.org/pypi/pre_workbench/json")
+		with urllib.request.urlopen(req) as response:
+			content = json.loads(response.read())
+			version = content["info"]["version"]
+			return version
+	except Exception as e:
+		logging.exception("Update check failed :(")
+		print(e.read())
 
 def excepthook(excType, excValue, tracebackobj):
 	global enableReports

@@ -17,6 +17,8 @@
 import datetime
 import logging
 import uuid
+from collections import defaultdict
+
 from math import ceil, floor
 
 from bitstring import BitStream
@@ -464,13 +466,25 @@ class BitStructFI:
 			raw_data = raw_data[::-1]
 			le = True
 		stream = BitStream(raw_data)
+		bitsize = self.size * 8
+		bitpos = 0
 		pos = context.buf_offset * 8
+		multifields = defaultdict(dict)
 		for key, len in self.children:
 			if not le: context.buf_offset = floor(pos / 8)
-			context.push(desc=context.stack[-1].desc, id=key)
-			o[key] = context.pack_value(stream.read(len).uint)
+			field = stream.read(len)
+			context.push(desc={'print': ("."*bitpos) + field.bin + ("."*(bitsize-bitpos-len)) + "  " + key + " = " + str(field.uint)}, id=key)
+			o[key] = context.pack_value(field.uint)
 			context.pop()
+			if "__" in key:
+				multikey, pos = key.split("__")
+				if pos == "hi": pos = "0"
+				if pos == "lo": pos = "1"
+				multifields[multikey][pos] = (len, field.uint)
 			pos += len
+			bitpos += len
+		#for k, v in multifields.items():
+
 		context.buf_offset = ceil(pos / 8)
 		return context.pack_value(o)
 

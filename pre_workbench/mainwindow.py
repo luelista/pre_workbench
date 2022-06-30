@@ -25,10 +25,12 @@ import traceback
 import uuid
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSignalMapper, QTimer, pyqtSignal)
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication
+from PyQt5.QtGui import QKeySequence, QColor
+from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication, \
+	QPushButton
 from PyQtAds import ads
 
+from pre_workbench.errorhandler import check_for_updates
 from pre_workbench.guihelper import navigateBrowser, TODO
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
@@ -36,7 +38,8 @@ from pre_workbench import configs
 from pre_workbench import windows
 from pre_workbench.configs import getIcon
 from pre_workbench.datawidgets import DynamicDataWidget
-from pre_workbench.util import get_app_version
+from pre_workbench.util import get_app_version, SimpleThread
+from pre_workbench.windows.dialogs.manageannotationsets import showManageAnnotationSetsDialog
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
@@ -201,6 +204,11 @@ class WorkbenchMain(QMainWindow):
 				statusTip="Remove all annotations on the current buffer")
 		self.mapChildAction(self.clearRangesAct, "clearRanges")
 
+		self.manageAnnotationSetsAct = QAction("&Manage Annotation Sets", self,
+				triggered=lambda: showManageAnnotationSetsDialog(self))
+
+
+
 	def _initMenu(self):
 		menubar = self.menuBar()
 		mainToolbar = self.addToolBar('Main')
@@ -269,6 +277,8 @@ class WorkbenchMain(QMainWindow):
 		annotationsMenu.addAction(self.clearRangesAct)
 		self.loadAnnotationSetMenu = annotationsMenu.addMenu("Load Annotation Set")
 		annotationsMenu.aboutToShow.connect(self._updateParserMenu)
+		annotationsMenu.addAction(self.manageAnnotationSetsAct)
+
 
 		##### PARSER #####
 		parserMenu = menubar.addMenu('&Parser')
@@ -377,7 +387,13 @@ class WorkbenchMain(QMainWindow):
 		self._initActions()
 		self._initMenu()
 
-		self.statusBar().addWidget(MemoryUsageWidget())
+		self.statusBar().addPermanentWidget(MemoryUsageWidget())
+		def update_check_result(version):
+			if version != get_app_version():
+				self.statusBar().addPermanentWidget(QPushButton("New Version Available: "+version,
+																styleSheet="QPushButton{background-color:#44ff88;padding:1px 10px;}",
+																clicked=lambda: navigateBrowser("https://pypi.org/project/pre-workbench/")))
+		SimpleThread(self, check_for_updates, update_check_result)
 
 		self.setWindowIcon(getIcon("appicon.png"))
 		self.setGeometry(300, 300, 850, 850)

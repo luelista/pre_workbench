@@ -16,6 +16,7 @@
 
 import logging
 import struct
+from typing import Optional, Any, Dict
 
 from pre_workbench.algo.range import Range
 
@@ -26,7 +27,7 @@ from pre_workbench.structinfo.hexdump import hexdump
 
 
 class FormatInfoContainer:
-	def __init__(self, definitions=None, load_from_file=None, load_from_string=None):
+	def __init__(self, definitions: Optional[Dict[str, Any]] = None, load_from_file: Optional[str] = None, load_from_string: Optional[str] = None):
 		self.definitions = {} if definitions is None else definitions
 		self.definition_comments = {}
 		self.main_name = None
@@ -99,7 +100,7 @@ class ParseContext:
 		if buf is not None:
 			self.feed_bytes(buf)
 
-	def set_failed(self, ex):
+	def set_failed(self, ex: parse_exception):
 		if not isinstance(ex, parse_exception):
 			raise TypeError("Argument to set_failed must be of type parse_exception")
 		self.failed = ex
@@ -109,12 +110,12 @@ class ParseContext:
 		self.failed = None
 		self.log("Resetting context failed")
 
-	def hexdump_context(self, ptr, context=16):
+	def hexdump_context(self, ptr: int, context: int = 16):
 		start = ptr - (ptr%16) - context
 		end = start + 2*context
 		return hexdump(self.buf[start - self.display_offset_delta : end - self.display_offset_delta], result='return', addr_offset=start, addr_ptr=ptr-start)
 
-	def get_fi_by_def_name(self, def_name):
+	def get_fi_by_def_name(self, def_name: str):
 		try:
 			return self.format_infos.get_fi_by_def_name(def_name)
 		except KeyError:
@@ -128,7 +129,7 @@ class ParseContext:
 		if self.buf_limit_end != None:
 			self.buf_limit_end -= remove_bytes
 
-	def parse(self, by_name=None):
+	def parse(self, by_name: Optional[str] = None):
 		if by_name is None: by_name = self.format_infos.main_name
 		self.id = by_name
 		result = self.get_fi_by_def_name(by_name).read_from_buffer(self)
@@ -138,18 +139,19 @@ class ParseContext:
 			#raise self.failed
 		return result
 
-	def get_param(self, id, default=None, raise_if_missing=True):
+	def get_param(self, id: str, default = None, raise_if_missing: bool = True):
 		for i in range(len(self.stack)-1, -1, -1):
-			if id in self.stack[i].desc.params:
-				return self.stack[i].desc.params[id]
+			if hasattr(self.stack[i].desc, 'params'):
+				if id in self.stack[i].desc.params:
+					return self.stack[i].desc.params[id]
 		if raise_if_missing:
 			raise value_not_found(self, "Missing parameter "+id)
 		else:
 			return default
 
-	def push(self, desc, value=None, id=None):
+	def push(self, desc, value = None, id: Optional[str] = None):
 		if id != None: self.id = id
-		self.log("push",desc)
+		self.log("push", desc)
 		self.stack.append(stack_frame(desc, value, self.id, self.buf_offset, self.buf_limit_end))
 		self.id=""
 
@@ -163,7 +165,7 @@ class ParseContext:
 		self.log("-->", frame.value, frame.desc)
 		return frame.value
 
-	def set_child_limit(self, max_length):
+	def set_child_limit(self, max_length: int):
 		self.require_bytes(max_length)
 		self.buf_limit_end = self.buf_offset + max_length
 
@@ -183,23 +185,23 @@ class ParseContext:
 		else:
 			return len(self.buf) - self.buf_offset
 
-	def require_bytes(self, needed):
+	def require_bytes(self, needed: int):
 		if self.remaining_bytes() < needed: raise incomplete(self, needed, self.remaining_bytes())
 
-	def peek_structformat(self, format_string):
+	def peek_structformat(self, format_string: str):
 		return struct.unpack_from(self.get_param('endianness') + format_string, self.buf, self.buf_offset)
 
-	def peek_int(self, n, signed):
+	def peek_int(self, n: int, signed: bool):
 		return int.from_bytes(self.buf[self.buf_offset:self.buf_offset+n], signed=signed, byteorder='little' if n == 1 or self.get_param('endianness') == '<' else 'big')
 
-	def peek_bytes(self, n):
+	def peek_bytes(self, n: int):
 		return self.buf[self.buf_offset : self.buf_offset + n]
 
-	def consume_bytes(self, count):
+	def consume_bytes(self, count: int):
 		self.require_bytes(count)
 		self.buf_offset += count
 
-	def read_bytes(self, count):
+	def read_bytes(self, count: int):
 		self.require_bytes(count)
 		self.buf_offset += count
 		return self.buf[self.buf_offset - count:self.buf_offset]
@@ -207,13 +209,13 @@ class ParseContext:
 	def offset(self):
 		return self.buf_offset + self.display_offset_delta
 
-	def top_offset(self, stack_index=-1):
+	def top_offset(self, stack_index: int = -1):
 		return self.stack[stack_index].buf_offset + self.display_offset_delta
 
-	def top_length(self, stack_index=-1):
+	def top_length(self, stack_index: int = -1):
 		return self.buf_offset - self.stack[stack_index].buf_offset + self.display_offset_delta
 
-	def top_value(self, stack_index=-1):
+	def top_value(self, stack_index: int = -1):
 		return self.stack[stack_index].value
 
 	def top_id(self):
@@ -225,12 +227,12 @@ class ParseContext:
 	def set_top_value(self, value):
 		self.stack[-1].value = value
 
-	def top_buf(self, stack_index=-1):
+	def top_buf(self, stack_index: int = -1):
 		return self.buf[ self.stack[stack_index].buf_offset : self.buf_offset ]
 
 	def pack_value(self, value):
 		self.log("pack(L)",type(self.stack[-1].desc).__name__, self.top_offset(), self.top_length())#, value)
-		if self.on_new_subflow_category is not None:
+		if self.on_new_subflow_category is not None and hasattr(self.stack[-1].desc, 'params'):
 			try:
 				desc = self.stack[-1].desc
 				if 'reassemble_into' in desc.params:
@@ -259,7 +261,7 @@ class ParseContext:
 					if new: self.on_new_subflow_category(category=category, parse_context=self)
 
 			except Exception as ex:
-				raise parse_exception(self, "while adding bytes to reassembly buffer: "+ str(ex))
+				raise parse_exception(self, "while adding bytes to reassembly buffer: "+ str(ex)) from ex
 
 		return value
 
@@ -269,7 +271,7 @@ class ParseContext:
 	def unpack_value(self, packed_value):
 		return packed_value
 
-	def build_subflow_key(self, param):
+	def build_subflow_key(self, param: list):
 		meta = {}
 		category = param[0]
 		subflow_key = []
@@ -285,9 +287,17 @@ class ParseContext:
 
 class AnnotatingParseContext(ParseContext):
 	def pack_value(self, value):
+		from pre_workbench.structinfo.format_info import FormatInfo
 		source_desc = self.stack[-1].desc
 		self.log("pack(A)",type(source_desc).__name__, self.top_offset(), self.top_length())#, value)
-		return Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=self.top_id())
+		range = Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=self.top_id())
+		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
+		fi = self.stack[-1].desc
+		if isinstance(fi, FormatInfo):
+			range.metadata.update(fi.extra_params(context=self))
+		elif isinstance(fi, dict):
+			range.metadata.update(fi)
+		return range
 
 	def pack_error(self, ex):
 		range = self.pack_value(None)

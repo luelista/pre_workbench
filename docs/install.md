@@ -2,6 +2,12 @@
 title: Installing PRE Workbench
 ---
 
+# Downloads
+
+* PRE Workbench is available on the [Python Package Index as `pre_workbench`](https://pypi.org/project/pre-workbench/).
+* Pre-built releases are available on [Github](https://github.com/luelista/pre_workbench/releases).
+
+
 # Install on macOS
 
 ## App Bundle
@@ -45,7 +51,7 @@ prewb
 
 # Windows
 
-Windows is currently unsupported / untested. The application should install via pip, 
+Windows is currently **unsupported** / untested. The application should install via pip, 
 however for the dependency `PyQtAds`, no binary wheel for windows exists yet. Compiling 
 it yourself may or may not work.
 

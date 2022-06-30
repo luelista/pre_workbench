@@ -260,6 +260,12 @@ class RangeTreeDockWidget(QWidget):
 		elif event_id == "grammar":
 			self.fiTreeWidget.updateTree(param)
 
+	def saveState(self):
+		return {"hs": self.fiTreeWidget.header().saveState()}
+	def restoreState(self, data):
+		if "hs" in data: self.fiTreeWidget.header().restoreState(data["hs"])
+
+
 
 
 

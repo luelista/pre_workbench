@@ -26,14 +26,7 @@ class BytebufferAnnotatingParseContext(AnnotatingParseContext):
 		self.bbuf = bbuf
 
 	def pack_value(self, value):
-		from pre_workbench.structinfo.format_info import FormatInfo
 		range = super().pack_value(value)
-		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
-		fi = self.stack[-1].desc
-		if isinstance(fi, FormatInfo):
-			range.metadata.update(fi.extra_params(context=self))
-		elif isinstance(fi, dict):
-			range.metadata.update(fi)
 		self.bbuf.addRange(range)
 		return range
 

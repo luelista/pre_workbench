@@ -74,6 +74,9 @@ class RichEdit(QTextEdit):
 			try:
 				def alert(msg):
 					QMessageBox.information(self, "Script alert", str(msg))
+
+				import logging
+				log = logging.info
 				exec(code)
 			except Exception as ex:
 				QMessageBox.warning(self, "Exception in script", traceback.format_exc())

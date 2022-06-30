@@ -54,9 +54,17 @@ class DataSource(QObject):
 	def cancelFetch(self):
 		pass
 
+class SyncDataSource(DataSource):
+	def startFetch(self):
+		obj = self.process()
+		self.on_finished.emit()
+		return obj
+
+	def cancelFetch(self):
+		pass
 
 @DataSourceTypes.register(DisplayName="Binary file")
-class FileDataSource(DataSource):
+class FileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
@@ -64,24 +72,18 @@ class FileDataSource(DataSource):
 			SettingsField("formatInfo", "Grammar definition", "text", {"listselectcallback":formatinfoSelect})
 		]
 
-	def startFetch(self):
+	def process(self):
 		bbuf = ByteBuffer(metadata={'fileName': self.params['fileName'],
 									'fileTimestamp': os.path.getmtime(self.params['fileName'])})
 		with open(self.params['fileName'], "rb") as f:
 			bbuf.setContent(f.read())
 
 		apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
-
-		self.on_finished.emit()
 		return bbuf
-
-	def cancelFetch(self):
-		# cancel reading file
-		pass
 
 
 @DataSourceTypes.register(DisplayName="Directory of binary files")
-class DirectoryOfBinFilesDataSource(DataSource):
+class DirectoryOfBinFilesDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
@@ -90,7 +92,7 @@ class DirectoryOfBinFilesDataSource(DataSource):
 			SettingsField("formatInfo", "Grammar definition", "text", {"listselectcallback":formatinfoSelect})
 		]
 
-	def startFetch(self):
+	def process(self):
 		globStr = self.params['fileName'] + '/' + self.params['filePattern']
 		plist = ByteBufferList()
 		for fileName in sorted(glob.glob(globStr)):
@@ -104,16 +106,11 @@ class DirectoryOfBinFilesDataSource(DataSource):
 
 			plist.add(bbuf)
 
-		self.on_finished.emit()
 		return plist
-
-	def cancelFetch(self):
-		# cancel reading file
-		pass
 
 
 @DataSourceTypes.register(DisplayName = "CSV file")
-class CSVFileDataSource(DataSource):
+class CSVFileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
@@ -146,7 +143,7 @@ class CSVFileDataSource(DataSource):
 		else:
 			return {"col%d" % i: field for i, field in enumerate(row)}
 
-	def startFetch(self):
+	def process(self):
 		import csv
 		plist = ByteBufferList()
 		decoder = self._getPayloadDecoder()
@@ -170,16 +167,11 @@ class CSVFileDataSource(DataSource):
 		for bbuf in plist.buffers:
 			apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
 
-		self.on_finished.emit()
 		return plist
-
-	def cancelFetch(self):
-		# cancel reading file
-		pass
 
 
 @DataSourceTypes.register(DisplayName = "PCAP file")
-class PcapFileDataSource(DataSource):
+class PcapFileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
 		return [
@@ -187,19 +179,15 @@ class PcapFileDataSource(DataSource):
 			SettingsField("formatInfo", "Grammar definition", "text", {"listselectcallback":formatinfoSelect})
 		]
 
-	def startFetch(self):
+	def process(self):
 		with open(self.params['fileName'], "rb") as f:
 			plist = read_pcap_file(f)
 
 		for bbuf in plist.buffers:
 			apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
 
-		self.on_finished.emit()
 		return plist
 
-	def cancelFetch(self):
-		# cancel reading file
-		pass
 
 
 class AbstractTsharkDataSource(DataSource):

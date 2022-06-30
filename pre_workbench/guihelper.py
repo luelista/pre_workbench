@@ -84,7 +84,7 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 				ok_callback(retval_callback())
 				dlg.accept()
 			except Exception as ex:
-				QMessageBox.critical(dlg, "Fehler", str(ex))
+				QMessageBox.critical(dlg, "Error", str(ex))
 		btn.accepted.connect(ok_slot)
 	else:
 		btn.accepted.connect(dlg.accept)

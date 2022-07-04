@@ -23,6 +23,8 @@ def run_cli():
 						help='Hex string to parse')
 	parser.add_argument('--json', action="store_true",
 						help='Print json output')
+	parser.add_argument('--print', action="store_true",
+						help='Print with Python print function')
 
 	r = parser.parse_args()
 	if r.project:
@@ -52,7 +54,16 @@ def run_cli():
 
 	pc = ParseContext(fic, data)
 	result = pc.parse(definition)
-	print(json.dumps(result, indent=4))
+	if r.json:
+		print(json.dumps(result, indent=4, default=str_helper))
+	else:
+		print(result)
+
+def str_helper(obj):
+	if isinstance(obj, (bytes, bytearray)):
+		return binascii.hexlify(obj).decode('ascii').upper()
+	else:
+		return str(obj)
 
 if __name__ == '__main__':
 	run_cli()

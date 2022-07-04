@@ -13,13 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import binascii
+
 
 def dec(i):
 	return str(i)
 
 def hex(i):
 	if isinstance(i, (bytes, bytearray)):
-		return ":".join("%02x" % a for a in i)
+		return binascii.hexlify(i, ":").decode('ascii')
 	else:
 		return "0x%x" % i
 

@@ -39,7 +39,7 @@ from pre_workbench import windows
 from pre_workbench.configs import getIcon
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
-from pre_workbench.windows.dialogs.manageannotationsets import showManageAnnotationSetsDialog
+from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
@@ -205,7 +205,7 @@ class WorkbenchMain(QMainWindow):
 		self.mapChildAction(self.clearRangesAct, "clearRanges")
 
 		self.manageAnnotationSetsAct = QAction("&Manage Annotation Sets", self,
-				triggered=lambda: showManageAnnotationSetsDialog(self))
+				triggered=lambda: ManageAnnotationSetsDialog(self).exec())
 
 
 

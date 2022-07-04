@@ -6,7 +6,7 @@ def test_thesis_struct():
 	parse_me("""
 	pascal_string struct {
 		length UINT16(endianness=">")
-		value STRING(size=(length), charset="ascii")
+		value STRING[length](charset="ascii")
 	}
 	""",
 	"  0004 41414141 ", {
@@ -30,8 +30,9 @@ def test_thesis_variant():
 		pcap_file(endianness=">")
 		pcap_file(endianness="<")
 	}
+	
 	pcap_file struct {
-		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=0xA1B2C3D4)
+		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)
 	}
 	""",
 	"  A1B2C3D4 ", {
@@ -48,9 +49,11 @@ def test_thesis_switch():
 			case (2): payload_2
 		}
 	}
+	
 	payload_1 struct {
 		aaa INT8
 	}
+	
 	payload_2 struct {
 		bbb UINT8
 	}

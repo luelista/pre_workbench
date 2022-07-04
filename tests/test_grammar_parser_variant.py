@@ -49,6 +49,7 @@ test_variant_reset_offset_code = """
 		pcap_file(endianness=">")
 		pcap_file(endianness="<")
 	}
+	
 	pcap_file struct {
 		dummy UINT32
 		magic_number UINT32(description="'A1B2C3D4' means the endianness is correct", magic=2712847316)

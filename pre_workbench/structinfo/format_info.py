@@ -130,7 +130,7 @@ class StructFI:
 			self.size = None
 
 	def _to_text(self, indent, refs, all_params):
-		x = "struct "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		x = "struct"+params_to_text(indent, refs, all_params, )+" {"+"\n"
 		for (name, c, comment) in self.children:
 			if comment: x += "\t"*(1+indent) + comment + "\n"
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
@@ -154,7 +154,7 @@ class VariantStructFI:
 	def _to_text(self, indent, refs, all_params):
 		if len(self.children) == 1:
 			return params_to_text(indent, refs, all_params, ) + self.children[0].to_text(indent, refs)
-		x = "variant "+params_to_text(indent, refs, all_params, )+"{\n"
+		x = "variant"+params_to_text(indent, refs, all_params, )+" {\n"
 		for c in self.children:
 			x += "\t"*(1+indent) + c.to_text(indent+1, refs) + "\n"
 		return x + "\t"*indent+"}"
@@ -374,7 +374,7 @@ class FieldFI:
 		self.value_expr = deserialize_expr(value) if value else None
 
 	def _to_text(self, indent, refs, all_params):
-		return  self.format_type+""+params_to_text(indent, refs, all_params, ignore=['children', 'def_name', 'format_type'])
+		return self.format_type+""+params_to_text(indent, refs, all_params, ignore=['children', 'def_name', 'format_type'])
 
 	def _parse(self, context):
 		if self.size == DYN_LEN:
@@ -424,7 +424,7 @@ class UnionFI:
 			self.size = None
 
 	def _to_text(self, indent, refs, all_params):
-		x = "union "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		x = "union"+params_to_text(indent, refs, all_params, )+" {"+"\n"
 		for (name, c, comment) in self.children:
 			if comment: x += "\t"*(1+indent) + comment + "\n"
 			x += "\t"*(1+indent) + name + " " + c.to_text(indent+1, refs) + "\n"
@@ -450,7 +450,7 @@ class BitStructFI:
 		self.size = ceil(sum(bits for (name, bits) in self.children) / 8)
 
 	def _to_text(self, indent, refs, all_params):
-		x = "bits "+params_to_text(indent, refs, all_params, )+"{"+"\n"
+		x = "bits"+params_to_text(indent, refs, all_params, )+" {"+"\n"
 		namelen = max(len(name) for name, bits in self.children)
 		for (name, bits) in self.children:
 			x += "%s%s : %2d\n" % ("\t"*(1+indent), name.ljust(namelen), bits)
@@ -490,9 +490,11 @@ class BitStructFI:
 
 
 def params_to_text(indent, refs, params, ignore=['children','def_name'], before="(", after=")"):
-	x=["%s=%s"%(k, StructInfoValueEncoder().encode(v)) for k,v in params.items() if k not in ignore]
-	if len(x) == 0: return ""
-	return before+", ".join(x)+after
+	out = ""
+	if "size" in params: out += "[" + params["size"].serialize() + "]"
+	x=["%s=%s"%(k, StructInfoValueEncoder().encode(v)) for k,v in params.items() if k not in ignore and k != "size"]
+	if len(x) == 0: return out
+	return out+before+", ".join(x)+after
 
 
 """

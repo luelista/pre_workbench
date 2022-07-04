@@ -9,10 +9,10 @@ from pre_workbench.structinfo.exceptions import invalid, incomplete
 def test_repeated_struct():
 	parse_me("""
 		DEFAULT repeat(endianness=">", charset="utf-8") struct {
-			type UINT16(base="HEX")
-			length UINT8
-			value STRING(size=(length))
-		}
+				type UINT16(base="HEX")
+				length UINT8
+				value STRING[length]
+			}
 		""",
 		"0001 05 3132333435  0002 01 42   0003 0a 41414141414141414141",
 		[
@@ -27,12 +27,12 @@ def test_repeated_struct():
 def test_repeat_struct_union():
 	parse_me("""
 		DEFAULT repeat struct(endianness=">", charset="utf-8") {
-			type UINT16(base="HEX")
-			aaa union {
-				x UINT32
-				y BYTES(size=(4))
+				type UINT16(base="HEX")
+				aaa union {
+					x UINT32
+					y BYTES[4]
+				}
 			}
-		}
 		""",
 		"0001 12345678 0002 41424344 0003 00000001 ",
 		[
@@ -45,9 +45,9 @@ def test_repeat_struct_union():
 def test_union():
 	parse_me("""
 		DEFAULT union(endianness=">") {
-				x UINT32
-				y BYTES(size=(4))
-			}
+			x UINT32
+			y BYTES[4]
+		}
 		""",
 		"41424344 ",
 		{'x': 0x41424344, 'y': b"ABCD"}
@@ -56,22 +56,25 @@ def test_union():
 
 def1 = """
 	DEFAULT struct(endianness=">") {
-		magic_value UINT32(magic=0xabcd1100)
+		magic_value UINT32(magic=2882343168)
 		vb varlen_bytes
 		pascal_utf8 pascal_string(charset="utf-8")
 		pascal_iso pascal_string(charset="iso-8859-1")
 		c_utf8 c_string(charset="utf-8")
 		c_iso c_string(charset="iso-8859-1")
 	}
+	
 	pascal_string struct {
 		length UINT16(endianness=">")
-		value STRING(size=(length))
+		value STRING[length]
 	}
+	
 	c_string STRINGZ
+	
 	varlen_bytes struct {
 		len_length UINT8(endianness=">")
-		length E_INT(endianness=">", size=(len_length))
-		value BYTES(size=(length))
+		length E_INT[len_length](endianness=">")
+		value BYTES[length]
 	}
 	"""
 
@@ -99,6 +102,7 @@ def test_magic_fail():
 def test_tagged_type_strings_endianness():
 	parse_me("""
 		DEFAULT repeat tagged_type
+		
 		tagged_type struct {
 			type_id UINT16(endianness=">")
 			value switch (type_id) {
@@ -116,15 +120,18 @@ def test_tagged_type_strings_endianness():
 				case (33): c_string(charset="iso-8859-1")
 			}
 		}
+		
 		pascal_string struct {
 			length UINT16(endianness=">")
-			value STRING(size=(length))
+			value STRING[length]
 		}
+		
 		c_string STRINGZ
+		
 		varlen_bytes struct {
 			len_length UINT8(endianness=">")
-			length E_INT(endianness=">", size=(len_length))
-			value BYTES(size=(length))
+			length E_INT[len_length](endianness=">")
+			value BYTES[length]
 		}
 		""",
 		"0010 0005 4142434445    0020 4141414100    0004 00000001    0003 01000000    0006 0000000000000001    0008 aabbccddeeff  0009 0a010164    000a 01 01 01    000a 02 0001 01    000a 02 0005 0000000000 ",
@@ -139,7 +146,7 @@ def test_ws_numbers():
 		none NONE
 		bool BOOLEAN
 		char CHAR
-		euint E_UINT(size=(9))
+		euint E_UINT[9]
 		uint8 UINT8
 		uint16 UINT16
 		uint24 UINT24
@@ -148,7 +155,7 @@ def test_ws_numbers():
 		uint48 UINT48
 		uint56 UINT56
 		uint64 UINT64
-		eint E_INT(size=(9))
+		eint E_INT[9]
 		int8 INT8
 		int16 INT16
 		int24 INT24
@@ -193,11 +200,11 @@ def test_ws_numbers():
 def test_ws_bytes():
 	parse_me("""
 	DEFAULT struct(endianness=">", charset="ascii") {
-		string STRING(size=(3))
+		string STRING[3]
 		stringz STRINGZ
 		uint_string UINT_STRING(size_len=(3))
 		ether ETHER
-		bytes BYTES(size=(3))
+		bytes BYTES[3]
 		uint_bytes UINT_BYTES(size_len=(3))
 		ipv4 IPv4
 		ipv6 IPv6
@@ -224,7 +231,7 @@ def test_ws_bytes():
 def test_custom_values():
 	parse_me("""
 		datum struct {
-			_bitfeld bits (endianness=">", hide=1){
+			_bitfeld bits(endianness=">", hide=1) {
 				year_lo :  3
 				day     :  5
 				year_hi :  4

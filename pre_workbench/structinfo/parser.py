@@ -60,7 +60,6 @@ class MainTrans(Transformer):
 	pair = tuple
 	parampair = tuple
 	dict = dict
-	params = dict
 	moreparams = dict
 	field = tuple
 	variantchildren = list
@@ -79,6 +78,11 @@ class MainTrans(Transformer):
 	null = lambda self, _: None
 	true = lambda self, _: True
 	false = lambda self, _: False
+
+	def params(self, node):
+		if len(node) > 0 and isinstance(node[0], Expression):
+			node[0] = ("size", node[0])
+		return dict(node)
 
 	def namedfi(self, node):
 		name, params = node

@@ -19,7 +19,7 @@
 
 start: field*
 
-params: ("(" [parampair ("," parampair)*] ")")?
+params: ("[" expr_value "]")? ("(" [parampair ("," parampair)*] ")")?
 parampair: IDENTIFIER "=" value
 opt_comment: MULTILINE_COMMENT?
 

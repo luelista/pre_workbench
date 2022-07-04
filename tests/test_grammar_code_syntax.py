@@ -50,3 +50,32 @@ def test_comment_in_union():
 	d = parse_definition(code, "anytype")
 	assert_text(d, code)
 
+
+def test_size_syntax():
+	code = """
+	struct {
+		/* foo */
+		bytefield BYTES[8]
+		len UINT8
+		header struct {
+			len2 UINT8
+		}
+		test BYTES[len]
+		test2 STRING[header.len](charset="utf8")
+	}
+	"""
+	d = parse_definition(code, "anytype")
+	assert_text(d, code)
+
+
+def test_complex_statement_1():
+	code = """
+	repeat(endianness=">", charset="utf-8") struct {
+			type UINT16(base="HEX")
+			length UINT8
+			value STRING[length]
+		}
+	"""
+	d = parse_definition(code, "anytype")
+	assert_text(d, code)
+

@@ -169,8 +169,8 @@ class ParseContext:
 		self.require_bytes(max_length)
 		self.buf_limit_end = self.buf_offset + max_length
 
-	def get_path(self):
-		return ".".join(frame.id for frame in self.stack)
+	def get_path(self, delim="."):
+		return delim.join(frame.id for frame in self.stack)
 
 	def log(self, *dat):
 		if not self.logging_enabled: return

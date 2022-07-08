@@ -656,18 +656,18 @@ class HexView2(QWidget):
 				self.itemY.append((None, None, None))
 
 			y = self._drawLine(qpTxt, qpBg, lineNumber, y)
-			lineNumber+=1
+			lineNumber += 1
 	
 	def _drawLine(self, qpTxt, qpBg, lineNumber, y):
-		TXT_DY = self.fontAscent + self.linePadding #floor(self.dyLine*0.8)
-		#qpTxt.set
+		TXT_DY = self.fontAscent + self.linePadding
+
 		bufIdx, offset, _ = self.lineNumberToByteOffset(lineNumber)
 		buffer = self.buffers[bufIdx]
 		if offset == 0:
 			# draw buffer separator
-			qpBg.fillRect(2,y,100,1,QColor("red"))
+			qpBg.fillRect(2,int(y),100,1,QColor("red"))
 			qpTxt.setFont(self.fontSection[0]); qpTxt.setPen(self.fsAscii)
-			qpTxt.drawText(self.xHex, y+self.fontSection[0].pointSize() * 1.7, repr(buffer.metadata))
+			qpTxt.drawText(self.xHex, int(y+self.fontSection[0].pointSize() * 1.7), repr(buffer.metadata))
 			y += self.fontSection[0].pointSize() * 2
 
 		end = min(len(buffer), offset + self.bytesPerLine)
@@ -675,7 +675,7 @@ class HexView2(QWidget):
 		for i in range(offset, end):
 			theByte = buffer.getByte(i)
 
-			#// if specified, print section header
+			# if specified, print section header
 			#sectionAnnotations = buffer.getAnnotationValues(start=i, annotationProperty="section");
 			sectionAnnotations = buffer.ranges.getMetaValuesStartingAt(i, "section")
 			if len(sectionAnnotations) != 0:
@@ -684,35 +684,35 @@ class HexView2(QWidget):
 				for row in sectionAnnotations:
 					bangs = len(pattern_heading.match(row).group())
 					qpTxt.setFont(self.fontSection[bangs])
-					qpTxt.drawText(self.xHex, y+self.fontSection[bangs].pointSize() * 1.7, row)
+					qpTxt.drawText(self.xHex, int(y+self.fontSection[bangs].pointSize() * 1.7), row)
 					y += self.fontSection[bangs].pointSize() * 2
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(QColor("#555555"))
-				if (ii != 0): qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(i));
+				if (ii != 0): qpTxt.drawText(self.xAddress, int(y+TXT_DY), self.addressFormat.format(i));
 
-			if (ii == 0):  #//print address for first byte in line
+			if (ii == 0):  #print address for first byte in line
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(self.fsAddress)
-				qpTxt.drawText(self.xAddress, y+TXT_DY, self.addressFormat.format(offset))
+				qpTxt.drawText(self.xAddress, int(y+TXT_DY), self.addressFormat.format(offset))
 
-			#// if specified, draw background color from style attribute
+			# if specified, draw background color from style attribute
 			bg = buffer.getStyle(i, "color", None)
 			fg = buffer.getStyle(i, "textcolor", None)
 			if (bg):
-				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+1, self.dxHex, self.dyLine-2, QColor(bg))
-				qpBg.fillRect(self.xAscii + ii * self.dxAscii, y+1, self.dxAscii, self.dyLine-2, QColor(bg))
+				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+1), self.dxHex, self.dyLine-2, QColor(bg))
+				qpBg.fillRect(self.xAscii + ii * self.dxAscii, int(y+1), self.dxAscii, self.dyLine-2, QColor(bg))
 
-			#// store item's Y position and buffer pos
-			self.itemY.append((bufIdx, i, y))
+			# store item's Y position and buffer pos
+			self.itemY.append((bufIdx, i, int(y)))
 
-			#// print HEX and ASCII representation of this byte
+			# print HEX and ASCII representation of this byte
 			qpTxt.setFont(self.fontHex)
 			qpTxt.setPen( self.fsHex if not fg else QColor(fg))
-			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, y+TXT_DY, self.hexFormat.format(theByte));
+			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+TXT_DY), self.hexFormat.format(theByte))
 			qpTxt.setFont(self.fontAscii)
 			qpTxt.setPen(self.fsAscii if not fg else QColor(fg))
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
-			qpTxt.drawText(self.xAscii + ii * self.dxAscii, y+TXT_DY, asciichar);
+			qpTxt.drawText(self.xAscii + ii * self.dxAscii, int(y+TXT_DY), asciichar)
 			ii += 1
 
 		return y + self.dyLine

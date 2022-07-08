@@ -511,8 +511,12 @@ class WorkbenchMain(QMainWindow):
 
 	def openProjectInNewWindow(self, projectPath = "--choose-project"):
 		import subprocess
-		subprocess.Popen([sys.executable, sys.argv[0], projectPath], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
+		self_script = sys.argv[0]
+		# weird Windows magic
+		if not os.path.exists(self_script) and os.path.exists(self_script + '.exe'): self_script += '.exe'
+		cmd_line = [sys.executable, self_script, projectPath]
+		logging.info('Starting new instance with cmd line: %r', cmd_line)
+		subprocess.Popen(cmd_line, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 	def onFileNewWindowAction(self, typ):
 		ow = typ()

@@ -29,7 +29,7 @@ MyTLV struct {
 		type UINT16(color="#aaaa00")
 		length UINT16(color="#00aa00")
 	}
-	payload BYTES(size=(header.length), color="#0000aa")
+	payload BYTES[header.length](color="#0000aa")
 }
 ```
 
@@ -82,7 +82,10 @@ UINT32(endianness="<")
 IPv4
 --> IP version 4 address, in binary, in network byte order.
 
-UINT_STRING(size_len=2, encoding=">", charset="utf-8")
+STRING[32](charset="utf-8")
+--> character string in UTF-8 encoding, 32 bytes long
+
+UINT_STRING(size_len=2, endianness=">", charset="utf-8")
 --> character string in UTF-8 encoding, with an unsigned integer, 2 byte, big endian prefix specifing the string length.
   
 mytype
@@ -96,7 +99,7 @@ mytype
 | charset       | String  | [Python charsets, e.g. "utf-8"][charsets]. **Required** by all string types. |
 | unit          | String  | "s", "ms", "us". Optional for ABSOLUTE_TIME, guessed if absent. |
 | magic         | ???     | If specified, the field is only valid if its value matches the magic. |
-| size          | int expression  | Optional for STRING and BYTES fields, the rest of the parsing unit is matched if absent. |
+| size          | int expression  | Optional for STRING and BYTES fields, the rest of the parsing unit is matched if absent. Short syntax: STRING[expr] |
 | size_len      | int expression  | **Required** for UINT_STRING and UINT_BYTES |
 | parse_with    | named   | Usually used on BYTES or UINT_BYTES fields, causes the value to be parsed as a child parsing unit. This allows to run the child parser with a fixed length, by specifying `size` or using UINT_BYTES. |
 
@@ -112,7 +115,7 @@ struct: "struct" params "{" (IDENTIFIER type)* "}"
 ```
 pascal_string struct {
 	length UINT16(endianness=">")
-	value STRING(size=(length), charset="utf8")
+	value STRING[length](charset="utf8")
 }
 # note: a pascal_string could be defined more easily using the UINT_STRING built-in, as shown above
 ```

@@ -58,7 +58,7 @@ pcap_packet struct {
 		incl_len UINT32(description="number of octets of packet saved in file")
 		orig_len UINT32(description="actual length of packet")
 	}
-	payload BYTES(size=(pheader.incl_len))
+	payload BYTES[pheader.incl_len]
 }
 
 pcapng_first_block struct (section="pcapNG first block"){
@@ -69,7 +69,7 @@ pcapng_first_block struct (section="pcapNG first block"){
 		version_major UINT16
 		version_minor UINT16
 		section_length INT64
-		options BYTES(size=(block_length-28), parse_with=pcapng_options)
+		options BYTES[block_length-28](parse_with=pcapng_options)
 	}
 	block_length2 UINT32(color="#666600")
 }
@@ -77,7 +77,7 @@ pcapng_first_block struct (section="pcapNG first block"){
 pcapng_block struct (section="pcapNG block"){
 	block_type UINT32(color="#999900", show="0x%08X")
 	block_length UINT32(color="#666600")
-	block_payload BYTES(size=(block_length - 12), parse_with=pcapng_block_payload)
+	block_payload BYTES[block_length - 12](parse_with=pcapng_block_payload)
 	block_length2 UINT32(color="#666600")
 }
 
@@ -110,21 +110,21 @@ pcapng_EPB struct {
 	timestamp_lo UINT32
 	cap_length UINT32
 	orig_length UINT32
-	payload BYTES(size="cap_length")
-	payload_padding BYTES(size="3-((cap_length-1)&3)", textcolor="#888888")
+	payload BYTES[cap_length]
+	payload_padding BYTES[pad(4)](textcolor="#888888")
 }
 
 pcapng_SPB struct {
 	orig_length UINT32
-	payload BYTES(size=(block_length - 16))
-	payload_padding BYTES(size=(pad(4)), textcolor="#888888")
+	payload BYTES[block_length - 16]
+	payload_padding BYTES[pad(4)](textcolor="#888888")
 }
 
 pcapng_options repeat struct {
 		code UINT16(color="#660666")
 		length UINT16
-		value BYTES(size=(length), textcolor="#d3ebff")
-		padding BYTES(size=(pad(4)), textcolor="#666")
+		value BYTES[length](textcolor="#d3ebff")
+		padding BYTES[pad(4)](textcolor="#666")
 	}
 """)
 

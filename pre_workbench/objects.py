@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import List, Dict, Any, Optional
 
 import binascii
 import re, struct
@@ -156,11 +157,15 @@ class ByteBuffer(QObject):
 		return bbuf
 
 
-
 class ByteBufferList(QObject):
 	__slots__ = ('metadata', 'buffers', 'buffers_hash', 'updating')
+	metadata: Dict[str, Any]
+	buffers: List[ByteBuffer]
+	buffers_hash: Dict[tuple, ByteBuffer]
+	updating: Optional[int]
+
 	on_new_packet = pyqtSignal(int)
-	
+
 	def __init__(self):
 		super().__init__()
 		self.metadata = dict()
@@ -168,14 +173,14 @@ class ByteBufferList(QObject):
 		self.buffers_hash = dict()
 		self.updating = None
 
-	def add(self, bbuf):
+	def add(self, bbuf: ByteBuffer):
 		self.buffers.append(bbuf)
 		if self.updating is None:
 			self.on_new_packet.emit(1)
 		else:
 			self.updating += 1
 
-	def reassemble(self, subflow_key, bufmeta, databytes, datameta):
+	def reassemble(self, subflow_key: tuple, bufmeta, databytes, datameta):
 		if subflow_key not in self.buffers_hash:
 			print("Starting new buffer for key",subflow_key)
 			bbuf = ByteBuffer(metadata=bufmeta)

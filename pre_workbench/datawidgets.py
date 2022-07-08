@@ -18,6 +18,7 @@ import html
 import itertools
 import logging
 from base64 import b64encode, b64decode
+from typing import Optional, List
 
 from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
@@ -62,14 +63,17 @@ def get_wireshark_colset():
             ColumnInfo("Payload", key="tcp.payload", show="hex")]
 
 class PacketListModel(QAbstractItemModel):
-    def __init__(self, plist: ByteBufferList = None, parent = None):
+    columns: List[ColumnInfo]
+    listObject: Optional[ByteBufferList]
+
+    def __init__(self, plist: Optional[ByteBufferList] = None, parent = None):
         super().__init__(parent)
         self.columns = []
         self.listObject = None
         self.setList(plist)
         #self.rootItem = TreeItem(("Model", "Status","Location"))
 
-    def setList(self, plist: ByteBufferList):
+    def setList(self, plist: Optional[ByteBufferList]):
         if self.listObject is not None:
             self.listObject.on_new_packet.disconnect(self.onNewPacket)
         self.beginResetModel()
@@ -132,6 +136,12 @@ class PacketListModel(QAbstractItemModel):
                 return None
             return self.columns[section].title
 
+        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+            if self.listObject is None:
+                return None
+            item = self.listObject.buffers[section]
+            return "*" if item.metadata.get("marked", False) else " "
+
         return None
 
     def index(self, row, column, parent):
@@ -168,11 +178,14 @@ class PacketListWidget(QWidget):
         super().__init__()
         self.initUI()
 
-    def showData(self, data):
+    def showData(self, data: ByteBuffer):
         dv = DynamicDataWidget()
         dv.setContents(data)
         dv.setWindowTitle("Data view")
         pre_workbench.app.MainWindow.showChild(dv, True)
+
+    def markPacket(self, data: ByteBuffer):
+        data.metadata['marked'] = not data.metadata.get('marked', False)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -219,9 +232,10 @@ class PacketListWidget(QWidget):
         index = self.packetlist.indexAt(point)
         ctx = QMenu("Context menu", self.packetlist)
         if index.isValid():
+            # TODO support multi selection
             bbuf = self.listObject.buffers[index.row()]
             ctx.addAction("Item Details", lambda: self.showData(bbuf))
-            ctx.addAction("Mark/Unmark Packet", lambda: self.showData(bbuf))
+            ctx.addAction("Mark/Unmark Packet", lambda: self.markPacket(bbuf))
             ctx.addSeparator()
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
 

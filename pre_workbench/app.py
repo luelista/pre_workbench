@@ -127,7 +127,10 @@ class WorkbenchApplication(QApplication):
 	def _find_project(self):
 		if not self.args.choose_project:
 			if self.args.project_dir and os.path.isdir(self.args.project_dir):
-				return sys.argv[1]
+				return self.args.project_dir
+
+			if self.args.project_dir and os.path.isfile(self.args.project_dir) and os.path.basename(self.args.project_dir) == ".pre_workbench":
+				return os.path.dirname(self.args.project_dir)
 
 			last_prj = configs.getValue("LastProjectDir", None)
 			if last_prj and os.path.isfile(os.path.join(last_prj, ".pre_workbench")):

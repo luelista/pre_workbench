@@ -1,10 +1,10 @@
 .PHONY: pyinstaller package dev run
 
-pyinstaller:
+pyinstaller: dev
 	pyinstaller --noconfirm --distpath='dist_pyi' PRE\ Workbench.spec
 
 package:
-	./package.sh
+	./scripts/package.sh
 
 dev:
 	python3 setup.py build_ext --inplace

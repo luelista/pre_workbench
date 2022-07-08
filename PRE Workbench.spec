@@ -1,7 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import os.path
 
 block_cipher = None
+packages_paths = [
+'./venv/lib/python3.9/site-packages',
+'./venv/lib/python3.10/site-packages',
+'./venv/lib/site-packages',
+]
+packages_path = next(p for p in packages_paths if os.path.exists(p))
 
 a = Analysis(['run_workbench.py'],
              pathex=[
@@ -42,7 +48,8 @@ exe = EXE(pyz,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,
-          entitlements_file=None )
+          entitlements_file=None,
+           icon='scripts/appicon.ico' )
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
@@ -53,5 +60,5 @@ coll = COLLECT(exe,
                name='PRE Workbench')
 app = BUNDLE(coll,
              name='PRE Workbench.app',
-             icon='appicon.icns',
+             icon='scripts/appicon.icns',
              bundle_identifier=None)

@@ -70,19 +70,22 @@ class RichEdit(QTextEdit):
 		if mod == QtCore.Qt.ControlModifier and e.key() == QtCore.Qt.Key_Return:
 			print("ctr-enter")
 			code = self.getCodeBlockUnderCursor()
-			print(code)
-			try:
-				def alert(msg):
-					QMessageBox.information(self, "Script alert", str(msg))
-
-				import logging
-				log = logging.info
-				exec(code)
-			except Exception as ex:
-				QMessageBox.warning(self, "Exception in script", traceback.format_exc())
+			run_code(self, code)
 			return
 
 		super().keyPressEvent(e)
+
+def run_code(parent, code):
+	print(code)
+	try:
+		def alert(msg):
+			QMessageBox.information(parent, "Script alert", str(msg))
+
+		import logging
+		log = logging.info
+		exec(code)
+	except Exception as ex:
+		QMessageBox.warning(parent, "Exception in script", traceback.format_exc())
 
 
 @WindowTypes.register(fileExts=['.pht'], icon='document-text-image.png')

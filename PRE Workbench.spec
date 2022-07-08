@@ -11,14 +11,14 @@ packages_path = next(p for p in packages_paths if os.path.exists(p))
 
 a = Analysis(['run_workbench.py'],
              pathex=[
-             './venv/lib/python3.9/site-packages'
+             packages_path
              ],
              binaries=[],
              datas=[
                 ('pre_workbench/icons/*', 'pre_workbench/icons'),
                 ('pre_workbench/structinfo/*.lark', 'pre_workbench/structinfo'),
                 ('pre_workbench/*.tes', 'pre_workbench'),
-                ('venv/lib/python3.9/site-packages/lark/grammars/common.lark', 'lark/grammars'),
+                (packages_path+'/lark/grammars/common.lark', 'lark/grammars'),
              ],
              hiddenimports=[
                 'PyQt5.QtPrintSupport',  # why ???

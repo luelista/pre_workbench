@@ -72,16 +72,19 @@ class ObjectWindow(QWidget):
 		#layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
 		toolbar = QToolBar()
-		self.cancelAction = toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
-		self.cancelAction.triggered.connect(self.onCancelFetch)
-		self.cancelAction.setEnabled(False)
-		self.reloadAction = toolbar.addAction(getIcon("arrow-circle-double.png"), "Reload")
-		self.reloadAction.triggered.connect(self.reload)
 		dsoVisAction = toolbar.addAction(getIcon("gear--pencil.png"), "Data Source Options")
 		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(not collapseSettings)
 		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
 		metadataVisAction = toolbar.addAction(getIcon("tags-label.png"), "Metadata")
 		metadataVisAction.setCheckable(True)
+		toolbar.addSeparator()
+		self.reloadAction = toolbar.addAction(getIcon("arrow-circle-double.png"), "Reload")
+		self.reloadAction.triggered.connect(self.reload)
+		self.cancelAction = toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
+		self.cancelAction.triggered.connect(self.onCancelFetch)
+		self.cancelAction.setEnabled(False)
+		exportAction = toolbar.addAction(getIcon("document-export.png"), "Export")
+		exportAction.triggered.connect(self.exportInTab)
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)
 
@@ -150,3 +153,6 @@ class ObjectWindow(QWidget):
 
 	def childActionProxy(self):
 		return self.dataDisplay.childWidget
+
+	def exportInTab(self):
+		pass

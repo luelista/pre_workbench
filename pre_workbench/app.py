@@ -108,7 +108,7 @@ class WorkbenchApplication(QApplication):
 		return True
 
 	def _parse_args(self):
-		parser = argparse.ArgumentParser(description='Protocol Reverse Engineering Workbench')
+		parser = ArgumentParserWithGUI(description='Protocol Reverse Engineering Workbench')
 		parser.add_argument('--reset-config', action='store_true',
 							help='Reset the configuration to defaults')
 		parser.add_argument('--log-level', default='DEBUG',
@@ -157,6 +157,13 @@ class WorkbenchApplication(QApplication):
 		self.splash.showMessage("Version "+get_app_version(), QtCore.Qt.AlignBottom|QtCore.Qt.AlignLeft, QtCore.Qt.white)
 		self.splash.show()
 
+
+class ArgumentParserWithGUI(argparse.ArgumentParser):
+	def _print_message(self, message: str, file = None) -> None:
+		if message and file is None and sys.stderr is None:
+			QMessageBox.information(None, "PRE Workbench", message)
+		else:
+			super()._print_message(message, file)
 
 
 def run_app():

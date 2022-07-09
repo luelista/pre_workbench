@@ -51,8 +51,10 @@ prewb
 
 # Windows
 
-Windows is currently **unsupported** / untested. The application should install via pip, 
-however for the dependency `PyQtAds`, no binary wheel for windows exists yet. Compiling 
-it yourself may or may not work.
+On Windows 10 x64, the application can either be installed via pip, or you can 
+download a setup.exe from the Github releases page. Other Windows versions are currently
+untested.
+Installing via pip has the advantage that the command line utitilies can be used.
+The setup installs a PyInstaller build which only supports the main GUI appication.
 
 

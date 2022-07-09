@@ -1,6 +1,6 @@
 # Protocol Reverse Engineering Workbench
 
-For installation instructions see [docs/install.md](docs/install.md).
+For installation instructions see [docs/install.md](https://luelista.github.io/pre_workbench/install).
 
 
 ## Packaging

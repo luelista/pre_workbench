@@ -1,9 +1,14 @@
 from collections import defaultdict
 
-class RangeList:
-	__slots__ = ('ranges', 'chunks', 'chunkSize', 'chunkCount', 'annotationStartCache', 'annotationContainsCache')
+cdef class RangeList:
+	cdef list ranges
+	cdef list chunks
+	cdef int chunkSize
+	cdef int chunkCount
+	cdef dict annotationStartCache
+	cdef dict annotationContainsCache
 
-	def __init__(self, totalLength, ranges, chunkSize=128):
+	def __init__(self, int totalLength, list ranges not None, int chunkSize = 128):
 		cdef int firstChunk, lastChunk, i
 		self.ranges = ranges
 		self.annotationStartCache = dict()
@@ -21,18 +26,18 @@ class RangeList:
 		self.annotationStartCache = dict()
 		self.annotationContainsCache = dict()
 
-	def cacheMetaValuesStart(self, metaKey):
+	cdef void _cacheMetaValuesStart(self, str metaKey) except *:
 		indizes = defaultdict(list)
 		for el in self.ranges:
 			if el.metadata.get(metaKey) is not None:
 				indizes[el.start].append(el.metadata[metaKey])
 		self.annotationStartCache[metaKey] = indizes
 
-	def getMetaValuesStartingAt(self, start, metaKey):
-		if not metaKey in self.annotationStartCache: self.cacheMetaValuesStart(metaKey)
+	def getMetaValuesStartingAt(self, int start, str metaKey not None):
+		if not metaKey in self.annotationStartCache: self._cacheMetaValuesStart(metaKey)
 		return self.annotationStartCache[metaKey][start]
 
-	def cacheMetaValuesContains(self, metaKey):
+	cdef void _cacheMetaValuesContains(self, str metaKey) except *:
 		cdef int index
 		indizes = defaultdict(list)
 		for el in self.ranges:
@@ -41,8 +46,8 @@ class RangeList:
 					indizes[index].append(el.metadata[metaKey])
 		self.annotationContainsCache[metaKey] = indizes
 
-	def getMetaValuesContaining(self, start, metaKey):
-		if not metaKey in self.annotationContainsCache: self.cacheMetaValuesContains(metaKey)
+	def getMetaValuesContaining(self, int start, str metaKey not None):
+		if not metaKey in self.annotationContainsCache: self._cacheMetaValuesContains(metaKey)
 		return self.annotationContainsCache[metaKey][start]
 
 	def findMatchingRanges(self, start=None, end=None, contains=None, overlaps=None, **kw):

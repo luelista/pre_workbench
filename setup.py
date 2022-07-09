@@ -54,7 +54,7 @@ setuptools.setup(
 		"Environment :: X11 Applications :: Qt",
 		"Operating System :: OS Independent",
 	],
-	ext_modules = cythonize("pre_workbench/algo/rangelist.pyx"),
+	ext_modules = cythonize("pre_workbench/algo/*.pyx"),
 )
 
 

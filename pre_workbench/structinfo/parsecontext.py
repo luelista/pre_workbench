@@ -290,7 +290,7 @@ class AnnotatingParseContext(ParseContext):
 		from pre_workbench.structinfo.format_info import FormatInfo
 		source_desc = self.stack[-1].desc
 		self.log("pack(A)",type(source_desc).__name__, self.top_offset(), self.top_length())#, value)
-		range = Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=self.top_id())
+		range = Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=str(self.top_id()))
 		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
 		fi = self.stack[-1].desc
 		if isinstance(fi, FormatInfo):

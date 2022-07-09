@@ -35,6 +35,7 @@ from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboar
 from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
+from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.util import PerfTimer
 
 group = SettingsSection('HexView2', 'Hex Editor', 'address', 'Address Styles')
@@ -334,10 +335,10 @@ class HexView2(QWidget):
 
 	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
-		range = item.data(0, Range.RangeRole)
+		range = item.data(0, RangeTreeWidget.RangeRole)
 		if range is not None:
 			self.selectRange(range, scrollIntoView=True)
-		#source = item.data(0, Range.SourceDescRole)
+		#source = item.data(0, RangeTreeWidget.SourceDescRole)
 		#if isinstance(source, structinfo.AbstractFI):
 			#self.on_data_selected.emit(source)
 

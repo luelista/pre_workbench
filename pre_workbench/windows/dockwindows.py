@@ -242,7 +242,7 @@ class RangeTreeDockWidget(QWidget):
 
 	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
-		range = item.data(0, Range.RangeRole)
+		range = item.data(0, RangeTreeWidget.RangeRole)
 		hexView = self.lastHexView()
 		if range is not None and hexView is not None:
 			hexView.selectRange(range, scrollIntoView=True)

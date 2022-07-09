@@ -19,17 +19,20 @@ from PyQt5.QtGui import QColor, QPalette, QDesktopServices, QFont, QPixmap, QIco
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
 
 
-def str_ellipsis(data, length):
+def str_ellipsis(data: str, length: int) -> str:
 	return (data[:length] + '...(%d)'%(len(data))) if len(data) > length+2 else data
 
-def setClipboardText(txt):
+
+def setClipboardText(txt: str):
 	cb = QApplication.clipboard()
 	cb.clear(mode=cb.Clipboard )
 	cb.setText(txt, mode=cb.Clipboard)
 
-def getClipboardText():
+
+def getClipboardText() -> str:
 	cb = QApplication.clipboard()
 	return cb.text(mode=cb.Clipboard)
+
 
 def splitNavArgs(args):
 	start = None
@@ -41,13 +44,16 @@ def splitNavArgs(args):
 	if start is not None:
 		yield args[start:]
 
+
 def navigateBrowser(link):
 	QDesktopServices.openUrl(QUrl(link))
 
-def getMonospaceFont():
+
+def getMonospaceFont() -> QFont:
 	font = QFont("monospace")
 	font.setStyleHint(QFont.Monospace)
 	return font
+
 
 def getHighlightStyles():
 	#TODO maybe make these user definable
@@ -67,13 +73,16 @@ def setControlColors(ctrl, bg, fg=None):
 	if fg is not None: pal.setColor(QPalette.WindowText, QColor(fg))
 	ctrl.setPalette(pal)
 
+
 def qApp():
 	return QApplication.instance()
 
-def filledColorIcon(color, size):
+
+def filledColorIcon(color: str, size: int) -> QIcon:
 	pix = QPixmap(size, size)
 	pix.fill(QColor(color))
 	return QIcon(pix)
+
 
 def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	btn = QDialogButtonBox()
@@ -93,13 +102,17 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback):
 	return btn
 
 
-def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300):
+def makeWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300):
 	dlg = QDialog(parent)
 	dlg.setMinimumWidth(min_width)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.layout().addWidget(widget)
-	makeDlgButtonBox(dlg, ok_callback, retval_callback)
+	return dlg, makeDlgButtonBox(dlg, ok_callback, retval_callback)
+
+
+def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300):
+	dlg, btn = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback, min_width)
 	if dlg.exec() == QDialog.Rejected: return None
 	if not ok_callback: return retval_callback()
 

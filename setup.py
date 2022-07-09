@@ -37,7 +37,6 @@ setuptools.setup(
 		'gui_scripts': ['prewb=pre_workbench.app:run_app',],
 	},
 	install_requires=[
-		'scapy>=2.4.3',
 		'PyQt5>=5.11.3',
 		'appdirs>=1.4.3',
 		'QScintilla>=2.11.2',
@@ -46,6 +45,7 @@ setuptools.setup(
 		'bitstring>=3.1.9',
 		'PyQtAds>=3.8.1',
 		'darkdetect==0.6.0',
+		'PyYAML>=6.0',
 	],
 	classifiers=[
 		"Programming Language :: Python :: 3",

@@ -14,25 +14,27 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import Tuple, List, Any
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QTimer
 from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor, QFont
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QCompleter, QSpinBox, QFileDialog, \
-	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem
+	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem, \
+	QDialog
 
 from pre_workbench.configs import getIcon
-from pre_workbench.guihelper import showWidgetDlg, filledColorIcon
+from pre_workbench.guihelper import showWidgetDlg, filledColorIcon, makeWidgetDlg
 from pre_workbench.syshelper import get_current_rss
 
 
-def showSettingsDlg(definition, values=None, title="Options", parent=None, ok_callback=None, min_width=400):
+def showSettingsDlg(definition, values=None, title: str="Options", parent=None, ok_callback=None, min_width=400):
 	if values == None: values = {}
 	sg = SettingsGroup(definition, values)
 	return showWidgetDlg(sg, title, lambda: values, parent, ok_callback, min_width)
 
-def showPreferencesDlg(definition, values=None, title="Preferences", parent=None, ok_callback=None):
+def showPreferencesDlg(definition, values=None, title: str="Preferences", parent=None, ok_callback=None):
 	if values == None: values = {}
 
 	tabWidget = QTabWidget()
@@ -53,14 +55,18 @@ def showPreferencesDlg(definition, values=None, title="Preferences", parent=None
 	tabWidget.setMinimumWidth(600)
 	return showWidgetDlg(tabWidget, title, lambda: values, parent, ok_callback)
 
-def showListSelectDialog(listOptions, selectedOption, title="Select ...", parent=None, ok_callback=None):
+def showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, title: str="Select ...", parent=None, ok_callback=None):
 	widget = QListWidget()
 	for value, text in listOptions:
 		w = QListWidgetItem(text, widget)
 		w.setData(1000, value)
 		if value == selectedOption:
 			widget.setCurrentItem(w)
-	return showWidgetDlg(widget, title, lambda: widget.currentItem().data(1000), parent, ok_callback)
+	retval_callback = lambda: widget.currentItem().data(1000)
+	dlg, box = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback)
+	widget.itemDoubleClicked.connect(box.accepted.emit)
+	if dlg.exec() == QDialog.Rejected: return None
+	if not ok_callback: return retval_callback()
 
 class FileDropLineEdit(QLineEdit):
 	def __init__(self, *__args):

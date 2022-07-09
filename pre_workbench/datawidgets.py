@@ -18,8 +18,9 @@ import html
 import itertools
 import logging
 from base64 import b64encode, b64decode
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
+import yaml
 from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
     QTableWidgetItem, QMenu, \
@@ -32,7 +33,7 @@ from pre_workbench.configs import SettingsField
 from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText
 from pre_workbench.structinfo import xdrm
 from pre_workbench.structinfo.expr import Expression
-from pre_workbench.controls.genericwidgets import showSettingsDlg
+from pre_workbench.controls.genericwidgets import showSettingsDlg, showListSelectDialog
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.controls.hexview import HexView2
 from pre_workbench.objects import ByteBuffer, ByteBufferList
@@ -89,7 +90,7 @@ class PacketListModel(QAbstractItemModel):
         if self.rowCount(None) > 0:
             self.columns = list(itertools.islice(itertools.chain(
                 (ColumnInfo("hex(payload)", "payload"),),
-                (ColumnInfo("${\"" + x + "\"}", x) for x in self.listObject.buffers[0].metadata.keys()),
+                (ColumnInfo("${\"" + x + "\"}", "$" + x) for x in self.listObject.buffers[0].metadata.keys()),
                 (ColumnInfo("fields[\"" + x + "\"]", x) for x in self.listObject.buffers[0].fields.keys())
             ), 12))
         self.endResetModel()
@@ -154,7 +155,7 @@ class PacketListModel(QAbstractItemModel):
         if self.listObject is None: return 0
         return len(self.listObject)
 
-    def addColumn(self, colInfo: ColumnInfo, insertBefore=None):
+    def addColumn(self, colInfo: ColumnInfo, insertBefore: Optional[int] = None):
         if insertBefore == None: insertBefore = len(self.columns)
         self.beginInsertColumns(QModelIndex(), insertBefore, insertBefore)
         self.columns.insert(insertBefore, colInfo)
@@ -213,7 +214,7 @@ class PacketListWidget(QWidget):
         #tabs.addTab(self.packetlist, "Raw Frames")
         layout.addWidget(self.packetlist)
 
-    def setContents(self, lstObj):
+    def setContents(self, lstObj: Optional[ByteBufferList]):
         self.listObject = lstObj
         logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
@@ -241,6 +242,16 @@ class PacketListWidget(QWidget):
 
         ctx.exec(self.packetlist.viewport().mapToGlobal(point))
 
+    def _generateQuickAddMenu(self, ctx: QMenu, title: str, elements: List[Tuple[str, str]], addIdx: int):
+        if len(elements) > 20:
+            ctx.addAction(title + " ...",
+                          lambda: showListSelectDialog(elements, None, title, self,
+                                                       lambda key: self.packetlistmodel.addColumn(ColumnInfo(key, key), addIdx)))
+        else:
+            quick = ctx.addMenu(title)
+            for key, text in elements:
+                quick.addAction(text, lambda key=key, text=text: self.packetlistmodel.addColumn(ColumnInfo(key, text), addIdx))
+
     def onHeaderContextMenu(self, point):
         index = self.packetlist.horizontalHeader().logicalIndexAt(point)
 
@@ -252,20 +263,24 @@ class PacketListWidget(QWidget):
             ctx.addSeparator()
         addIdx = None if index == -1 else index
         ctx.addAction("Add Column ...", lambda: self.onAddColumn(addIdx))
-        quick = ctx.addMenu("Quick Add Metadata Column")
-        for key in sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False)):
-            quick.addAction("$" + key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("${\"" + key + "\"}"), addIdx))
-        quick = ctx.addMenu("Quick Add Field Column")
-        for key in sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True)):
-            quick.addAction(key, lambda key=key: self.packetlistmodel.addColumn(ColumnInfo("fields[\""+key+"\"]"), addIdx))
+
+        elements = [("${\"" + key + "\"}", "$" + key) for key in
+                    sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False))]
+        self._generateQuickAddMenu(ctx, "Quick Add Metadata Column", elements, addIdx)
+
+        elements = [("fields[\""+key+"\"]", key) for key in
+                    sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True))]
+        self._generateQuickAddMenu(ctx, "Quick Add Field Column", elements, addIdx)
+
         ctx.addSeparator()
-        ctx.addAction("Copy Header State", lambda: setClipboardText("PL-HS:"+b64encode(xdrm.dumps(self.saveState())).decode("ascii")))
-        if getClipboardText().startswith("PL-HS:"):
-            ctx.addAction("Paste Header State", lambda: self.restoreState(xdrm.loads(b64decode(getClipboardText()[6:].encode("ascii")))))
+        magic = "!!pre_workbench/packetListHeaderState\n"
+        ctx.addAction("Copy Header State", lambda: setClipboardText(magic+yaml.dump(self.saveState())))
+        if getClipboardText().startswith(magic):
+            ctx.addAction("Paste Header State", lambda: self.restoreState(yaml.safe_load(getClipboardText()[len(magic):])))
         ctx.addAction("Reset Header", lambda: self.packetlistmodel.autoCols())
         ctx.exec(self.packetlist.horizontalHeader().mapToGlobal(point))
 
-    def getColumnInfoDefinition(self):
+    def getColumnInfoDefinition(self) -> List[SettingsField]:
         return [
             SettingsField("expr_str", "Expression", "text", {"autocomplete":self.listObject.getAllKeys()}),
             SettingsField("title", "Column Title", "text", {}),
@@ -273,13 +288,13 @@ class PacketListWidget(QWidget):
             #SettingsField("show", "Display mode", "select", {"options":[ ("show","Display contents"), ("showname","Tree display contents"), ("hex","Hex value") ]}),
         ]
 
-    def onAddColumn(self, insertBefore):
+    def onAddColumn(self, insertBefore: Optional[int]):
         par = showSettingsDlg(self.getColumnInfoDefinition(), min_width=450)
         if par is not None:
             if par["title"] == "": par["title"] = par["expr_str"]
             self.packetlistmodel.addColumn(ColumnInfo(**par), insertBefore)
 
-    def onEditColumn(self, index):
+    def onEditColumn(self, index: int):
         par = showSettingsDlg(self.getColumnInfoDefinition(), self.packetlistmodel.columns[index].toDict(), min_width=450)
         if par is not None:
             if par["title"] == "": par["title"] = par["key"]
@@ -289,13 +304,13 @@ class PacketListWidget(QWidget):
     def run_ndis(self):
         pass
 
-    def saveState(self):
+    def saveState(self) -> dict:
         return {
-            "hs": self.packetlist.horizontalHeader().saveState(),
+            "hs": bytes(self.packetlist.horizontalHeader().saveState()),
             "cols": [c.toDict() for c in self.packetlistmodel.columns],
         }
 
-    def restoreState(self, state):
+    def restoreState(self, state: dict):
         if "cols" in state:
             self.packetlistmodel.beginResetModel()
             self.packetlistmodel.columns = [ColumnInfo(**params) for params in state["cols"]]

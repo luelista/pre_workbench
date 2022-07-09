@@ -12,7 +12,7 @@ title: Installing PRE Workbench
 
 ## App Bundle
 
-Download PRE Workbench as an application bundle from [here](https://github.com/luelista/pre_workbench_release/releases). Extract the zip file, right click the `PRE Workbench.app` and choose "Open". The application is not code-signed, therefore you need to allow the execution of untrusted applications in the following dialog.
+Download PRE Workbench as an application bundle from [here](https://github.com/luelista/pre_workbench/releases). Extract the zip file, right click the `PRE Workbench.app` and choose "Open". The application is not code-signed, therefore you need to allow the execution of untrusted applications in the following dialog.
 
 
 ## Install via pip (Intel)
@@ -52,8 +52,8 @@ prewb
 # Windows
 
 On Windows 10 x64, the application can either be installed via pip, or you can 
-download a setup.exe from the Github releases page. Other Windows versions are currently
-untested.
+download a setup.exe from the [Github releases page](https://github.com/luelista/pre_workbench/releases).
+Other Windows versions are currently untested.
 Installing via pip has the advantage that the command line utitilies can be used.
 The setup installs a PyInstaller build which only supports the main GUI appication.
 

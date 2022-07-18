@@ -14,9 +14,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import subprocess
+
+from PyQt5 import QtCore
 from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QColor, QPalette, QDesktopServices, QFont, QPixmap, QIcon
-from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMessageBox, QDialogButtonBox, QDialog, QVBoxLayout, QLabel
+
+from pre_workbench.util import SimpleThread
 
 
 def str_ellipsis(data: str, length: int) -> str:
@@ -119,3 +124,33 @@ def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None,
 
 def TODO():
 	QMessageBox.warning(None, "TODO", "Not implemented yet")
+
+
+def runProcessWithDlg(title, message, parent, **subprocess_args):
+	dlg = QDialog(parent)
+	dlg.setWindowFlags(QtCore.Qt.Sheet | QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint)
+	dlg.setWindowTitle(title)
+	dlg.setLayout(QVBoxLayout())
+	dlg.layout().addWidget(QLabel(text=message))
+	btns = QDialogButtonBox()
+	dlg.layout().addWidget(btns)
+	btns.setStandardButtons(QDialogButtonBox.Cancel)
+
+	proc = subprocess.Popen(**subprocess_args)
+	result = {}
+	def thread_fn():
+		try:
+			return proc.communicate(), None
+		except Exception as ex:
+			return (False, False), ex
+	def finish_fn(res):
+		(result['stdout'], result['stderr']), result['exception'] = res
+		print("Dialog result:", result)
+		if result['exception']:
+			dlg.reject()
+		else:
+			dlg.accept()
+	thread = SimpleThread(parent, thread_fn, finish_fn)
+	btns.rejected.connect(lambda: proc.kill())
+	dlg.exec()
+	return result

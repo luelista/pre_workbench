@@ -17,7 +17,8 @@ title: Welcome to PRE Workbench Docs
 
 ## Data import
 - Load PCAP files
-- load binary files, single or a complete folder as package list
+- Load binary files, single or a complete folder as package list
+- Load CSV files, using one column as payload (hex/base64 encoded) and the rest as metadata
 
 ## Interactive Hexdump
 ### Heuristics

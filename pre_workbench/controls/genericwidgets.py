@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem, \
 	QDialog
 
-from pre_workbench.configs import getIcon
+from pre_workbench.configs import getIcon, SettingsField
 from pre_workbench.guihelper import showWidgetDlg, filledColorIcon, makeWidgetDlg
 from pre_workbench.syshelper import get_current_rss
 
@@ -123,7 +123,7 @@ class FontSelectLineEdit(QLineEdit):
 class SettingsGroup(QGroupBox):
 	item_changed = pyqtSignal(str, object)
 
-	def __init__(self, definition: list, values, title=""):
+	def __init__(self, definition: List[SettingsField], values: dict, title: str = ""):
 		super().__init__(title)
 		self.layout = QFormLayout()
 		self.setLayout(self.layout)
@@ -133,7 +133,7 @@ class SettingsGroup(QGroupBox):
 		#self.setStyleSheet("SettingsGroup{background:#ffeeaa}")
 		self.layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
-	def setFields(self, definition):
+	def setFields(self, definition: List[SettingsField]):
 		for i in reversed(range(self.layout.count())):
 			self.layout.itemAt(i).widget().deleteLater()
 		for d in definition:
@@ -192,7 +192,7 @@ class SettingsGroup(QGroupBox):
 			else:
 				self.values[d.id] = empty
 
-	def _selectFile(self, field, mode, caption, filter):
+	def _selectFile(self, field: QWidget, mode: str, caption: str, filter: str):
 		if mode == "open":
 			r, _ = QFileDialog.getOpenFileName(self, caption, field.text(), filter)
 		elif mode == "save":
@@ -204,30 +204,30 @@ class SettingsGroup(QGroupBox):
 		if r:
 			field.setText(r)
 
-	def _selectList(self, field, callback):
+	def _selectList(self, field: QWidget, callback):
 		options = callback(self)
 		r = showListSelectDialog(options, field.text(), parent=self)
 		if r is not None:
 			field.setText(r)
 
 	@pyqtSlot(str)
-	def textChanged(self, newText):
+	def textChanged(self, newText: str):
 		self.onFieldChanged(newText)
 
 	@pyqtSlot(int)
-	def spinIntChanged(self, newValue):
+	def spinIntChanged(self, newValue: int):
 		self.onFieldChanged(newValue)
 
 	@pyqtSlot(float)
-	def spinDoubleChanged(self, newValue):
+	def spinDoubleChanged(self, newValue: float):
 		self.onFieldChanged(newValue)
 
 	@pyqtSlot(int)
-	def selectChanged(self, newIndex):
+	def selectChanged(self, newIndex: int):
 		self.onFieldChanged(self.sender().itemData(newIndex))
 
 	@pyqtSlot(int)
-	def checkChanged(self, newState):
+	def checkChanged(self, newState: int):
 		self.onFieldChanged(True if newState == QtCore.Qt.Checked else False)
 
 	def onFieldChanged(self, value):
@@ -235,7 +235,7 @@ class SettingsGroup(QGroupBox):
 		self.values[fieldId] = value
 		self.item_changed.emit(fieldId, value)
 
-	def updateField(self, fieldId,fieldRef=None):
+	def updateField(self, fieldId, fieldRef = None):
 		value = self.values[fieldId]
 		field = fieldRef or self.findChild(QWidget, fieldId)
 		if isinstance(field, QLineEdit):
@@ -256,7 +256,7 @@ class SettingsGroup(QGroupBox):
 			else:
 				raise Exception("invalid check value: "+value)
 
-	def setValues(self, values):
+	def setValues(self, values: dict):
 		for k, v in values.items():
 			self.values[k] = v
 			self.updateField(k)

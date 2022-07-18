@@ -34,10 +34,9 @@ from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg
 from pre_workbench.app import navigate
 from pre_workbench.rangetree import RangeTreeWidget
-from pre_workbench.structinfo.exceptions import parse_exception
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
 from pre_workbench.windows.content.textfile import ScintillaEdit
 from pre_workbench.typeeditor import JsonView
@@ -517,8 +516,11 @@ class ExtToolDockWidget(QWidget):
 		with tempfile.NamedTemporaryFile() as f:
 			f.write(self.selBytes)
 			f.flush()
-			result = subprocess.run(commandLine.format(shlex.quote(f.name)), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-			for line in result.stdout.decode('latin1').split('\n'):
+			args = shlex.split(commandLine)
+			args = [arg.format(f.name) for arg in args]
+			result = runProcessWithDlg("External command", "Running external command: " + args[0], self,
+									   args=args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			for line in result['stdout'].decode('latin1').split('\n'):
 				root = QTreeWidgetItem(self.treeView)
 				root.setText(0, line)
 

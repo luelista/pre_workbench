@@ -230,7 +230,8 @@ class WorkbenchMain(QMainWindow):
 			text = 'New '+meta.get('displayName', meta.get('name'))
 			newAct = QAction(text, self, statusTip=text,
 									   triggered=lambda dummy, wndTyp=wndTyp: self.onFileNewWindowAction(wndTyp))
-			if wndTyp.__name__ == 'TextFileWindow': newAct.setShortcut('Ctrl+N')
+			if wndTyp.__name__ == 'TextFileWindow': newAct.setShortcut('Ctrl+Shift+N')
+			if wndTyp.__name__ == 'ObjectWindow': newAct.setShortcut('Ctrl+N')
 			#fileMenu.addAction(newAct)
 			newTbMenu.addAction(newAct)
 		mainToolbar.addWidget(newTbAct)

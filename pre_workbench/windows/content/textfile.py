@@ -76,14 +76,10 @@ class RichEdit(QTextEdit):
 		super().keyPressEvent(e)
 
 def run_code(parent, code):
-	print(code)
 	try:
-		def alert(msg):
-			QMessageBox.information(parent, "Script alert", str(msg))
-
-		import logging
-		log = logging.info
-		exec(code)
+		from pre_workbench.macros import macroenv
+		locals = {key: getattr(macroenv, key) for key in macroenv.__all__}
+		exec(code, globals(), locals)
 	except Exception as ex:
 		QMessageBox.warning(parent, "Exception in script", traceback.format_exc())
 

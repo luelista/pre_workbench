@@ -16,6 +16,7 @@
 
 import logging
 
+import darkdetect
 from PyQt5.Qsci import QsciScintilla, QsciLexerCPP, QsciAPIs
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont
@@ -38,13 +39,15 @@ class ScintillaEdit(QsciScintilla):
 	escapePressed = pyqtSignal()
 	ctrlEnterPressed = pyqtSignal()
 
-	def __init__(self, parent=None):
+	def __init__(self, parent=None, lexer=None):
 		super().__init__(parent)
+
+		is_dark_mode = darkdetect.isDark()
 
 		# Margin 0 is used for line numbers
 		self.setMarginWidth(0, 45)
 		self.setMarginLineNumbers(0, True)
-		self.setMarginsBackgroundColor(QColor("#cccccc"))
+		self.setMarginsBackgroundColor(QColor("#555555" if is_dark_mode else "#cccccc"))
 
 		# Clickable margin 1 for showing markers
 		self.setMarginSensitivity(1, True)
@@ -61,23 +64,26 @@ class ScintillaEdit(QsciScintilla):
 
 		# Current line visible with special background color
 		self.setCaretLineVisible(True)
-		self.setCaretLineBackgroundColor(QColor("#ffe4e4"))
+		self.setCaretLineBackgroundColor(QColor("#3f3038" if is_dark_mode else "#ffe4e4"))
+		self.setCaretForegroundColor(QColor("#ffffff" if is_dark_mode else "#000000"))
 
 		# Configure Lexer
-		self._lexer = QsciLexerFormatinfo()
 
-		autocompletions = format_info.builtinTypes.keys()
-		self._api = QsciAPIs(self._lexer)
-		for ac in autocompletions:
-			self._api.add(ac)
-		print("added "+str(len(autocompletions))+" ac's")
-		self._api.prepare()
-		print("prep'd")
+		if lexer:
+			self._lexer = lexer
+		else:
+			self._lexer = QsciLexerFormatinfo()
+
+			autocompletions = format_info.builtinTypes.keys()
+			self._api = QsciAPIs(self._lexer)
+			for ac in autocompletions:
+				self._api.add(ac)
+			self._api.prepare()
 
 		self.setLexer(self._lexer)
 
 		# Set the default font
-		self._init_font()
+		self._init_font(is_dark_mode)
 		GlobalEvents.on_config_change.connect(self._init_font)
 
 		# Enable Multi Select
@@ -101,20 +107,21 @@ class ScintillaEdit(QsciScintilla):
 		self.setAutoCompletionThreshold(1)
 
 
-	def _init_font(self):
+	def _init_font(self, is_dark_mode):
 		font = QFont()
 		font.fromString(configs.getValue("View.Scintilla.Font"))
 		fontInfo = QFontInfo(font)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFONT, QsciScintilla.STYLE_DEFAULT, fontInfo.family().encode('utf-8'))
 		self.SendScintilla(QsciScintilla.SCI_STYLESETSIZE, QsciScintilla.STYLE_DEFAULT, fontInfo.pointSize())
 		self.SendScintilla(QsciScintilla.SCI_STYLECLEARALL)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_LINENUMBER, 0x555555 if is_dark_mode else 0xcccccc)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Comment, 0x666666)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Keyword, 0x0000aa)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.KeywordSet2, 0x000055)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x00aa00)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x00aa00)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACELIGHT, 0xdddd33)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACELIGHT, 0x333300 if is_dark_mode else 0xdddd33)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACEBAD, 0x3333ff)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciScintilla.STYLE_BRACEBAD, 0xffffff)
 
@@ -174,13 +181,14 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 			return super().keywords(p_int)
 
 
-def showScintillaDialog(parent, title, content, ok_callback):
+def showScintillaDialog(parent, title, content, ok_callback, readonly=False, lexer=None):
 	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.resize(800,600)
-	sg = ScintillaEdit()
+	sg = ScintillaEdit(lexer=lexer)
 	sg.setText(content)
+	sg.setReadOnly(readonly)
 	dlg.layout().addWidget(sg)
 	box = makeDlgButtonBox(dlg, ok_callback, lambda: sg.text())
 	sg.escapePressed.connect(box.rejected.emit)

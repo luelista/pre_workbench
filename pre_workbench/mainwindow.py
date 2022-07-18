@@ -41,7 +41,8 @@ from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
-	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget
+	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget, \
+	MacroListDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
 from pre_workbench.typeeditor import JsonView
@@ -353,8 +354,10 @@ class WorkbenchMain(QMainWindow):
 
 		self.createDockWnd("Selection Heuristics", "table-select-cells.png", SelectionHeuristicsConfigWidget())
 
-		self.createDockWnd("Binwalk", "regular-expression-search-match.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
-		self.selected_bytes_updated.connect(self.dockWidgets["Binwalk"].on_select_bytes)
+		#self.createDockWnd("Binwalk", "regular-expression-search-match.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
+		#self.selected_bytes_updated.connect(self.dockWidgets["Binwalk"].on_select_bytes)
+		self.createDockWnd("Macros", "regular-expression-search-match.png", MacroListDockWidget(),
+						   ads.RightDockWidgetArea, showFirstRun=False)
 
 		self.createDockWnd("External Tools", "toolbox--arrow.png", ExtToolDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
 		self.selected_bytes_updated.connect(self.dockWidgets["External Tools"].on_select_bytes)

@@ -36,8 +36,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        cd tests
-        pytest
+        pytest tests
     - name: Analysing the code with pylint
       run: |
         pylint $(git ls-files '*.py')

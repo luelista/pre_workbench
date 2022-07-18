@@ -4,7 +4,7 @@ import os.path
 # sample files from https://github.com/hadrielk/pcapng-test-generator
 
 from pre_workbench.structinfo.pcap_reader import read_pcap_file
-from tests.parse_helper import open_fixture
+from parse_helper import open_fixture
 
 def test_load_pcapng_le():
 	"""

@@ -13,12 +13,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import os
 
-
-from PyQt5 import QtGui
+from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QFileInfo
 from PyQt5.QtWidgets import QFileDialog, \
 	QMessageBox
+
+from pre_workbench.app import CurrentProject
 
 
 class MdiFile:
@@ -51,21 +53,23 @@ class MdiFile:
 		self.isUntitled = False
 		#self.document().setModified(False)
 		self.setWindowModified(False)
-		self.setWindowTitle(QFileInfo(self.curFile).fileName())# + "[*]")
+		self.setWindowTitle(QFileInfo(self.curFile).fileName())
 
 	def documentWasModified(self, dummy=None):
 		self.setWindowModified(True)
 
 	def save(self):
 		if self.isUntitled:
-			self.setCurrentFile(self.curFile)
 			return self.saveAs()
 		else:
-			self.setCurrentFile(self.curFile)
 			return self.saveFile(self.curFile)
 
 	def saveAs(self):
-		fileName, _ = QFileDialog.getSaveFileName(self, "Save As", self.curFile, self.filePatterns)
+		patterns = self.filePatterns
+		if not "*.*" in patterns: patterns += ';;All Files (*.*)'
+		startDir = os.path.join(CurrentProject.projectFolder, self.curFile) if self.isUntitled else self.curFile
+		print("saveDialog", self.isUntitled, CurrentProject.projectFolder, startDir, patterns)
+		fileName, _ = QFileDialog.getSaveFileName(self, "Save As", startDir, patterns)
 		if not fileName:
 			return False
 
@@ -73,10 +77,12 @@ class MdiFile:
 
 	def maybeSave(self):
 		if self.isWindowModified():
-			ret = QMessageBox.warning(self, self.curFile,
+			msgBox = QMessageBox(QMessageBox.Warning, self.curFile,
 					"'%s' has been modified.\nDo you want to save your "
 					"changes?" % QFileInfo(self.curFile).fileName(),
-					QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+					QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, self, QtCore.Qt.Sheet)
+			msgBox.setWindowModality(QtCore.Qt.WindowModal)
+			ret = msgBox.exec()
 
 			if ret == QMessageBox.Save:
 				return self.save()

@@ -106,11 +106,20 @@ class WorkbenchMain(QMainWindow):
 	def closeEvent(self, e):
 		configs.setValue("MainWindowGeometry", self.saveGeometry())
 		configs.setValue("MainWindowState", self.saveState(123))
-		self.saveChildren()
+		if not self._checkDirtyChildren():
+			e.ignore()
+		self._saveChildrenState()
 		self.project.setValue("DockState", self.mdiArea.saveState())
 		super().closeEvent(e)
 
-	def saveChildren(self):
+	def _checkDirtyChildren(self):
+		for wnd in self.mdiArea.dockWidgetsMap().values():
+			if hasattr(wnd.widget(), "maybeSave"):
+				if not wnd.widget().maybeSave():
+					return False
+		return True
+
+	def _saveChildrenState(self):
 		self.project.setValue("ChildrenInfo", [
 			{
 				"id": wnd.widget().objectName(),
@@ -207,8 +216,6 @@ class WorkbenchMain(QMainWindow):
 		self.manageAnnotationSetsAct = QAction("&Manage Annotation Sets", self,
 				triggered=lambda: ManageAnnotationSetsDialog(self).exec())
 
-
-
 	def _initMenu(self):
 		menubar = self.menuBar()
 		mainToolbar = self.addToolBar('Main')
@@ -221,9 +228,9 @@ class WorkbenchMain(QMainWindow):
 		newTbAct.setMenu(newTbMenu)
 		for wndTyp, meta in WindowTypes.types:
 			text = 'New '+meta.get('displayName', meta.get('name'))
-			newAct = QAction(text, self, #shortcut='Ctrl+N',
-									   statusTip=text,
+			newAct = QAction(text, self, statusTip=text,
 									   triggered=lambda dummy, wndTyp=wndTyp: self.onFileNewWindowAction(wndTyp))
+			if wndTyp.__name__ == 'TextFileWindow': newAct.setShortcut('Ctrl+N')
 			#fileMenu.addAction(newAct)
 			newTbMenu.addAction(newAct)
 		mainToolbar.addWidget(newTbAct)
@@ -602,6 +609,7 @@ class WorkbenchMain(QMainWindow):
 		logging.debug("showChild %s", widget)
 		subwnd = ads.CDockWidget(widget.windowTitle())
 		subwnd.setWidget(widget)
+		widget.windowTitleChanged.connect(lambda newTitle: subwnd.setWindowTitle(newTitle))
 		subwnd.setFeature(ads.CDockWidget.DockWidgetDeleteOnClose, True)
 		subwnd.setFeature(ads.CDockWidget.DockWidgetForceCloseWithArea, True)
 		subwnd.setWindowIcon(getIcon(type(widget).icon if hasattr(type(widget), 'icon') else 'document.png'))

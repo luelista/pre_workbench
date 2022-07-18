@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import base64
+import re
 
 import binascii
 import glob
@@ -156,7 +157,7 @@ class CSVFileDataSource(SyncDataSource):
 				raise Exception("Failed to read header") from exc
 			for i, row in enumerate(reader):
 				try:
-					payload = row[payload_idx]
+					payload = re.sub("\s", "", row[payload_idx])
 					payload_decoded = decoder(payload)
 					plist.add(ByteBuffer(payload_decoded, metadata=self._prepareMeta(row, header)))
 				except IndexError as exc:

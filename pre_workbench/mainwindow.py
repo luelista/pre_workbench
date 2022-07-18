@@ -36,7 +36,7 @@ from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
 from pre_workbench import windows
-from pre_workbench.configs import getIcon
+from pre_workbench.configs import getIcon, SettingsSection
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
@@ -49,6 +49,8 @@ from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes
 from pre_workbench.windows.content.hexfile import HexFileWindow
 
+configs.registerOption(SettingsSection('General', 'General', 'Updates', 'Updates'),
+							   "CheckForUpdates", "Check for updates on each application start", "check", {}, True, None)
 
 MRU_MAX = 5
 class WorkbenchMain(QMainWindow):
@@ -100,7 +102,7 @@ class WorkbenchMain(QMainWindow):
 				logging.exception("Failed to restore dock widget state for %r", wndInfo["id"])
 
 	def updateChildWindowList(self, obj=None):
-		logging.debug("updateChildWindowList")
+		logging.log(logging.TRACE, "updateChildWindowList")
 		wndList = self.mdiArea.dockWidgetsMap().values()
 		self.dockWidgets["Window List"].updateWindowList(wndList)
 
@@ -399,12 +401,18 @@ class WorkbenchMain(QMainWindow):
 		self._initMenu()
 
 		self.statusBar().addPermanentWidget(MemoryUsageWidget())
-		def update_check_result(version):
-			if version != get_app_version():
-				self.statusBar().addPermanentWidget(QPushButton("New Version Available: "+version,
-																styleSheet="QPushButton{background-color:#44ff88;padding:1px 10px;}",
-																clicked=lambda: navigateBrowser("https://pypi.org/project/pre-workbench/")))
-		SimpleThread(self, check_for_updates, update_check_result)
+		if configs.getValue("General.Updates.CheckForUpdates", True):
+			def update_check_result(version):
+				if version != get_app_version():
+					logging.warning("update_check: A newer version of pre_workbench is available. Installed: "+get_app_version()+", Available: "+version)
+					self.statusBar().addPermanentWidget(QPushButton("New Version Available: "+version,
+																	styleSheet="QPushButton{background-color:#44ff88;padding:1px 10px;}",
+																	clicked=lambda: navigateBrowser("https://pypi.org/project/pre-workbench/")))
+				else:
+					logging.info("update_check: Your version of pre_workbench is up to date ("+version+")")
+			SimpleThread(self, check_for_updates, update_check_result)
+		else:
+			logging.warning("update_check: Update check skipped (disabled by user)")
 
 		self.setWindowIcon(getIcon("appicon.png"))
 		self.setGeometry(300, 300, 850, 850)
@@ -477,7 +485,7 @@ class WorkbenchMain(QMainWindow):
 		#menu.addAction("New...", lambda: )
 
 	def onSubWindowActivated(self, old: ads.CDockWidget, now: ads.CDockWidget):
-		logging.debug("onSubWindowActivated")
+		logging.log(logging.TRACE, "onSubWindowActivated")
 		self.updateMappedChildActions()
 		if now is None or not hasattr(now.widget(), 'child_wnd_meta'): return
 
@@ -512,7 +520,6 @@ class WorkbenchMain(QMainWindow):
 			window.raise_()
 			window.setFocus()
 			try:
-				print(window.widget().nextInFocusChain())
 				window.widget().nextInFocusChain().setFocus()
 			except:
 				logging.exception("nextInFocusChain")

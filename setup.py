@@ -32,7 +32,7 @@ setuptools.setup(
 	url="https://github.com/pre-workbench",
 	packages=setuptools.find_packages(),
 	entry_points={
-		'console_scripts': ['prewb_c=pre_workbench.app:run_app', 'prewb_parse=pre_workbench.structinfo.cli:run_cli', 'prewb_codegen=pre_workbench.wdgen.cli'],
+		'console_scripts': ['prewb_c=pre_workbench.app:run_app', 'prewb_parse=pre_workbench.structinfo.cli:run_cli', 'prewb_codegen=pre_workbench.wdgen.cli:run_cli'],
 		'gui_scripts': ['prewb=pre_workbench.app:run_app',],
 	},
 	install_requires=[

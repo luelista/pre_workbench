@@ -60,6 +60,8 @@ class RangeTreeWidget(QTreeWidget):
 		self.header().moveSection(5, 3)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self._onCustomContextMenuRequested)
+		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
+		self.header().customContextMenuRequested.connect(self._onHeaderCustomContextMenuRequested)
 		self.formatInfoContainer = None
 		self.optionsConfigKey = "RangeTree"
 		self.setMouseTracking(True)
@@ -103,8 +105,7 @@ class RangeTreeWidget(QTreeWidget):
 
 	def _onCustomContextMenuRequested(self, point):
 		ctx = QMenu("Context menu", self)
-		item = self.itemAt(point)
-		if item != None:
+		if item := self.itemAt(point):
 			range = item.data(0, RangeTreeWidget.RangeRole)
 			source = item.data(0, RangeTreeWidget.SourceDescRole)
 
@@ -132,11 +133,21 @@ class RangeTreeWidget(QTreeWidget):
 					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))
 				ctx.addSeparator()
 			ctx.addAction("Copy", lambda: setClipboardText("\t".join(item.text(i) for i in range(item.columnCount()))))
-		else:
-			ctx.addAction("Edit ...", lambda: self.editField(self.formatInfoContainer.definitions[self.formatInfoContainer.main_name]))
+		ctx.addSeparator()
+		self._buildGenericContextMenu(ctx)
 
-		ctx.addAction(QAction(parent=ctx, text="Only printable", triggered=self._toggleOnlyPrintable, checkable=True, checked=self.onlyPrintable))
 		ctx.exec(self.mapToGlobal(point))
+
+	def _onHeaderCustomContextMenuRequested(self, point):
+		ctx = QMenu("Context menu", self)
+		self._buildGenericContextMenu(ctx)
+		ctx.exec(self.mapToGlobal(point))
+
+	def _buildGenericContextMenu(self, ctx):
+		ctx.addAction("Expand All", lambda: self.expandAll())
+		ctx.addAction("Collapse All", lambda: self.collapseAll())
+		ctx.addAction(QAction(parent=ctx, text="Only printable", triggered=self._toggleOnlyPrintable, checkable=True, checked=self.onlyPrintable))
+
 
 	def _toggleOnlyPrintable(self):
 		self.onlyPrintable = not self.onlyPrintable

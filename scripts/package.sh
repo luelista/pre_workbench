@@ -14,4 +14,4 @@ case $yn in
 esac
 
 echo "Uploading to PyPi..."
-twine upload --verbose dist/*
+twine upload --verbose dist/*.whl dist/*.tar.gz

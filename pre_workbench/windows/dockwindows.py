@@ -271,26 +271,22 @@ class RangeTreeDockWidget(QWidget):
 
 class DataInspectorWidget(QWidget):
 	defaultdef = """
-	DEFAULT union (ignore_errors=true, endianness=">"){
+	DataInspector union (ignore_errors=true, endianness=">"){
 		uint8 UINT8
 		int8 INT8
 		uint8_bin UINT8(show="{0:08b}")
-		BE union (endianness=">"){
-			uint16 UINT16
-			uint32 UINT32
-			int16_be INT16
-			int32_be INT32
-			float FLOAT
-			double DOUBLE
-		}
-		LE union (endianness="<"){
-			uint16 UINT16
-			uint32 UINT32
-			int16 INT16
-			int32 INT32
-			float FLOAT
-			double DOUBLE
-		}
+		uint16_BE UINT16(endianness=">")
+		uint32_BE UINT32(endianness=">")
+		int16_BE INT16(endianness=">")
+		int32_BE INT32(endianness=">")
+		float_BE FLOAT(endianness=">")
+		double_BE DOUBLE(endianness=">")
+		uint16_LE UINT16(endianness="<")
+		uint32_LE UINT32(endianness="<")
+		int16_LE INT16(endianness="<")
+		int32_LE INT32(endianness="<")
+		float_LE FLOAT(endianness="<")
+		double_LE DOUBLE(endianness="<")
 		ipv4 IPv4
 		ether ETHER
 	}

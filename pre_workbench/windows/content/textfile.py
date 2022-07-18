@@ -120,7 +120,7 @@ class TextFileWindow(QWidget, MdiFile):
 		super().__init__()
 		self.params = params
 		self._initUI()
-		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "Text Files (*.txt)", "untitled%d.txt")
+		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All Files (*.*)", "untitled%d.txt")
 	def sizeHint(self):
 		return QSize(600,400)
 	def _initUI(self):

@@ -2,3 +2,4 @@ include pre_workbench/icons/*
 include pre_workbench/structinfo/*.lark
 include pre_workbench/*.tes
 include pre_workbench/algo/*.pyx
+include pre_workbench/macros/sys_macros/*

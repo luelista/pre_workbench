@@ -18,6 +18,7 @@ a = Analysis(['run_workbench.py'],
                 ('pre_workbench/icons/*', 'pre_workbench/icons'),
                 ('pre_workbench/structinfo/*.lark', 'pre_workbench/structinfo'),
                 ('pre_workbench/*.tes', 'pre_workbench'),
+                ('pre_workbench/macros/sys_macros/*', 'pre_workbench/macros/sys_macros'),
                 (packages_path+'/lark/grammars/common.lark', 'lark/grammars'),
              ],
              hiddenimports=[

@@ -18,7 +18,7 @@ from typing import Tuple, List, Any
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QStringListModel, pyqtSlot, QTimer
-from PyQt5.QtGui import QIcon, QDragEnterEvent, QDropEvent, QPixmap, QColor, QFont
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent, QColor, QFont
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QCompleter, QSpinBox, QFileDialog, \
 	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem, \
@@ -55,14 +55,18 @@ def showPreferencesDlg(definition, values=None, title: str="Preferences", parent
 	tabWidget.setMinimumWidth(600)
 	return showWidgetDlg(tabWidget, title, lambda: values, parent, ok_callback)
 
-def showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, title: str="Select ...", parent=None, ok_callback=None):
+def showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, title: str="Select ...", parent=None, ok_callback=None, multiselect=False):
 	widget = QListWidget()
 	for value, text in listOptions:
 		w = QListWidgetItem(text, widget)
 		w.setData(1000, value)
 		if value == selectedOption:
 			widget.setCurrentItem(w)
-	retval_callback = lambda: widget.currentItem().data(1000)
+	if multiselect:
+		widget.setSelectionMode(QListWidget.MultiSelection)
+		retval_callback = lambda: [item.data(1000) for item in widget.selectedItems()]
+	else:
+		retval_callback = lambda: widget.currentItem().data(1000)
 	dlg, box = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback)
 	widget.itemDoubleClicked.connect(box.accepted.emit)
 	if dlg.exec() == QDialog.Rejected: return None

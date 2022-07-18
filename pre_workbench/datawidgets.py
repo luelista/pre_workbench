@@ -141,7 +141,7 @@ class PacketListModel(QAbstractItemModel):
             if self.listObject is None:
                 return None
             item = self.listObject.buffers[section]
-            return "*" if item.metadata.get("marked", False) else " "
+            return "X" if item.metadata.get("marked", False) else " "
 
         return None
 
@@ -171,6 +171,13 @@ class PacketListModel(QAbstractItemModel):
     def parent(self, child: QModelIndex) -> QModelIndex:
         return QModelIndex()
 
+    def markPacket(self, rowIndex):
+        data = self.listObject.buffers[rowIndex]
+        data.metadata['marked'] = not data.metadata.get('marked', False)
+        self.headerDataChanged.emit(Qt.Vertical, rowIndex, rowIndex)
+
+
+
 @DataWidgetTypes.register(handles=ByteBufferList)
 class PacketListWidget(QWidget):
     meta_updated = pyqtSignal(str, object)
@@ -184,9 +191,6 @@ class PacketListWidget(QWidget):
         dv.setContents(data)
         dv.setWindowTitle("Data view")
         pre_workbench.app.MainWindow.showChild(dv, True)
-
-    def markPacket(self, data: ByteBuffer):
-        data.metadata['marked'] = not data.metadata.get('marked', False)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -205,6 +209,8 @@ class PacketListWidget(QWidget):
         self.packetlist.horizontalHeader().customContextMenuRequested.connect(self.onHeaderContextMenu)
         self.packetlist.horizontalHeader().setSectionsClickable(False)
         self.packetlist.horizontalHeader().setSectionsMovable(True)
+        self.packetlist.verticalHeader().setMinimumWidth(20)
+        self.packetlist.verticalHeader().sectionClicked.connect(self._rowHeaderClicked)
         self.packetlist.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.packetlistmodel = PacketListModel()
         #self.packetlistmodel.rowsInserted.connect(lambda a,b,c: tabs.setTabText(0, "Raw Frames (%d)"%self.packetlistmodel.rowCount(QModelIndex())))
@@ -213,6 +219,9 @@ class PacketListWidget(QWidget):
         self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
         #tabs.addTab(self.packetlist, "Raw Frames")
         layout.addWidget(self.packetlist)
+
+    def _rowHeaderClicked(self, rowIndex: int):
+        self.packetlistmodel.markPacket(rowIndex)
 
     def setContents(self, lstObj: Optional[ByteBufferList]):
         self.listObject = lstObj
@@ -236,7 +245,7 @@ class PacketListWidget(QWidget):
             # TODO support multi selection
             bbuf = self.listObject.buffers[index.row()]
             ctx.addAction("Item Details", lambda: self.showData(bbuf))
-            ctx.addAction("Mark/Unmark Packet", lambda: self.markPacket(bbuf))
+            ctx.addAction("Mark/Unmark Packet", lambda: self.packetlistmodel.markPacket(index.row()))
             ctx.addSeparator()
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
 
@@ -244,9 +253,10 @@ class PacketListWidget(QWidget):
 
     def _generateQuickAddMenu(self, ctx: QMenu, title: str, elements: List[Tuple[str, str]], addIdx: int):
         if len(elements) > 20:
-            ctx.addAction(title + " ...",
-                          lambda: showListSelectDialog(elements, None, title, self,
-                                                       lambda key: self.packetlistmodel.addColumn(ColumnInfo(key, key), addIdx)))
+            def on_ok(keys):
+                for key in keys:
+                    self.packetlistmodel.addColumn(ColumnInfo(key, key), addIdx)
+            ctx.addAction(title + " ...", lambda: showListSelectDialog(elements, None, title, self, on_ok, multiselect=True))
         else:
             quick = ctx.addMenu(title)
             for key, text in elements:

@@ -23,6 +23,7 @@ import os.path
 import platform
 import sys
 import typing
+from glob import glob
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal, QEvent
@@ -101,6 +102,22 @@ class WorkbenchApplication(QApplication):
 		configs.updateMru("ProjectMru", prj_dir, 5)
 		configs.setValue("LastProjectDir", self.project.projectFolder)
 
+		self.plugins = {}
+		if self.args.plugins_dir:
+			for file in glob(os.path.join(self.args.plugins_dir, "*.py")):
+				self._load_plugin(file)
+
+	def _load_plugin(self, filespec):
+		import importlib.util
+		import sys
+		modname = "pre_workbench.plugins." + os.path.basename(filespec).replace(".py", "")
+		logging.info("Loading plugin "+modname+" from file "+filespec)
+		spec = importlib.util.spec_from_file_location(modname, filespec)
+		my_mod = importlib.util.module_from_spec(spec)
+		sys.modules[modname] = my_mod
+		self.plugins[modname] = my_mod
+		spec.loader.exec_module(my_mod)
+
 	def event(self, e):
 		"""Handle macOS FileOpen events."""
 		if e.type() == QEvent.FileOpen:
@@ -119,6 +136,8 @@ class WorkbenchApplication(QApplication):
 							help='Set the log level', choices=['TRACE','DEBUG','INFO','WARNING','ERROR'])
 		parser.add_argument('--log-config', metavar='FILE',
 							help='Load detailed logging config from file')
+		parser.add_argument('--plugins-dir', metavar='DIR',
+							help='Load all Python files from this folder as plugins')
 		parser.add_argument('--gc-debug', action='store_true',
 							help='Print debug output from garbage collector')
 		parser.add_argument('--choose-project', action='store_true',

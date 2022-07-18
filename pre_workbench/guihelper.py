@@ -145,7 +145,6 @@ def runProcessWithDlg(title, message, parent, **subprocess_args):
 			return (False, False), ex
 	def finish_fn(res):
 		(result['stdout'], result['stderr']), result['exception'] = res
-		print("Dialog result:", result)
 		if result['exception']:
 			dlg.reject()
 		else:

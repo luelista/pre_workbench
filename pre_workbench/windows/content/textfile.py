@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import logging
 import traceback
 
 from PyQt5 import QtCore
@@ -68,7 +68,7 @@ class RichEdit(QTextEdit):
 			self.setCurrentFont(getMonospaceFont())
 		print(int(mod), e.key())
 		if mod == QtCore.Qt.ControlModifier and e.key() == QtCore.Qt.Key_Return:
-			print("ctr-enter")
+			logging.debug("ctr-enter")
 			code = self.getCodeBlockUnderCursor()
 			run_code(self, code)
 			return

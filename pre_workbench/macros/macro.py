@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import traceback
 from glob import glob
 import os.path
@@ -67,7 +68,7 @@ class Macro:
 class SysMacroContainer:
 	def __init__(self):
 		searchPath = os.path.join(os.path.dirname(__file__), "sys_macros/*.macro.json")
-		print(searchPath)
+		logging.debug("Loading sys-macros from "+searchPath)
 		self.macros = [self._loadMacro(filename) for filename in glob(searchPath)]
 
 	def _loadMacro(self, filename):

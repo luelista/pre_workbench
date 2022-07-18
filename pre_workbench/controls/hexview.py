@@ -481,7 +481,7 @@ class HexView2(QWidget):
 			self.scrollIntoView(bufferIdx, self.selStart)
 
 		self.redrawSelection()
-		logging.debug("selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
+		logging.log(logging.TRACE, "selection changed %r-%r (%r)",self.selStart, self.selEnd, self.lastHit)
 		r = self.selRange()
 
 		#self.fiTreeWidget.hilightFormatInfoTree(r)

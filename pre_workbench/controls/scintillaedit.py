@@ -83,7 +83,7 @@ class ScintillaEdit(QsciScintilla):
 		self.setLexer(self._lexer)
 
 		# Set the default font
-		self._init_font(is_dark_mode)
+		self._init_font()
 		GlobalEvents.on_config_change.connect(self._init_font)
 
 		# Enable Multi Select
@@ -107,7 +107,8 @@ class ScintillaEdit(QsciScintilla):
 		self.setAutoCompletionThreshold(1)
 
 
-	def _init_font(self, is_dark_mode):
+	def _init_font(self):
+		is_dark_mode = darkdetect.isDark()
 		font = QFont()
 		font.fromString(configs.getValue("View.Scintilla.Font"))
 		fontInfo = QFontInfo(font)
@@ -139,7 +140,7 @@ class ScintillaEdit(QsciScintilla):
 		try:
 			pos = self.SendScintilla(QsciScintilla.SCI_GETCURRENTPOS)
 			style = self.SendScintilla(QsciScintilla.SCI_GETSTYLEAT, pos)
-			logging.debug("line %d, col %d, pos %d, style %d", line, col, pos,style)
+			logging.log(logging.TRACE, "line %d, col %d, pos %d, style %d", line, col, pos,style)
 			QApplication.postEvent(self, QStatusTipEvent("line %d, col %d, pos %d, style %d"%(
 				line, col, pos,style)))
 		except Exception as e:

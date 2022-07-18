@@ -72,5 +72,5 @@ class HexFileWindow(QWidget, MdiFile):
 		self.dataDisplay.zoomReset()
 
 	def clearRanges(self):
-		self.textbox.clearRanges()
+		self.dataDisplay.clearRanges()
 

@@ -33,7 +33,7 @@ class ReloadRequired(Exception):
 
 
 class ByteBuffer(QObject):
-	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container')
+	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container', 'annotation_set_name')
 	on_new_data = pyqtSignal()
 	def __init__(self, buf=None, metadata=None):
 		super().__init__()
@@ -44,6 +44,7 @@ class ByteBuffer(QObject):
 		self.fi_tree = None
 		self.fi_root_name = None
 		self.fi_container = None
+		self.annotation_set_name = None
 
 	def setContent(self, buf):
 		if buf is None:

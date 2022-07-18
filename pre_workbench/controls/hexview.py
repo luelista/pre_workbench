@@ -86,7 +86,6 @@ class HexView2(QWidget):
 		if self.formatInfoContainer: self.formatInfoContainer.updated.connect(self._formatInfoUpdated)
 		logging.debug("HexView - formatInfoContainer = %r", self.formatInfoContainer)
 		self.annotationSetDefaultName = annotationSetDefaultName
-		self.annotationSetName = None
 		self.buffers = list()
 		self.firstLine = 0
 		self.scrollY = 0
@@ -210,17 +209,8 @@ class HexView2(QWidget):
 					#TODO implement this
 					menu.addAction(name, lambda name=name: print(name))
 		else:
-			if self.project:
-				menu = ctx.addMenu("Load Annotation Set")
-				for name in self.project.getAnnotationSetNames():
-					menu.addAction(name, lambda name=name: self.loadAnnotations(name, self.selBuffer))
-				menu.addAction("New...", lambda: self.loadAnnotations(QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0], self.selBuffer))
-
-			if self.formatInfoContainer:
-				menu = ctx.addMenu("Parse Buffer")
-				for name in self.formatInfoContainer.definitions.keys():
-					menu.addAction(name, lambda name=name: self.applyFormatInfo(name, self.selBuffer))
-				#menu.addAction("New...", lambda: )
+			self._buildLoadAnnotationSetSubmenu(ctx, "Load Annotation Set", self.selBuffer, self.buffers[self.selBuffer].annotation_set_name)
+			self._buildParseBufferSubmenu(ctx, "Parse Buffer", self.selBuffer, self.buffers[self.selBuffer].fi_root_name)
 
 	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
@@ -228,19 +218,30 @@ class HexView2(QWidget):
 		ctx.addAction("Paste", lambda: self.setBuffer(parseHexFromClipboard()))
 		menu = ctx.addMenu("Paste as")
 		menu.addAction("Base64", lambda: self.setBuffer(ByteBuffer(b64decode(getClipboardText()))))
-		ctx.addAction("Clear Annotations" + (" on All Buffers" if len(self.buffers) > 0 else ""), lambda: self.clearRanges())
+		ctx.addAction("Clear Annotations" + (" on All Buffers" if len(self.buffers) > 1 else ""), lambda: self.clearRanges())
 
+		self._buildLoadAnnotationSetSubmenu(ctx, "Load Annotation Set" + (" on All Buffers" if len(self.buffers) > 1 else ""), None,
+											valueifsame(buf.annotation_set_name for buf in self.buffers))
+
+		self._buildParseBufferSubmenu(ctx, "Parse" + (" All Buffers" if len(self.buffers) > 1 else " Buffer"), None,
+											valueifsame(buf.fi_root_name for buf in self.buffers))
+
+	def _buildLoadAnnotationSetSubmenu(self, ctx, title, bufIdx, current):
 		if self.project:
-			menu = ctx.addMenu("Load Annotation Set" + (" on All Buffers" if len(self.buffers) > 0 else ""))
+			menu = ctx.addMenu(title)
 			for name in self.project.getAnnotationSetNames():
-				menu.addAction(name, lambda name=name: self.loadAnnotations(name))
-			menu.addAction("New...", lambda: self.loadAnnotations(
-				QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0]))
+				act = menu.addAction(name, lambda name=name: self.loadAnnotations(name, bufIdx))
+				act.setCheckable(True)
+				act.setChecked(name == current)
+			menu.addAction("New...", lambda: self.loadAnnotations(QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")[0], bufIdx))
 
+	def _buildParseBufferSubmenu(self, ctx, title, bufIdx, current):
 		if self.formatInfoContainer:
-			menu = ctx.addMenu("Parse" + (" All Buffers" if len(self.buffers) > 0 else " Buffer"))
+			menu = ctx.addMenu(title)
 			for name in self.formatInfoContainer.definitions.keys():
-				menu.addAction(name, lambda name=name: self.applyFormatInfo(name))
+				act = menu.addAction(name, lambda name=name: self.applyFormatInfo(name, bufIdx))
+				act.setCheckable(True)
+				act.setChecked(name == current)
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
@@ -249,25 +250,28 @@ class HexView2(QWidget):
 	def loadAnnotations(self, set_name, bufIdx=None):
 		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
 			buf.setRanges(buf.matchRanges(hasMetaKey='_sdef_ref'))
-			annotations = self.project.getAnnotations(set_name)
-			for rowid, start, end, meta_str in annotations:
-				meta = json.loads(meta_str)
-				if meta.get("deleted"): continue
-				meta['rowid'] = rowid
-				buf.addRange(Range(start=start, end=end, meta=meta))
+			if set_name is not None:
+				annotations = self.project.getAnnotations(set_name)
+				for rowid, start, end, meta_str in annotations:
+					meta = json.loads(meta_str)
+					if meta.get("deleted"): continue
+					meta['rowid'] = rowid
+					buf.addRange(Range(start=start, end=end, meta=meta))
+			buf.annotation_set_name = set_name
 		self.redraw()
-		self.annotationSetName = set_name
 
 	def storeAnnotation(self, range):
 		if not self.project: return
-		if not self.annotationSetName:
-			self.annotationSetName, ok = QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")
-			if not ok or not self.annotationSetName: return
-		self.project.storeAnnotation(self.annotationSetName, range)
+		buf = self.buffers[self.selBuffer]
+		if not buf.annotation_set_name:
+			buf.annotation_set_name, ok = QInputDialog.getText(self, "Annotation Set", "Please enter a name for the new annotation set:")
+			if not ok or not buf.annotation_set_name: return
+		self.project.storeAnnotation(buf.annotation_set_name, range)
 
 	def clearRanges(self):
 		for buf in self.buffers:
 			buf.clearRanges()
+			buf.annotation_set_name = None
 		self.redraw()
 
 	def getRangeString(self, range, style=(" ","%02X")):
@@ -782,6 +786,11 @@ class HexView2(QWidget):
 		firstBuf, firstOffset, firstY = self.itemY[0]
 		lastBuf, lastOffset, lastY = self.itemY[-1]
 		return ((firstBuf, firstOffset), (lastBuf, lastOffset))
+
+
+def valueifsame(iterable):
+	s = set(iterable)
+	return next(iter(s)) if len(s) == 1 else None
 
 
 def showHexView2Dialog(parent, title, content, ok_callback):

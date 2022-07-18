@@ -30,7 +30,7 @@ from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
-from pre_workbench.guihelper import getMonospaceFont, filledColorIcon
+from pre_workbench.guihelper import getMonospaceFont, filledColorIcon, setClipboardText
 from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
 from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI, \
 	UnionFI, BitStructFI
@@ -74,11 +74,7 @@ class RangeTreeWidget(QTreeWidget):
 		self.clear()
 		for fi_tree in fi_trees:
 			if fi_tree is None: continue
-			root = QTreeWidgetItem(self)
-			root.setExpanded(True)
-			if self.formatInfoContainer:
-				root.setText(0, self.formatInfoContainer.file_name)
-			Range_addToTree(fi_tree, root, self.onlyPrintable)
+			Range_addToTree(fi_tree, self, self.onlyPrintable)
 
 	def _fiTreeItemActivated(self, item, column):
 		pass
@@ -112,8 +108,7 @@ class RangeTreeWidget(QTreeWidget):
 			range = item.data(0, RangeTreeWidget.RangeRole)
 			source = item.data(0, RangeTreeWidget.SourceDescRole)
 
-			if item.parent() != None:
-				parentSource = item.parent().data(0, RangeTreeWidget.SourceDescRole)
+			parentSource = item.parent().data(0, RangeTreeWidget.SourceDescRole) if item.parent() else None
 			if isinstance(source, FormatInfo):
 				if isinstance(source.fi, (StructFI, UnionFI)):
 					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
@@ -136,19 +131,15 @@ class RangeTreeWidget(QTreeWidget):
 				for key, name, style in guihelper.getHighlightStyles():
 					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))
 				ctx.addSeparator()
+			ctx.addAction("Copy", lambda: setClipboardText("\t".join(item.text(i) for i in range(item.columnCount()))))
 		else:
 			ctx.addAction("Edit ...", lambda: self.editField(self.formatInfoContainer.definitions[self.formatInfoContainer.main_name]))
 
-		ctx.addAction("New grammar file ...", self.newFormatInfo)
-		ctx.addAction("Load grammar file ...", self.fileOpenFormatInfo)
-		if self.formatInfoContainer and self.formatInfoContainer.file_name:
-			ctx.addAction("Save grammar file", lambda: self.saveFormatInfo(self.formatInfoContainer.file_name))
 		ctx.addAction(QAction(parent=ctx, text="Only printable", triggered=self._toggleOnlyPrintable, checkable=True, checked=self.onlyPrintable))
 		ctx.exec(self.mapToGlobal(point))
 
 	def _toggleOnlyPrintable(self):
 		self.onlyPrintable = not self.onlyPrintable
-
 
 	def addField(self, parent, typeName):
 		def ok(params):
@@ -221,8 +212,7 @@ class RangeTreeWidget(QTreeWidget):
 												  configs.getValue(self.optionsConfigKey + "_lastOpenFile", ""),
 												  "Grammar Files (*.pfi *.txt)")
 		if not fileName: return
-		self.formatInfoContainer = InteractiveFormatInfoContainer(self, )
-		self.formatInfoContainer.load_from_string("DEFAULT struct(endianness="<") {}")
+		self.formatInfoContainer = InteractiveFormatInfoContainer(load_from_string="DEFAULT struct(endianness="<") {}")
 		self.formatInfoContainer.file_name = fileName
 		self.saveFormatInfo(self.formatInfoContainer.file_name)
 

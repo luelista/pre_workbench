@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import logging
 import subprocess
 
 from PyQt5 import QtCore
@@ -135,7 +136,7 @@ def runProcessWithDlg(title, message, parent, **subprocess_args):
 	btns = QDialogButtonBox()
 	dlg.layout().addWidget(btns)
 	btns.setStandardButtons(QDialogButtonBox.Cancel)
-
+	logging.debug("Running process interactively with args %r", subprocess_args)
 	proc = subprocess.Popen(**subprocess_args)
 	result = {}
 	def thread_fn():

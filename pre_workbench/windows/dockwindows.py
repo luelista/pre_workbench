@@ -642,16 +642,18 @@ class ExtToolDockWidget(QWidget):
 		self._updateMru()
 		self.treeView.clear()
 		if not self.selBytes: return
-		with tempfile.NamedTemporaryFile() as f:
+		f = tempfile.NamedTemporaryFile(delete=False)
+		try:
 			f.write(self.selBytes)
-			f.flush()
-			args = shlex.split(commandLine)
-			args = [arg.format(f.name) for arg in args]
+			f.close()
+			args = commandLine.format('"' + f.name + '"')
 			result = runProcessWithDlg("External command", "Running external command: " + args[0], self,
 									   args=args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			for line in result['stdout'].decode('latin1').split('\n'):
 				root = QTreeWidgetItem(self.treeView)
 				root.setText(0, line)
+		finally:
+			os.remove(f.name)
 
 
 

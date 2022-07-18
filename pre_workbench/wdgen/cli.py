@@ -16,41 +16,41 @@ class WDGenVisitor:
 		self.ws_field_defs = list()
 
 	def structfi(self, desc):
-		print("//struct " + self.context.get_path("_"))
+		print("  -- struct " + self.context.get_path("_"))
 		for name, child, comment in desc.fi.children:
 			self.context.id = name
 			child.visit(self.context, self)
 
 	def variantstructfi(self, desc):
-		print("//variant " + self.context.get_path("_"))
+		print("  -- variant " + self.context.get_path("_"))
 
 	def repeatstructfi(self, desc):
-		print("//variant " + self.context.get_path("_"))
+		print("  -- variant " + self.context.get_path("_"))
 
 	def switchfi(self, desc):
-		print("//switch " + self.context.get_path("_"))
+		print("  -- switch " + self.context.get_path("_"))
 
 	def namedfi(self, desc):
-		print("//named " + self.context.get_path("_"))
+		print("  -- named " + self.context.get_path("_"))
 
 	def fieldfi(self, desc):
-		print("//field " + self.context.get_path("_")+" "+desc.fi.format_type)
+		print("  -- field " + self.context.get_path("_")+" "+desc.fi.format_type)
 		id = self.context.get_path("_")
 		method = "add_le" if self.context.get_param("endianness") == "<" else "add"
-		print("len = " + str(desc.fi.size))
-		print("subtree:" + method + "(" + "pf_" + id + ", buffer(offset, len))")
-		print("offset = offset + len")
+		print("  len = " + str(desc.fi.size))
+		print("  subtree:" + method + "(" + "pf_" + id + ", buffer(offset, len))")
+		print("  offset = offset + len")
 		show = desc.params.get("show", "")
 		self.ws_field_defs.append((self.context.get_path("_"),self.context.top_id(),desc.fi.format_type))
 
 
 	def unionfi(self, desc):
-		print("//union " + self.context.get_path("_"))
+		print("  -- union " + self.context.get_path("_"))
 
 	def bitstructfi(self, desc):
-		print("//bits " + self.context.get_path("_"))
+		print("  -- bits " + self.context.get_path("_"))
 		for key, len in desc.fi.children:
-			print("//"+key+" "+str(len))
+			print("  -- "+key+" "+str(len))
 			self.ws_field_defs.append((self.context.get_path("_"), "UINT32"))
 
 
@@ -85,14 +85,20 @@ def run_cli():
 		sys.exit(1)
 
 	definition = r.definition if r.definition else fic.main_name
+	proto_name = fic.main_name
+	print(f'{proto_name}_proto = Proto("{proto_name}", "{proto_name} Protocol")')
+	print(f'function {proto_name}_proto.dissector(buffer, pinfo, tree)')
+	print(f'  local subtree = tree:add({proto_name}_proto, buffer(), "Protocol Data {definition}")')
+	print(f'  parse_{definition}(buffer, pinfo, subtree)')
+	print(f'end')
 	context = ParseContext(fic)
 	generator = WDGenVisitor(context)
 	for key, value in fic.definitions.items():
-		print("//definition "+key)
-		print("void parse_"+key+"() {")
+		print("-- definition "+key)
+		print("function parse_"+key+"(buffer, pinfo, subtree)")
 		context.id = key
 		value.visit(context, generator)
-		print("}")
+		print("end")
 		print("")
 
 

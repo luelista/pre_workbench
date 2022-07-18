@@ -392,6 +392,12 @@ class SelectionHeuristicsConfigWidget(QWidget):
 		self.listView.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 
 		from pre_workbench.controls.hexview_selheur import SelectionHelpers
+		self._updateList()
+		SelectionHelpers.updated.connect(self._updateList)
+
+	def _updateList(self):
+		from pre_workbench.controls.hexview_selheur import SelectionHelpers
+		self.listView.clear()
 		for helper, meta in SelectionHelpers.types:
 			item = QListWidgetItem(helper.__name__ )
 			item.setData(self.HELPER_ROLE, helper)

@@ -14,10 +14,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from PyQt5.QtCore import QObject, pyqtSignal
 
 
-class TypeRegistry:
+class TypeRegistry(QObject):
+	updated = pyqtSignal()
+
 	def __init__(self):
+		super().__init__()
 		self.types = list()
 
 	def register(self, **meta):
@@ -25,7 +29,12 @@ class TypeRegistry:
 			for k,v in meta.items():
 				setattr(typ, k, v)
 			meta["name"] = typ.__name__
+			for index, (checktyp, _) in enumerate(self.types):
+				if checktyp.__name__ == typ.__name__:
+					del self.types[index]
+					break
 			self.types.append((typ, meta))
+			self.updated.emit()
 			return typ
 		return wrapper
 

@@ -33,7 +33,7 @@ from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText
+from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText, qApp
 from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
@@ -212,6 +212,11 @@ class HexView2(QWidget):
 			self._buildLoadAnnotationSetSubmenu(ctx, "Load Annotation Set", self.selBuffer, self.buffers[self.selBuffer].annotation_set_name)
 			self._buildParseBufferSubmenu(ctx, "Parse Buffer", self.selBuffer, self.buffers[self.selBuffer].fi_root_name)
 
+		menu = ctx.addMenu("Run Macro On Selection")
+		for container, macroName in qApp().find_macros_by_input_type("BYTE_ARRAY"):
+			menu.addAction(macroName, lambda c=container, name=macroName: c.getMacro(name).execute(self.getRangeBytes(self.selRange())))
+
+
 	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addSeparator()
@@ -273,6 +278,9 @@ class HexView2(QWidget):
 			buf.clearRanges()
 			buf.annotation_set_name = None
 		self.redraw()
+
+	def getRangeBytes(self, range):
+		return self.buffers[range.buffer_idx].getBytes(range.start, range.length())
 
 	def getRangeString(self, range, style=(" ","%02X")):
 		if isinstance(style, tuple):

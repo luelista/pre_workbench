@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import hashlib
 import inspect
 import logging
 import os
@@ -21,21 +22,24 @@ import subprocess
 import tempfile
 import weakref
 import shlex
+from copy import deepcopy
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices, QColor
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
-	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox
+	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox
 
 import pre_workbench.app
 from pre_workbench import configs
 from pre_workbench.algo.range import Range
-from pre_workbench.configs import getIcon
+from pre_workbench.configs import getIcon, SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
+from pre_workbench.controls.scintillaedit import showScintillaDialog
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, qApp, TODO
 from pre_workbench.app import navigate
+from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
 from pre_workbench.windows.content.textfile import ScintillaEdit
@@ -368,6 +372,125 @@ class RangeListWidget(QWidget):
 						x.setText(0, truncate_str(k))
 						x.setText(1, truncate_str(v))
 				# TODO ...on click: self.selectRange(d)
+
+
+class MacroListDockWidget(QWidget):
+	CONTAINER_ROLE = QtCore.Qt.UserRole + 100
+	MACRO_NAME_ROLE = QtCore.Qt.UserRole + 101
+	def __init__(self):
+		super().__init__()
+		self._initUI()
+		self._loadList()
+
+	def _initUI(self):
+		self.treeView = QTreeWidget()
+		self.treeView.setColumnCount(1)
+		self.treeView.setColumnWidth(1, 300)
+		self.treeView.headerItem().setText(0, "Name")
+		self.treeView.customContextMenuRequested.connect(self.customContextMenuRequested)
+		self.treeView.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.treeView)
+		windowLayout.setContentsMargins(0,0,0,0)
+		self.setLayout(windowLayout)
+
+	def _loadList(self):
+		self.treeView.clear()
+		for title, container in qApp().macro_containers.items():
+			root = QTreeWidgetItem(self.treeView, [title])
+			root.setExpanded(True)
+			root.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
+			self._loadMacros(root, container)
+
+	def _loadMacros(self, root, container):
+		names = container.getMacroNames()
+		for name in names:
+			item = QTreeWidgetItem(root, [name])
+			item.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
+			item.setData(0, MacroListDockWidget.MACRO_NAME_ROLE, name)
+
+	def customContextMenuRequested(self, point):
+		item = self.treeView.itemAt(point)
+		ctx = QMenu("Context menu", self)
+		if item:
+			container = item.data(0, MacroListDockWidget.CONTAINER_ROLE)
+			macroname = item.data(0, MacroListDockWidget.MACRO_NAME_ROLE)
+			if macroname:
+				ctx.addAction("Execute", lambda: self.executeMacro(container.getMacro(macroname)))
+				if container.macrosEditable:
+					ctx.addAction("Edit code", lambda: self.editCode(container.getMacro(macroname)))
+					ctx.addAction("Preferences", lambda: self.editPreferences(container.getMacro(macroname)))
+					ctx.addAction("Delete macro", lambda: self.deleteMacro(container, macroname))
+				else:
+					ctx.addAction("View code", lambda: self.editCode(container.getMacro(macroname)))
+				ctx.addSeparator()
+				for title, target_container in qApp().macro_containers.items():
+					if target_container.macrosEditable and target_container != container:
+						ctx.addAction("Copy to " + title, lambda trg=target_container: self.copyMacro(container.getMacro(macroname), trg))
+			else:
+				if container.macrosEditable:
+					ctx.addAction("Create macro ...", lambda: self.createMacro(container))
+			ctx.exec(self.treeView.viewport().mapToGlobal(point))
+
+	def deleteMacro(self, container, macroname):
+		if QMessageBox.question(self, "Delete Macro", "Delete Macro \"" + macroname + "\"?", QMessageBox.Yes|QMessageBox.No) == QMessageBox.Yes:
+			container.deleteMacro(macroname)
+			self._loadList()
+
+	def executeMacro(self, macro):
+		if macro.input_type == Macro.TYPE_NONE:
+			macro.execute(None)
+		else:
+			TODO()
+
+	def editPreferences(self, macro):
+		result = showSettingsDlg([
+			SettingsField("name", "Name", "text", {}),
+			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+		], {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type}, title="Edit Preferences Of Macro \"" + macro.name + "\"", parent=self)
+		if not result: return
+		macro.name = result["name"]
+		macro.input_type = result["input_type"]
+		macro.output_type = result["output_type"]
+		macro.container.storeMacro(macro)
+		self._loadList()
+
+	def createMacro(self, container):
+		result = showSettingsDlg([
+			SettingsField("name", "Name", "text", {}),
+			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+		], title="Create Macro ...", parent=self)
+		if not result: return
+		macro = Macro(container, result["name"], result["input_type"], result["output_type"], "", [], {}, None)
+		container.storeMacro(macro)
+		self.editCode(macro)
+		self._loadList()
+
+	def copyMacro(self, macro, target_container):
+		result = showSettingsDlg([
+			SettingsField("name", "Name", "text", {}),
+			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+		], {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type}, title="Copy Macro ...", parent=self)
+		if not result: return
+		new_macro = Macro(target_container, result["name"], result["input_type"], result["output_type"], macro.code, deepcopy(macro.options), deepcopy(macro.metadata), None)
+		target_container.storeMacro(new_macro)
+		self._loadList()
+
+	def editCode(self, macro):
+		verb = "Edit" if macro.container.macrosEditable else "View"
+		from PyQt5.Qsci import QsciLexerPython
+		res = showScintillaDialog(self, verb + " Code Of Macro \""+macro.name+"\"", macro.code, None,
+								  readonly=not macro.container.macrosEditable, lexer=QsciLexerPython())
+		if res:
+			if macro.container.macrosEditable:
+				macro.code = res
+				macro.container.storeMacro(macro)
+			hash = hashlib.sha256(res.encode('utf-8')).digest()
+			configs.updateMru("TrustedMacroHashes", hash, 255)
+
 
 
 class SelectionHeuristicsConfigWidget(QWidget):

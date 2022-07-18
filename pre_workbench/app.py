@@ -102,6 +102,13 @@ class WorkbenchApplication(QApplication):
 		configs.updateMru("ProjectMru", prj_dir, 5)
 		configs.setValue("LastProjectDir", self.project.projectFolder)
 
+		from pre_workbench.macros.macro import SysMacroContainer
+		self.macro_containers = {
+			"Bundled with pre_workbench": SysMacroContainer(),
+			"User-local": Project(configs.dirs.user_config_dir),
+			"Project: "+os.path.basename(self.project.projectFolder): self.project
+		}
+
 		self.plugins = {}
 		if self.args.plugins_dir:
 			for file in glob(os.path.join(self.args.plugins_dir, "*.py")):
@@ -117,6 +124,11 @@ class WorkbenchApplication(QApplication):
 		sys.modules[modname] = my_mod
 		self.plugins[modname] = my_mod
 		spec.loader.exec_module(my_mod)
+
+	def find_macros_by_input_type(self, type):
+		return [(container, name)
+					for container in self.macro_containers.values()
+					for name in container.getMacroNamesByInputType(type)]
 
 	def event(self, e):
 		"""Handle macOS FileOpen events."""

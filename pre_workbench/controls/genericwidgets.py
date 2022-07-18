@@ -166,10 +166,11 @@ class SettingsGroup(QGroupBox):
 				field.textChanged.connect(self.textChanged)
 			elif d.fieldType == "select":
 				field = QComboBox()
-				for value, text in d.params["options"]:
+				opts = list(d.params["options"])
+				for value, text in opts:
 					field.addItem(text, value)
 				field.activated.connect(self.selectChanged)
-				empty = d.params["options"][0][0]
+				empty = opts[0][0]
 			elif d.fieldType == "check":
 				field = QCheckBox()
 				field.stateChanged.connect(self.checkChanged)

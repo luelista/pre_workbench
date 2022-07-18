@@ -22,6 +22,7 @@ import logging.config
 import os.path
 import platform
 import sys
+import typing
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal, QEvent
@@ -35,6 +36,9 @@ from pre_workbench.guihelper import splitNavArgs
 from pre_workbench.syshelper import load_file_watch
 from pre_workbench.util import get_app_version
 
+if typing.TYPE_CHECKING:
+	from pre_workbench.project import Project
+
 MainWindow = None
 NavigateCommands = dict()
 
@@ -43,7 +47,7 @@ class GlobalEventCls(QObject):
 
 
 GlobalEvents = GlobalEventCls()
-CurrentProject = None
+CurrentProject: "typing.Optional[Project]" = None
 
 
 def navigate(*args):

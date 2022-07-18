@@ -21,6 +21,8 @@ import re
 import sys
 from base64 import b64decode
 from collections import namedtuple
+from typing import List
+
 from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
@@ -74,6 +76,8 @@ class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
 	parseResultsUpdated = pyqtSignal(list)
 	selectionChanged = pyqtSignal(object)
+
+	buffers: List[ByteBuffer]
 
 	def __init__(self, byteBuffer=None, annotationSetDefaultName="", options=dict(), optionsConfigKey="HexViewParams", project=None, formatInfoContainer=None):
 		super().__init__()

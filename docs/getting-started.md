@@ -33,7 +33,7 @@ To reset these, delete or rename the `.pre_workbench` file from your project dir
 You can also specify various debug options with --log-level, --log-config and --gc-debug.
 
 ```
-usage: prewb [-h] [--reset-config] [--log-level {TRACE,DEBUG,INFO,WARNING,ERROR}] [--log-config FILE] [--gc-debug] [--choose-project] [DIR]
+usage: prewb [-h] [--reset-config] [--log-level {TRACE,DEBUG,INFO,WARNING,ERROR}] [--log-config FILE] [--plugins-dir DIR] [--gc-debug] [--choose-project] [DIR]
 
 Protocol Reverse Engineering Workbench
 
@@ -46,10 +46,13 @@ optional arguments:
   --log-level {TRACE,DEBUG,INFO,WARNING,ERROR}
                         Set the log level
   --log-config FILE     Load detailed logging config from file
+  --plugins-dir DIR     Load all Python files from this folder as plugins
   --gc-debug            Print debug output from garbage collector
   --choose-project      Force the project directory chooser to appear, instead of opening the last project
 ```
 
+On Windows, the `prewb` command runs the application in GUI mode, preventing command line output. To see the log output,
+use the `prewb_c` command which runs in console mode.
 
 ## prewb_parse
 

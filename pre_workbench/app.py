@@ -109,8 +109,20 @@ class WorkbenchApplication(QApplication):
 			"Project: "+os.path.basename(self.project.projectFolder): self.project
 		}
 
+
+		configs.registerOption(SettingsSection('General', 'General', 'Plugins', 'Plugins'),
+							   "PluginsDir", "Plugin directory", "text",
+							   {"fileselect": "dir", "caption": "Select folder from which all *.py files should be loaded as plugins"},
+							   "", None)
 		self.plugins = {}
 		if self.args.plugins_dir:
+			self.plugins_dir = self.args.plugins_dir
+		elif dir := configs.getValue("General.Plugins.PluginsDir", ""):
+			self.plugins_dir = dir
+		else:
+			self.plugins_dir = None
+
+		if self.plugins_dir:
 			for file in glob(os.path.join(self.args.plugins_dir, "*.py")):
 				self._load_plugin(file)
 

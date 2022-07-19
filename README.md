@@ -20,7 +20,7 @@ For installation instructions see [docs/install.md](https://luelista.github.io/p
 
 `make pyinstaller` builds PyInstaller package (run `pip install pyinstaller` before)
 
-
+Run `scripts\build_installer.bat` from a cmd.exe in this directory to build the setup.exe on Windows.
 
 ## Third Party
 

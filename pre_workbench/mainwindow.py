@@ -340,7 +340,7 @@ class WorkbenchMain(QMainWindow):
 
 		for typ, meta in DockWidgetTypes.types:
 			widget = typ()
-			self.createDockWnd(meta['title'], meta['icon'], widget, getattr(ads, meta.get('area', 'Right') + 'DockWidgetArea'), meta.get('showFirstRun', False))
+			self.createDockWnd(meta['title'], meta['icon'], widget, getattr(ads, meta.get('dock', 'Right') + 'DockWidgetArea'), meta.get('showFirstRun', False))
 			if hasattr(widget, 'on_meta_updated'): self.meta_updated.connect(widget.on_meta_updated)
 			if hasattr(widget, 'on_selected_bytes_updated'): self.selected_bytes_updated.connect(widget.on_selected_bytes_updated)
 

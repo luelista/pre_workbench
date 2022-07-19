@@ -122,7 +122,10 @@ class FileBrowserWidget(QWidget):
 	def saveState(self):
 		if self.tree.currentIndex().isValid():
 			info = self.model.fileInfo(self.tree.currentIndex())
-			return { "sel": info.absoluteFilePath(), "root": self.rootFolder, "hs": self.tree.header().saveState() }
+			sel = info.absoluteFilePath()
+		else:
+			sel = None
+		return { "sel": sel, "root": self.rootFolder, "hs": self.tree.header().saveState() }
 
 	def restoreState(self, state):
 		try:

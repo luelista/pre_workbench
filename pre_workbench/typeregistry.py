@@ -57,3 +57,4 @@ class TypeRegistry(QObject):
 
 WindowTypes = TypeRegistry()
 DataWidgetTypes = TypeRegistry()
+DockWidgetTypes = TypeRegistry()

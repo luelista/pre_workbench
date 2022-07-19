@@ -46,7 +46,7 @@ from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWi
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
 from pre_workbench.typeeditor import JsonView
-from pre_workbench.typeregistry import WindowTypes
+from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.windows.content.hexfile import HexFileWindow
 
 configs.registerOption(SettingsSection('General', 'General', 'Updates', 'Updates'),
@@ -111,6 +111,7 @@ class WorkbenchMain(QMainWindow):
 		configs.setValue("MainWindowState", self.saveState(123))
 		if not self._checkDirtyChildren():
 			e.ignore()
+			return
 		self._saveChildrenState()
 		self.project.setValue("DockState", self.mdiArea.saveState())
 		super().closeEvent(e)
@@ -119,6 +120,7 @@ class WorkbenchMain(QMainWindow):
 		for wnd in self.mdiArea.dockWidgetsMap().values():
 			if hasattr(wnd.widget(), "maybeSave"):
 				if not wnd.widget().maybeSave():
+					logging.info("close cancelled by %r", wnd.widget())
 					return False
 		return True
 
@@ -331,46 +333,19 @@ class WorkbenchMain(QMainWindow):
 	def _initDockWindows(self):
 		self.dockWidgets = {}
 
-		self.createDockWnd("Project Files", "folder-tree.png", FileBrowserWidget(self.project.projectFolder), ads.LeftDockWidgetArea, showFirstRun=True)
-		self.dockWidgets["Project Files"].on_open.connect(self.openFile)
-
-		self.createDockWnd("Window List", "applications-stack.png", MdiWindowListWidget(), ads.LeftDockWidgetArea)
-
 		self.zoomWindow = DynamicDataWidget()
 		self.zoomWindow.meta_updated.connect(self.onMetaUpdateRaw)
 		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea, showFirstRun=True)
 		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content) if content is not None else None)
 
-		self.createDockWnd("Data Inspector", "user-detective-gray.png", DataInspectorWidget(), ads.BottomDockWidgetArea, showFirstRun=True)
-		self.selected_bytes_updated.connect(self.dockWidgets["Data Inspector"].on_select_bytes)
+		for typ, meta in DockWidgetTypes.types:
+			widget = typ()
+			self.createDockWnd(meta['title'], meta['icon'], widget, getattr(ads, meta.get('area', 'Right') + 'DockWidgetArea'), meta.get('showFirstRun', False))
+			if hasattr(widget, 'on_meta_updated'): self.meta_updated.connect(widget.on_meta_updated)
+			if hasattr(widget, 'on_selected_bytes_updated'): self.selected_bytes_updated.connect(widget.on_selected_bytes_updated)
 
 		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
 		self.createDockWnd("Application Log", "bug--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
-
-		#self.createDockWnd("Grammar Definition Tree", "tree.png", StructInfoTreeWidget())
-		self.createDockWnd("Grammar Definition Code", "tree--pencil.png", StructInfoCodeWidget(), showFirstRun=True)
-
-		self.createDockWnd("Grammar Parse Result", "tree--arrow.png", RangeTreeDockWidget(), showFirstRun=True)
-		self.meta_updated.connect(self.dockWidgets["Grammar Parse Result"].on_meta_update)
-
-		self.createDockWnd("Selected Ranges", "bookmarks.png", RangeListWidget())
-		self.meta_updated.connect(self.dockWidgets["Selected Ranges"].on_meta_update)
-
-		self.createDockWnd("Selection Heuristics", "table-select-cells.png", SelectionHeuristicsConfigWidget())
-
-		#self.createDockWnd("Binwalk", "regular-expression-search-match.png", BinwalkDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
-		#self.selected_bytes_updated.connect(self.dockWidgets["Binwalk"].on_select_bytes)
-		self.createDockWnd("Macros", "regular-expression-search-match.png", MacroListDockWidget(),
-						   ads.RightDockWidgetArea, showFirstRun=False)
-
-		self.createDockWnd("External Tools", "toolbox--arrow.png", ExtToolDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
-		self.selected_bytes_updated.connect(self.dockWidgets["External Tools"].on_select_bytes)
-
-		self.createDockWnd("Search", "magnifier-left.png", SearchDockWidget(), ads.BottomDockWidgetArea, showFirstRun=False)
-		self.meta_updated.connect(self.dockWidgets["Search"].on_meta_updated)
-
-
-
 
 	def _initUI(self):
 		ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)

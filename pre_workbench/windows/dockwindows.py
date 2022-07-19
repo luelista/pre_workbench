@@ -44,15 +44,18 @@ from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
 from pre_workbench.windows.content.textfile import ScintillaEdit
 from pre_workbench.typeeditor import JsonView
-from pre_workbench.typeregistry import WindowTypes
+from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.util import PerfTimer, truncate_str
 
 
+
+
+@DockWidgetTypes.register(title="Project Files", icon="folder-tree.png", dock="Left", showFirstRun=True)
 class FileBrowserWidget(QWidget):
-	on_open = pyqtSignal(str)
-	def __init__(self, rootFolder):
+	def __init__(self):
 		super().__init__()
 		self._initUI()
+		rootFolder = pre_workbench.app.CurrentProject.projectFolder
 		self.setRoot(rootFolder)
 
 	def _initUI(self):
@@ -133,6 +136,8 @@ class FileBrowserWidget(QWidget):
 		if "hs" in state: self.tree.header().restoreState(state["hs"])
 
 
+
+@DockWidgetTypes.register(title="Window List", icon="applications-stack.png", dock="Left")
 class MdiWindowListWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -202,6 +207,7 @@ class StructInfoTreeWidget(QWidget):
 		self.setLayout(windowLayout)
 
 
+@DockWidgetTypes.register(title="Grammar Definition Code", icon="tree--pencil.png", showFirstRun=True)
 class StructInfoCodeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -226,6 +232,7 @@ class StructInfoCodeWidget(QWidget):
 		self.editor.show()
 
 
+@DockWidgetTypes.register(title="Grammar Parse Result", icon="tree--arrow.png", showFirstRun=True)
 class RangeTreeDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -250,7 +257,7 @@ class RangeTreeDockWidget(QWidget):
 		if range is not None and hexView is not None:
 			hexView.selectRange(range, scrollIntoView=True)
 
-	def on_meta_update(self, event_id, param):
+	def on_meta_updated(self, event_id, param):
 		if param is None or not self.isVisible(): return
 		if event_id == "hexview_range":
 			with PerfTimer("RangeTreeWidget update"):
@@ -271,7 +278,7 @@ class RangeTreeDockWidget(QWidget):
 
 
 
-
+@DockWidgetTypes.register(title="Data Inspector", icon="user-detective-gray.png", dock="Bottom", showFirstRun=True)
 class DataInspectorWidget(QWidget):
 	defaultdef = """
 	DataInspector union (ignore_errors=true, endianness=">"){
@@ -306,7 +313,7 @@ class DataInspectorWidget(QWidget):
 	def restoreState(self, data):
 		if "hs" in data: self.fiTreeWidget.header().restoreState(data["hs"])
 
-	def on_select_bytes(self, selbytes):#buffer:ByteBuffer, range:Range):
+	def on_selected_bytes_updated(self, selbytes):#buffer:ByteBuffer, range:Range):
 		if not self.isVisible(): return
 		self.selbytes = selbytes
 		self.parse()
@@ -336,6 +343,7 @@ class DataInspectorWidget(QWidget):
 		self.fiTreeWidget.loadFormatInfo(load_from_file=filespec)
 
 
+@DockWidgetTypes.register(title="Selected Ranges", icon="bookmarks.png")
 class RangeListWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -354,7 +362,7 @@ class RangeListWidget(QWidget):
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
-	def on_meta_update(self, event_id, sender):
+	def on_meta_updated(self, event_id, sender):
 		with PerfTimer("RangeListWidget update"):
 			if event_id != "hexview_range" or sender is None or not self.isVisible(): return
 			self.treeView.clear()
@@ -374,6 +382,7 @@ class RangeListWidget(QWidget):
 				# TODO ...on click: self.selectRange(d)
 
 
+@DockWidgetTypes.register(title="Macros", icon="regular-expression-search-match.png", dock="Right", showFirstRun=False)
 class MacroListDockWidget(QWidget):
 	CONTAINER_ROLE = QtCore.Qt.UserRole + 100
 	MACRO_NAME_ROLE = QtCore.Qt.UserRole + 101
@@ -387,8 +396,9 @@ class MacroListDockWidget(QWidget):
 		self.treeView.setColumnCount(1)
 		self.treeView.setColumnWidth(1, 300)
 		self.treeView.headerItem().setText(0, "Name")
-		self.treeView.customContextMenuRequested.connect(self.customContextMenuRequested)
+		self.treeView.customContextMenuRequested.connect(self._customContextMenuRequested)
 		self.treeView.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		self.treeView.itemDoubleClicked.connect(self._onDblClick)
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.treeView)
 		windowLayout.setContentsMargins(0,0,0,0)
@@ -409,7 +419,7 @@ class MacroListDockWidget(QWidget):
 			item.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
 			item.setData(0, MacroListDockWidget.MACRO_NAME_ROLE, name)
 
-	def customContextMenuRequested(self, point):
+	def _customContextMenuRequested(self, point):
 		item = self.treeView.itemAt(point)
 		ctx = QMenu("Context menu", self)
 		if item:
@@ -436,6 +446,11 @@ class MacroListDockWidget(QWidget):
 		if QMessageBox.question(self, "Delete Macro", "Delete Macro \"" + macroname + "\"?", QMessageBox.Yes|QMessageBox.No) == QMessageBox.Yes:
 			container.deleteMacro(macroname)
 			self._loadList()
+
+	def _onDblClick(self, item: QTreeWidgetItem, columnIdx: int):
+		container = item.data(0, MacroListDockWidget.CONTAINER_ROLE)
+		macroname = item.data(0, MacroListDockWidget.MACRO_NAME_ROLE)
+		self.executeMacro(container.getMacro(macroname))
 
 	def executeMacro(self, macro):
 		if macro.input_type == Macro.TYPE_NONE:
@@ -493,6 +508,7 @@ class MacroListDockWidget(QWidget):
 
 
 
+@DockWidgetTypes.register(title="Selection Heuristics", icon="table-select-cells.png")
 class SelectionHeuristicsConfigWidget(QWidget):
 	HELPER_ROLE = QtCore.Qt.UserRole + 100
 
@@ -569,6 +585,7 @@ class RpcDockWidget(QWidget):
 		pass
 
 
+# @DockWidgetTypes.register(title="Binwalk", icon="regular-expression-search-match.png", dock="Bottom", showFirstRun=False)
 class BinwalkDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -590,7 +607,7 @@ class BinwalkDockWidget(QWidget):
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
-	def on_select_bytes(self, selBytes):
+	def on_selected_bytes_updated(self, selBytes):
 		self.selBytes = selBytes
 
 	def _runBinwalk(self):
@@ -608,6 +625,7 @@ class BinwalkDockWidget(QWidget):
 				x.setText(2, result.description)
 
 
+@DockWidgetTypes.register(title="External Tools", icon="toolbox--arrow.png", dock="Bottom", showFirstRun=False)
 class ExtToolDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -633,7 +651,7 @@ class ExtToolDockWidget(QWidget):
 		self.cmdLineEdit.clear()
 		self.cmdLineEdit.addItems(configs.getValue("ExtToolMru", []))
 
-	def on_select_bytes(self, selBytes):
+	def on_selected_bytes_updated(self, selBytes):
 		self.selBytes = selBytes
 
 	def _runTool(self):
@@ -657,6 +675,7 @@ class ExtToolDockWidget(QWidget):
 
 
 
+@DockWidgetTypes.register(title="Search", icon="magnifier-left.png", dock="Bottom", showFirstRun=False)
 class SearchDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()

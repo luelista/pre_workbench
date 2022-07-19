@@ -91,10 +91,17 @@ def mkdir_p(path):
 			raise
 
 def getIcon(name):
-	return QIcon(respath("icons/"+name))
+	for path in icon_searchpaths:
+		file = os.path.join(path, name)
+		if os.path.exists(file):
+			return QIcon(file)
 
 def respath(filename):
 	return os.path.join(os.path.dirname(__file__), filename)
+
+icon_searchpaths = [
+	respath("icons")
+]
 
 dirs = AppDirs("PRE-Workbench", "Weller IT", roaming=True)
 mkdir_p(dirs.user_config_dir)

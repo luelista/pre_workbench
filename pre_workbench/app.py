@@ -123,6 +123,7 @@ class WorkbenchApplication(QApplication):
 			self.plugins_dir = None
 
 		if self.plugins_dir:
+			configs.icon_searchpaths.append(self.plugins_dir)
 			for file in glob(os.path.join(self.plugins_dir, "*.py")):
 				self._load_plugin(file)
 

@@ -123,7 +123,7 @@ class WorkbenchApplication(QApplication):
 			self.plugins_dir = None
 
 		if self.plugins_dir:
-			for file in glob(os.path.join(self.args.plugins_dir, "*.py")):
+			for file in glob(os.path.join(self.plugins_dir, "*.py")):
 				self._load_plugin(file)
 
 	def _load_plugin(self, filespec):

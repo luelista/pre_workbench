@@ -322,6 +322,7 @@ class WorkbenchMain(QMainWindow):
 		helpMenu.addAction(QAction("Key bindings", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/key-bindings")))
 
 		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser("https://github.com/luelista/pre_workbench/issues")))
+		helpMenu.addSeparator()
 		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))
 

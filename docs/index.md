@@ -45,3 +45,12 @@ Search one or multiple buffers for a regular expression, e.g. find all ASCII str
 
 ### Project folder
 Preferences, widget layout, open files and grammars are stored per project.
+
+### Plugin and macro support
+Macros can be added at user-level (~/.config) and at project level (.pre_workbench), and some example macros are
+bundled with the application -- to use macros, click "View" > "Tool Windows" > "Macros".
+To enable plugin support, configure a plugin directory in the settings dialog. More information in the 
+[release notes](https://github.com/luelista/pre_workbench/releases/tag/0.7.8).
+Find some example plugins on [Github](https://github.com/luelista/prewb_example_plugins).
+
+

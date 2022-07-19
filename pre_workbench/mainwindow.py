@@ -536,8 +536,12 @@ class WorkbenchMain(QMainWindow):
 		import subprocess
 		self_script = sys.argv[0]
 		# weird Windows magic
-		if not os.path.exists(self_script) and os.path.exists(self_script + '.exe'): self_script += '.exe'
-		cmd_line = [sys.executable, self_script, projectPath]
+		if self_script == sys.executable:  # PyInstaller on Windows
+			cmd_line = [self_script, projectPath]
+		elif not os.path.exists(self_script) and os.path.exists(self_script + '.exe'):  # PIP entry_points on Windows
+			cmd_line = [sys.executable, self_script + '.exe', projectPath]
+		else:  # everything else
+			cmd_line = [sys.executable, self_script, projectPath]
 		logging.info('Starting new instance with cmd line: %r', cmd_line)
 		subprocess.Popen(cmd_line, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

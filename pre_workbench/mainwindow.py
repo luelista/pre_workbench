@@ -104,7 +104,7 @@ class WorkbenchMain(QMainWindow):
 	def updateChildWindowList(self, obj=None):
 		logging.log(logging.TRACE, "updateChildWindowList")
 		wndList = self.mdiArea.dockWidgetsMap().values()
-		self.dockWidgets["Window List"].updateWindowList(wndList)
+		self.dockWidgets["MdiWindowListWidget"].updateWindowList(wndList)
 
 	def closeEvent(self, e):
 		configs.setValue("MainWindowGeometry", self.saveGeometry())
@@ -335,17 +335,18 @@ class WorkbenchMain(QMainWindow):
 
 		self.zoomWindow = DynamicDataWidget()
 		self.zoomWindow.meta_updated.connect(self.onMetaUpdateRaw)
-		self.createDockWnd("Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea, showFirstRun=True)
+		self.createDockWnd("Zoom", "Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea, showFirstRun=True)
 		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content) if content is not None else None)
 
 		for typ, meta in DockWidgetTypes.types:
 			widget = typ()
-			self.createDockWnd(meta['title'], meta['icon'], widget, getattr(ads, meta.get('dock', 'Right') + 'DockWidgetArea'), meta.get('showFirstRun', False))
+			self.createDockWnd(meta['name'], meta['title'], meta['icon'], widget, getattr(ads, meta.get('dock', 'Right') + 'DockWidgetArea'), meta.get('showFirstRun', False))
 			if hasattr(widget, 'on_meta_updated'): self.meta_updated.connect(widget.on_meta_updated)
 			if hasattr(widget, 'on_selected_bytes_updated'): self.selected_bytes_updated.connect(widget.on_selected_bytes_updated)
+			if hasattr(widget, 'on_focused_dock_widget_changed'): self.mdiArea.focusedDockWidgetChanged.connect(widget.on_focused_dock_widget_changed)
 
-		self.createDockWnd("Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
-		self.createDockWnd("Application Log", "bug--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
+		self.createDockWnd("Data Source Log", "Data Source Log", "terminal--exclamation.png", LogWidget("DataSource"), ads.TopDockWidgetArea)
+		self.createDockWnd("Application Log", "Application Log", "bug--exclamation.png", LogWidget(""), ads.TopDockWidgetArea)
 
 	def _initUI(self):
 		ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)
@@ -368,7 +369,6 @@ class WorkbenchMain(QMainWindow):
 		self.setAcceptDrops(True)
 
 		self.mdiArea.focusedDockWidgetChanged.connect(self.onSubWindowActivated)
-		self.mdiArea.focusedDockWidgetChanged.connect(self.dockWidgets["Window List"].onSubWindowActivated)
 
 		# required for actions in "Window" menu
 		self.windowMapper = QSignalMapper(self)
@@ -619,8 +619,8 @@ class WorkbenchMain(QMainWindow):
 			self.mdiArea.addDockWidgetTabToArea(subwnd, self.centralDockWidget.dockAreaWidget())
 		self.updateChildWindowList()
 
-	def createDockWnd(self, name, iconName, widget, area=ads.RightDockWidgetArea, showFirstRun=False):
-		dw=ads.CDockWidget(name)
+	def createDockWnd(self, name, title, iconName, widget, area=ads.RightDockWidgetArea, showFirstRun=False):
+		dw=ads.CDockWidget(title)
 		dw.setObjectName(name)
 		dw.setWidget(widget)
 		dw.setIcon(getIcon(iconName))

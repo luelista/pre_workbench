@@ -178,7 +178,7 @@ class MdiWindowListWidget(QWidget):
 		ctx.addAction("Close all windows", lambda: self.closeAllWindows())
 		ctx.exec(self.list.viewport().mapToGlobal(point))
 
-	def onSubWindowActivated(self, window):
+	def on_focused_dock_widget_changed(self, window):
 		if window is None: return
 		for i in range(self.list.count()):
 			if self.list.item(i).data(QtCore.Qt.UserRole) == window.objectName():

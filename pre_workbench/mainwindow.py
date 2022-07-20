@@ -31,7 +31,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessage
 from PyQtAds import ads
 
 from pre_workbench.errorhandler import check_for_updates
-from pre_workbench.guihelper import navigateBrowser, TODO, APP
+from pre_workbench.guihelper import navigateBrowser, TODO, APP, showWidgetDlg
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
@@ -88,13 +88,13 @@ class WorkbenchMain(QMainWindow):
 				self.showChild(wnd)
 			except Exception as ex:
 				traceback.print_exc()
-				msg = QMessageBox(QMessageBox.Critical, "Failed to restore window", "Failed to restore window of type "+wndInfo["clz"]+"\n\n"+traceback.format_exc(), QMessageBox.Ok | QMessageBox.Abort, self)
-				msg.addButton("Show parameters", QMessageBox.YesRole)
+				msg = QMessageBox(QMessageBox.Critical, "Failed to Restore Window", "Failed to restore window of type "+wndInfo["clz"]+"\n\n"+traceback.format_exc(), QMessageBox.Ok | QMessageBox.Abort, self)
+				msg.addButton("Show Parameters", QMessageBox.YesRole)
 				res = msg.exec()
 				if res == QMessageBox.Abort:
 					sys.exit(13)
 				if res == 0:
-					self.showChild(JsonView(jdata=wndInfo))
+					showWidgetDlg(JsonView(jdata=wndInfo), "Window Parameters", lambda: None, self)
 		for wndInfo in self.project.getValue("DockWidgetStates", []):
 			try:
 				self.dockWidgets[wndInfo["id"]].restoreState(wndInfo["par"])

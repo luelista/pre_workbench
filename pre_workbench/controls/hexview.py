@@ -213,7 +213,7 @@ class HexView2(QWidget):
 			self._buildParseBufferSubmenu(ctx, "Parse Buffer", self.selBuffer, self.buffers[self.selBuffer].fi_root_name)
 
 		menu = ctx.addMenu("Run Macro On Selection")
-		for container, macroName in APP().find_macros_by_input_type("BYTE_ARRAY"):
+		for container_id, container, macroName in APP().find_macros_by_input_type("BYTE_ARRAY"):
 			menu.addAction(macroName, lambda c=container, name=macroName: c.getMacro(name).execute(self.getRangeBytes(self.selRange())))
 
 

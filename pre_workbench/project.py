@@ -28,7 +28,9 @@ class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):
         self.updated.emit()
 
 class Project:
-    def __init__(self, dirName):
+    def __init__(self, dirName, containerId, containerTitle):
+        self.containerId = containerId
+        self.containerTitle = containerTitle
         self.projectFolder = dirName
         self.projectDbFile = os.path.join(dirName, ".pre_workbench")
         self.db = sqlite3.connect(self.projectDbFile)

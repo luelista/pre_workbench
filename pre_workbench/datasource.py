@@ -41,6 +41,7 @@ registerOption(group, "tsharkBinary", "tshark Binary", "text", {"fileselect":"op
 
 DataSourceTypes = TypeRegistry()
 
+
 class DataSource(QObject):
 	on_finished = pyqtSignal()
 	logger = logging.getLogger("DataSource")
@@ -54,6 +55,7 @@ class DataSource(QObject):
 	def cancelFetch(self):
 		pass
 
+
 class SyncDataSource(DataSource):
 	def startFetch(self):
 		obj = self.process()
@@ -62,6 +64,17 @@ class SyncDataSource(DataSource):
 
 	def cancelFetch(self):
 		pass
+
+
+class MacroDataSource(SyncDataSource):
+	def __init__(self, macro_container_id, macroname, params):
+		super().__init__(params)
+		self.macro_container_id = macro_container_id
+		self.macroname = macroname
+	def process(self):
+		macro = APP().get_macro(self.macro_container_id, self.macroname)
+		return macro.execute(None)
+
 
 @DataSourceTypes.register(DisplayName="Binary file")
 class FileDataSource(SyncDataSource):

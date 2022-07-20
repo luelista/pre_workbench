@@ -98,15 +98,15 @@ class WorkbenchApplication(QApplication):
 		from pre_workbench.project import Project
 		prj_dir = self._find_project()
 		if not prj_dir: sys.exit(1)
-		self.project = Project(prj_dir)
+		self.project = Project(prj_dir, "PROJECT", "Project: "+os.path.basename(prj_dir))
 		configs.updateMru("ProjectMru", prj_dir, 5)
 		configs.setValue("LastProjectDir", self.project.projectFolder)
 
 		from pre_workbench.macros.macro import SysMacroContainer
 		self.macro_containers = {
-			"Bundled with pre_workbench": SysMacroContainer(),
-			"User-local": Project(configs.dirs.user_config_dir),
-			"Project: "+os.path.basename(self.project.projectFolder): self.project
+			"BUILTIN": SysMacroContainer(),
+			"USER": Project(configs.dirs.user_config_dir, "USER", "User-local"),
+			"PROJECT": self.project
 		}
 
 
@@ -139,9 +139,12 @@ class WorkbenchApplication(QApplication):
 		spec.loader.exec_module(my_mod)
 
 	def find_macros_by_input_type(self, type):
-		return [(container, name)
-					for container in self.macro_containers.values()
+		return [(container_id, container, name)
+					for container_id, container in self.macro_containers.items()
 					for name in container.getMacroNamesByInputType(type)]
+
+	def get_macro(self, container_id, name):
+		return self.macro_containers[container_id].getMacro(name)
 
 	def event(self, e):
 		"""Handle macOS FileOpen events."""

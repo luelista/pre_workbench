@@ -21,9 +21,10 @@ from PyQt5.QtCore import pyqtSignal, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
 
 from pre_workbench.configs import SettingsField, getIcon
-from pre_workbench.datasource import DataSourceTypes
+from pre_workbench.datasource import DataSourceTypes, MacroDataSource
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.controls.genericwidgets import SettingsGroup
+from pre_workbench.guihelper import APP
 from pre_workbench.typeregistry import WindowTypes
 
 
@@ -116,17 +117,39 @@ class ObjectWindow(QWidget):
 			#    except ReloadRequired as ex:
 			#        self.loadDataSource()
 
+	def _getDatasourcesList(self):
+		builtinDS = DataSourceTypes.getSelectList("DisplayName")
+		macroDS = [("MACRO/" + container_id + "/" + macroname, "Macro: " + macroname)
+				   for container_id, container, macroname in APP().find_macros_by_input_type("DATA_SOURCE")]
+		return builtinDS + macroDS
+
+	def _getDatasource(self, id):
+		if id.startswith("MACRO/"):
+			prefix, container_id, macroname = id.split("/", 3)
+			return lambda params: MacroDataSource(container_id, macroname, params)
+		else:
+			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
+			return clz
+
+	def _getDatasourceConfigFields(self, id):
+		if id.startswith("MACRO/"):
+			prefix, container_id, macroname = id.split("/", 3)
+			macro = APP().get_macro(container_id, macroname)
+			return macro.options
+		else:
+			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
+			return clz.getConfigFields()
+
 	def onDataSourceTypeSelected(self):
 		logging.debug("dst=" + self.params["dataSourceType"])
 		confFields = []
 		if self.params["dataSourceType"]:
-			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
-			confFields = clz.getConfigFields()
+			confFields = self._getDatasourceConfigFields(self.params["dataSourceType"])
 			self.dataSourceType = self.params["dataSourceType"]
 		self.sourceConfig.setFields([
 										SettingsField("name", "Name", "text", {}),
 										SettingsField("dataSourceType", "Data Source Type", "select",
-													  {"options": DataSourceTypes.getSelectList("DisplayName")}),
+													  {"options": self._getDatasourcesList()}),
 									] + confFields)
 
 	def onFinished(self):
@@ -141,7 +164,7 @@ class ObjectWindow(QWidget):
 	def reload(self):
 		try:
 			self.cancelAction.setEnabled(True)
-			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
+			clz = self._getDatasource(self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
 			result = self.dataSource.startFetch()

@@ -409,8 +409,8 @@ class MacroListDockWidget(QWidget):
 
 	def _loadList(self):
 		self.treeView.clear()
-		for title, container in APP().macro_containers.items():
-			root = QTreeWidgetItem(self.treeView, [title])
+		for container_id, container in APP().macro_containers.items():
+			root = QTreeWidgetItem(self.treeView, [container.containerTitle])
 			root.setExpanded(True)
 			root.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
 			self._loadMacros(root, container)
@@ -437,9 +437,9 @@ class MacroListDockWidget(QWidget):
 				else:
 					ctx.addAction("View code", lambda: self.editCode(container.getMacro(macroname)))
 				ctx.addSeparator()
-				for title, target_container in APP().macro_containers.items():
+				for target_container_id, target_container in APP().macro_containers.items():
 					if target_container.macrosEditable and target_container != container:
-						ctx.addAction("Copy to " + title, lambda trg=target_container: self.copyMacro(container.getMacro(macroname), trg))
+						ctx.addAction("Copy to " + target_container.containerTitle, lambda trg=target_container: self.copyMacro(container.getMacro(macroname), trg))
 			else:
 				if container.macrosEditable:
 					ctx.addAction("Create macro ...", lambda: self.createMacro(container))

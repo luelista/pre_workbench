@@ -22,16 +22,15 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtGui import QKeyEvent, QFont
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QFormLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QSizePolicy, QHBoxLayout, QLabel, \
-	QListWidget, QListWidgetItem, QFrame, QScrollArea, QDialog, QDoubleSpinBox, QSpinBox, QMenu, \
+	QListWidget, QListWidgetItem, QFrame, QDialog, QDoubleSpinBox, QSpinBox, QMenu, \
 	QInputDialog, QTreeWidget, QTreeWidgetItem, QMessageBox
 
 from pre_workbench.guihelper import makeDlgButtonBox
-from pre_workbench.structinfo.expr import Expression
+from pre_workbench.structinfo.expr import Expression, Stringifier
 from pre_workbench.configs import respath
 from pre_workbench.structinfo import xdrm
 from pre_workbench.controls.genericwidgets import showWidgetDlg
-from pre_workbench.windows.mdifile import MdiFile
-from pre_workbench.typeregistry import WindowTypes, DataWidgetTypes
+from pre_workbench.typeregistry import DataWidgetTypes
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +342,7 @@ class StructTypeEditor(StructuredTypeEditor):
 		for uiShowIf, labelWidget, child in self.conditionals:
 			#vis = eval(uiShowIf, {}, obj)
 			vis = uiShowIf.evaluate_dict(obj)
+			print(uiShowIf.to_text(), uiShowIf.expr_tree, obj, vis, labelWidget.text())
 			labelWidget.setVisible(vis)
 			child.setVisible(vis)
 
@@ -522,7 +522,7 @@ class JsonView(QTreeWidget):
 		super(JsonView, self).__init__(parent)
 		self.schema = resolveSchema(schema)
 		self.rootTypeDefinition = [Type_Named, rootTypeDefinition] if isinstance(rootTypeDefinition, str) else rootTypeDefinition
-		self.typeName = ""
+		self.typeName = self.rootTypeDefinition[1] if self.rootTypeDefinition and self.rootTypeDefinition[0] == Type_Named else ""
 
 		self.find_box = None
 		self.text_to_titem = TextToTreeItem()
@@ -587,6 +587,10 @@ class JsonView(QTreeWidget):
 		if iid != self.schema.iid: raise Exception("Invalid file format, invalid interface ID (got=%r, expected=%r)" % (iid, self.schema.iid))
 		# TODO check typeName ??
 		self.rootTypeDefinition = [Type_Named, typeName]
+		try:
+			self.schema.resolveTypeInfo(self.rootTypeDefinition)
+		except:
+			raise Exception("Invalid file format, rootType %r not defined in schema" % typeName)
 		self.typeName = typeName
 		self.set(data)
 	def setContents(self, jdata):

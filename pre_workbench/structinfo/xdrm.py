@@ -20,6 +20,8 @@ import xdrlib
 from uuid import UUID
 import logging
 
+import yaml
+
 XDRM_inlong = 0b000  # rest: value
 XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false, 0x1005 = UUID
 XDRM_utf8   = 0b100  # rest: length in bytes
@@ -121,11 +123,11 @@ def pack_xdrm(packer, data):
 if __name__ == '__main__':
 	from binascii import unhexlify
 	data = sys.stdin.buffer.read()
-	if data[0] == b'{':
-		o = json.loads(data)
-		sys.stdout.buffer.write(dumps(o))
+	if data[0:3] == b'---':
+		o = yaml.unsafe_load(data.decode('utf-8'))
+		sys.stdout.buffer.write(dumps(o, magic=unhexlify(sys.argv[1])))
 	else:
-
 		o = loads(data, magic=unhexlify(sys.argv[1]))#, magic=b"\xde\xca\xf9\x30")
 		#sys.stdout.write(json.dumps(o, indent=2))
-		print(o)
+		#print(o)
+		print(yaml.dump(o, explicit_start=True))

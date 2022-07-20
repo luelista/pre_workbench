@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from uuid import uuid4
 
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import QScrollArea
@@ -35,6 +36,7 @@ class TypeEditorFileWindow(QScrollArea, MdiFile):
 		self.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")
 		self.metaSchema = TypeEditorSchema(open(type(self).schema,'rb').read())
 		#self.editor = self.metaSchema.generateTypeEditorByName(self, type(self).typeName)
+		print(type(self), type(self).typeName)
 		self.editor = JsonView(schema=self.metaSchema, rootTypeDefinition=[Type_Named,type(self).typeName])
 		self.setWidget(self.editor)
 		self.setWidgetResizable(True)
@@ -52,7 +54,9 @@ class TypeEditorFileWindow(QScrollArea, MdiFile):
 
 @WindowTypes.register(fileExts=['.tes'], schema=respath('meta_schema.tes'), typeName='Interface', description='Type Editor Schema', patterns='Type Editor Schema (*.pfi)')
 class TypeEditorSchemaFileWindow(TypeEditorFileWindow):
-	pass
+	def initUI(self):
+		super().initUI()
+		self.editor.set({"iid":str(uuid4()),"name":"","typeDefs":[],"methods":[]})
 
 @WindowTypes.register(fileExts=['.pfi'], schema=respath('format_info.tes'), typeName='FormatInfoFile', description='Grammar Definition File')
 class ProtocolFormatInfoFileWindow(TypeEditorFileWindow):

@@ -6,6 +6,7 @@ from glob import glob
 import os.path
 from typing import List, Optional
 
+import yaml
 from PyQt5.QtWidgets import QMessageBox
 
 from pre_workbench.app import MainWindow
@@ -17,7 +18,7 @@ from pre_workbench.structinfo import xdrm
 class Macro:
 	name: str
 	code: str
-	options: List[SettingsField]
+	options: List[dict]
 	input_type: str
 	output_type: str
 	metadata: dict
@@ -41,15 +42,18 @@ class Macro:
 		TYPE_SELECTION_HEURISTIC,
 	]
 
-	def __init__(self, container, name: str, input_type: str, output_type: str, code: str, options: bytes, metadata: bytes, rowid: Optional[int]):
+	def __init__(self, container, name: str, input_type: str, output_type: str, code: str, options: List[dict], metadata: dict, rowid: Optional[int]):
 		self.container = container
 		self.name = name
 		self.input_type = input_type
 		self.output_type = output_type
 		self.code = code
-		self.options = [SettingsField(**kw) for kw in (options if isinstance(options, list) else xdrm.loads(options))]
-		self.metadata = metadata if isinstance(metadata, dict) else xdrm.loads(metadata)
+		self.options = options
+		self.metadata = metadata
 		self._rowid = rowid
+
+	def getSettingsFields(self):
+		return [SettingsField(**kw) for kw in self.options]
 
 	def execute(self, input, params=None):
 		hash = hashlib.sha256(self.code.encode('utf-8')).digest()
@@ -58,7 +62,7 @@ class Macro:
 			QMessageBox.warning(MainWindow, "Refusing to Run Untrusted Macro", "This macro is untrusted. \n\nTo mark it as trusted, open it in the macro editor, review the code, and then save it.\n\nBe careful: Macros run without any additional sandboxing in the context of this applications, and may write to all your user files.")
 			return None
 		if params is None and len(self.options) > 0:
-			params = showSettingsDlg(self.options, None, "Run Macro \"" + self.name + "\"")
+			params = showSettingsDlg(self.getSettingsFields(), None, "Run Macro \"" + self.name + "\"")
 			if not params: return None
 		try:
 			from pre_workbench.macros import macroenv
@@ -72,7 +76,7 @@ class Macro:
 
 class SysMacroContainer:
 	def __init__(self):
-		searchPath = os.path.join(os.path.dirname(__file__), "sys_macros/*.macro.json")
+		searchPath = os.path.join(os.path.dirname(__file__), "sys_macros/*.macro.yml")
 		logging.debug("Loading sys-macros from "+searchPath)
 		self.macros = [self._loadMacro(filename) for filename in glob(searchPath)]
 		self.containerId = "BUILTIN"
@@ -80,10 +84,10 @@ class SysMacroContainer:
 
 	def _loadMacro(self, filename):
 		with open(filename, "r") as f:
-			data = json.load(f)
-		with open(filename.replace(".macro.json", ".py"), "r") as f:
+			data = yaml.safe_load(f)
+		with open(filename.replace(".macro.yml", ".py"), "r") as f:
 			code = f.read()
-		return Macro(self, os.path.basename(filename.replace(".macro.json", "")), data["input_type"], data["output_type"], code, data["options"], data["metadata"], None)
+		return Macro(self, os.path.basename(filename.replace(".macro.yml", "")), data["input_type"], data["output_type"], code, data["options"], data["metadata"], None)
 
 	def getMacroNames(self):
 		return [macro.name for macro in self.macros]

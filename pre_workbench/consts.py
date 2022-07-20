@@ -1,0 +1,8 @@
+GETTING_STARTED_URL="https://luelista.github.io/pre_workbench/getting-started"
+SYNTAX_REFERENCE_URL="https://luelista.github.io/pre_workbench/syntax-reference"
+KEY_BINDINGS_URL="https://luelista.github.io/pre_workbench/key-bindings"
+ISSUE_TRACKER_URL="https://github.com/luelista/pre_workbench/issues"
+WEBSITE_URL="https://luelista.github.io/pre_workbench"
+ERROR_REPORT_URL="https://dl.weller-it.com/pre_workbench/ping.php"
+UPDATE_CHECK_URL="https://pypi.org/pypi/pre_workbench/json"
+LOGFILE_NAME="pre_workbench.log"

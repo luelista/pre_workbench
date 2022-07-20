@@ -27,15 +27,16 @@ import urllib.request
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QMessageBox, QCheckBox, QInputDialog
 
+from pre_workbench import consts
 from pre_workbench.util import get_app_version
 
-logFile = tempfile.gettempdir()+'/pre_workbench.log'
+logFile = tempfile.gettempdir()+'/'+consts.LOGFILE_NAME
 
 enableReports = False
 
 def report_error(logFile, excType, excValue, trace, desc):
 	try:
-		req = urllib.request.Request("https://dl.weller-it.com/pre_workbench/ping.php", data=json.dumps({
+		req = urllib.request.Request(consts.ERROR_REPORT_URL, data=json.dumps({
 			'type': 'excepthook',
 			'logFile': open(logFile, "r").read(),
 			'excType': str(excType),
@@ -55,7 +56,7 @@ def report_error(logFile, excType, excValue, trace, desc):
 
 def check_for_updates():
 	try:
-		req = urllib.request.Request("https://pypi.org/pypi/pre_workbench/json")
+		req = urllib.request.Request(consts.UPDATE_CHECK_URL)
 		with urllib.request.urlopen(req) as response:
 			content = json.loads(response.read())
 			version = content["info"]["version"]
@@ -102,7 +103,7 @@ def excepthook(excType, excValue, tracebackobj):
 		res = errorbox.exec()
 		enableReports = cbReport.isChecked()
 		if enableReports:
-			desc, success = QInputDialog.getMultiLineText(None, "Error Reporting", "Please enter an optional description about this error (e.g. steps leading to this error)", "")
+			desc, success = QInputDialog.getMultiLineText(None, "Error Reporting", "Please enter an optional description about this error (e.g. steps leading to this error, contact details in case more details are needed)", "")
 			if success:
 				report_error(logFile, excType, excValue, tbinfo, desc)
 		if res == QMessageBox.Abort:

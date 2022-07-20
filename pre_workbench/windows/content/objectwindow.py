@@ -135,7 +135,7 @@ class ObjectWindow(QWidget):
 		if id.startswith("MACRO/"):
 			prefix, container_id, macroname = id.split("/", 3)
 			macro = APP().get_macro(container_id, macroname)
-			return macro.options
+			return macro.getSettingsFields()
 		else:
 			clz, _ = DataSourceTypes.find(name=self.params["dataSourceType"])
 			return clz.getConfigFields()

@@ -284,7 +284,7 @@ class PacketListWidget(QWidget):
 
         ctx.addSeparator()
         magic = "!!pre_workbench/packetListHeaderState\n"
-        ctx.addAction("Copy Header State", lambda: setClipboardText(magic+yaml.dump(self.saveState())))
+        ctx.addAction("Copy Header State", lambda: setClipboardText(magic+yaml.dump(self.saveState(), sort_keys=False)))
         if getClipboardText().startswith(magic):
             ctx.addAction("Paste Header State", lambda: self.restoreState(yaml.safe_load(getClipboardText()[len(magic):])))
         ctx.addAction("Reset Header", lambda: self.packetlistmodel.autoCols())

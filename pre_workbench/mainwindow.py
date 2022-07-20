@@ -33,7 +33,7 @@ from PyQtAds import ads
 from pre_workbench.errorhandler import check_for_updates
 from pre_workbench.guihelper import navigateBrowser, TODO, APP, showWidgetDlg
 from pre_workbench.app import NavigateCommands, GlobalEvents
-from pre_workbench import configs
+from pre_workbench import configs, consts
 # noinspection PyUnresolvedReferences
 from pre_workbench import windows
 from pre_workbench.configs import getIcon, SettingsSection
@@ -317,11 +317,11 @@ class WorkbenchMain(QMainWindow):
 
 		##### HELP #####
 		helpMenu = menubar.addMenu("&Help")
-		helpMenu.addAction(QAction("Getting started", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/getting-started")))
-		helpMenu.addAction(QAction("Syntax reference", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/syntax-reference")))
-		helpMenu.addAction(QAction("Key bindings", self, triggered=lambda: navigateBrowser("https://luelista.github.io/pre_workbench/key-bindings")))
+		helpMenu.addAction(QAction("Getting started", self, triggered=lambda: navigateBrowser(consts.GETTING_STARTED_URL)))
+		helpMenu.addAction(QAction("Syntax reference", self, triggered=lambda: navigateBrowser(consts.SYNTAX_REFERENCE_URL)))
+		helpMenu.addAction(QAction("Key bindings", self, triggered=lambda: navigateBrowser(consts.KEY_BINDINGS_URL)))
 
-		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser("https://github.com/luelista/pre_workbench/issues")))
+		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser(consts.ISSUE_TRACKER_URL)))
 		helpMenu.addSeparator()
 		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))
@@ -385,7 +385,7 @@ class WorkbenchMain(QMainWindow):
 					logging.warning("update_check: A newer version of pre_workbench is available. Installed: "+get_app_version()+", Available: "+version)
 					self.statusBar().addPermanentWidget(QPushButton("New Version Available: "+version,
 																	styleSheet="QPushButton{background-color:#44ff88;padding:1px 10px;}",
-																	clicked=lambda: navigateBrowser("https://pypi.org/project/pre-workbench/")))
+																	clicked=lambda: navigateBrowser(consts.WEBSITE_URL)))
 				else:
 					logging.info("update_check: Your version of pre_workbench is up to date ("+version+")")
 			SimpleThread(self, check_for_updates, update_check_result)
@@ -405,7 +405,7 @@ class WorkbenchMain(QMainWindow):
 												 "Version " + get_app_version() +"\n\n"
 												 "Copyright (c) 2022 Mira Weller\n"
 												 "Licensed under the GNU General Public License Version 3\n\n"
-												 "https://github.com/luelista/pre_workbench\n\n"
+												 + consts.WEBSITE_URL + "\n\n"
 						  "Config Dir: " + configs.dirs.user_config_dir + "\n"
 						  "Plugins Dir: " + APP().plugins_dir + "\n" +
 						  ("Loaded Plugins:\n" + "\n".join(APP().plugins.keys()) if len(APP().plugins) > 0 else ""))

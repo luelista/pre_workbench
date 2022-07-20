@@ -130,4 +130,4 @@ if __name__ == '__main__':
 		o = loads(data, magic=unhexlify(sys.argv[1]))#, magic=b"\xde\xca\xf9\x30")
 		#sys.stdout.write(json.dumps(o, indent=2))
 		#print(o)
-		print(yaml.dump(o, explicit_start=True))
+		print(yaml.dump(o, explicit_start=True, sort_keys=False))

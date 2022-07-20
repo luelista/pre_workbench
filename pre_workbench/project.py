@@ -119,16 +119,20 @@ class Project:
     def getMacro(self, name):
         cur = self.db.cursor()
         cur.execute("SELECT input_type, output_type, code, options, metadata, rowid FROM macros WHERE name = ?", (name,))
-        return Macro(self, name, *cur.fetchone())
+        input_type, output_type, code, options, metadata, rowid = cur.fetchone()
+        options = xdrm.loads(options)
+        metadata = xdrm.loads(metadata)
+        return Macro(self, name, input_type, output_type, code, options, metadata, rowid)
 
     def storeMacro(self, macro):
         cur = self.db.cursor()
+        options = xdrm.dumps(macro.options)
         if macro._rowid:
             cur.execute("REPLACE INTO macros (name, input_type, output_type, code, options, metadata, rowid) VALUES (?,?,?,?,?,?,?)",
-                        (macro.name, macro.input_type, macro.output_type, macro.code, xdrm.dumps(macro.options), xdrm.dumps(macro.metadata), macro._rowid))
+                        (macro.name, macro.input_type, macro.output_type, macro.code, options, xdrm.dumps(macro.metadata), macro._rowid))
         else:
             cur.execute("INSERT INTO macros (name, input_type, output_type, code, options, metadata) VALUES (?,?,?,?,?,?)",
-                (macro.name, macro.input_type, macro.output_type, macro.code, xdrm.dumps(macro.options), xdrm.dumps(macro.metadata)))
+                (macro.name, macro.input_type, macro.output_type, macro.code, options, xdrm.dumps(macro.metadata)))
         self.db.commit()
         macro._rowid = cur.lastrowid
 

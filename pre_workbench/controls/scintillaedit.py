@@ -182,7 +182,7 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 			return super().keywords(p_int)
 
 
-def showScintillaDialog(parent, title, content, ok_callback, readonly=False, lexer=None):
+def showScintillaDialog(parent, title, content, ok_callback, readonly=False, lexer=None, help_callback=None):
 	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
@@ -191,7 +191,7 @@ def showScintillaDialog(parent, title, content, ok_callback, readonly=False, lex
 	sg.setText(content)
 	sg.setReadOnly(readonly)
 	dlg.layout().addWidget(sg)
-	box = makeDlgButtonBox(dlg, ok_callback, lambda: sg.text())
+	box = makeDlgButtonBox(dlg, ok_callback, lambda: sg.text(), help_callback)
 	sg.escapePressed.connect(box.rejected.emit)
 	sg.ctrlEnterPressed.connect(box.accepted.emit)
 	if dlg.exec() == QDialog.Rejected: return None

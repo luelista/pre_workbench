@@ -73,7 +73,7 @@ class MacroDataSource(SyncDataSource):
 		self.macroname = macroname
 	def process(self):
 		macro = APP().get_macro(self.macro_container_id, self.macroname)
-		return macro.execute(None)
+		return macro.execute(None, self.params)
 
 
 @DataSourceTypes.register(DisplayName="Binary file")

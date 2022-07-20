@@ -24,6 +24,7 @@ import weakref
 import shlex
 from copy import deepcopy
 
+import yaml
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices, QColor
@@ -43,7 +44,7 @@ from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
 from pre_workbench.windows.content.textfile import ScintillaEdit
-from pre_workbench.typeeditor import JsonView
+from pre_workbench.typeeditor import JsonView, showTypeEditorDlg
 from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.util import PerfTimer, truncate_str
 
@@ -385,8 +386,9 @@ class RangeListWidget(QWidget):
 				# TODO ...on click: self.selectRange(d)
 
 
-@DockWidgetTypes.register(title="Macros", icon="regular-expression-search-match.png", dock="Right", showFirstRun=False)
+@DockWidgetTypes.register(title="Macros", icon="scripts.png", dock="Right", showFirstRun=False)
 class MacroListDockWidget(QWidget):
+	option_types=["-","text","color","font","select","check","int"]
 	CONTAINER_ROLE = QtCore.Qt.UserRole + 100
 	MACRO_NAME_ROLE = QtCore.Qt.UserRole + 101
 	def __init__(self):
@@ -433,6 +435,7 @@ class MacroListDockWidget(QWidget):
 				if container.macrosEditable:
 					ctx.addAction("Edit code", lambda: self.editCode(container.getMacro(macroname)))
 					ctx.addAction("Preferences", lambda: self.editPreferences(container.getMacro(macroname)))
+					ctx.addAction("Edit options", lambda: self.editOptions(container.getMacro(macroname)))
 					ctx.addAction("Delete macro", lambda: self.deleteMacro(container, macroname))
 				else:
 					ctx.addAction("View code", lambda: self.editCode(container.getMacro(macroname)))
@@ -505,6 +508,18 @@ class MacroListDockWidget(QWidget):
 				macro.container.storeMacro(macro)
 			hash = hashlib.sha256(res.encode('utf-8')).digest()
 			configs.updateMru("TrustedMacroHashes", hash, 255)
+
+	def editOptions(self, macro):
+		verb = "Edit" if macro.container.macrosEditable else "View"
+		from PyQt5.Qsci import QsciLexerYAML
+		options = [{"id":x["id"], "title":x["title"], "field": [ MacroListDockWidget.option_types.index(x["fieldType"]), x["params"] ]} for x in macro.options]
+		res = showTypeEditorDlg("settingsgroup.tes", "SettingsGroup", options, verb + " Options Of Macro \""+macro.name+"\"", )
+		if res:
+			if macro.container.macrosEditable:
+				#macro.options = yaml.safe_load(res)
+				macro.options = [{"id":x["id"], "title":x["title"], "fieldType": MacroListDockWidget.option_types[x["field"][0]], "params": x["field"][1]} for x in res]
+				print(macro.options)
+				macro.container.storeMacro(macro)
 
 
 

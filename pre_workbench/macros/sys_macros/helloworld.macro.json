@@ -1,8 +1,0 @@
-{
-  "input_type": "NONE",
-  "output_type": "NONE",
-  "options": [
-    {"id": "name", "title": "Your name", "fieldType": "text", "params": {}}
-  ],
-  "metadata": {}
-}

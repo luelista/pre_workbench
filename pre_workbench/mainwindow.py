@@ -31,7 +31,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessage
 from PyQtAds import ads
 
 from pre_workbench.errorhandler import check_for_updates
-from pre_workbench.guihelper import navigateBrowser, TODO, qApp
+from pre_workbench.guihelper import navigateBrowser, TODO, APP
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs
 # noinspection PyUnresolvedReferences
@@ -307,8 +307,8 @@ class WorkbenchMain(QMainWindow):
 		editConfigAction = QAction(getIcon("wrench-screwdriver.png"), "Preferences ...", self, triggered=lambda: self.onPreferences(),
 								   menuRole=QAction.PreferencesRole, shortcut='Ctrl+,')
 		toolsMenu.addAction(editConfigAction)
-		if qApp().plugins_dir:
-			toolsMenu.addAction(QAction("Open Plugins Dir", self, triggered=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(qApp().plugins_dir))))
+		if APP().plugins_dir:
+			toolsMenu.addAction(QAction("Open Plugins Dir", self, triggered=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(APP().plugins_dir))))
 
 		##### WINDOW #####
 		self.windowMenu = menubar.addMenu("&Window")
@@ -402,13 +402,13 @@ class WorkbenchMain(QMainWindow):
 
 	def showAboutBox(self):
 		QMessageBox.about(self, "PRE Workbench", "Protocol Reverse Engineering Workbench\n"
-												 "Version "+get_app_version()+"\n\n"
+												 "Version " + get_app_version() +"\n\n"
 												 "Copyright (c) 2022 Mira Weller\n"
 												 "Licensed under the GNU General Public License Version 3\n\n"
 												 "https://github.com/luelista/pre_workbench\n\n"
 						  "Config Dir: " + configs.dirs.user_config_dir + "\n"
-						  "Plugins Dir: " + qApp().plugins_dir + "\n" +
-						  ("Loaded Plugins:\n" + "\n".join(qApp().plugins.keys()) if len(qApp().plugins) > 0 else ""))
+						  "Plugins Dir: " + APP().plugins_dir + "\n" +
+						  ("Loaded Plugins:\n" + "\n".join(APP().plugins.keys()) if len(APP().plugins) > 0 else ""))
 
 	def onPreferences(self):
 		res = showPreferencesDlg(configs.configDefinitions, configs.configDict, "Preferences", self)

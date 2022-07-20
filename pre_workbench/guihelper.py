@@ -80,7 +80,7 @@ def setControlColors(ctrl, bg, fg=None):
 	ctrl.setPalette(pal)
 
 
-def qApp():
+def APP():
 	return QApplication.instance()
 
 

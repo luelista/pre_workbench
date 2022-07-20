@@ -37,7 +37,7 @@ from pre_workbench.configs import getIcon, SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, qApp, TODO
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, TODO
 from pre_workbench.app import navigate
 from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
@@ -409,7 +409,7 @@ class MacroListDockWidget(QWidget):
 
 	def _loadList(self):
 		self.treeView.clear()
-		for title, container in qApp().macro_containers.items():
+		for title, container in APP().macro_containers.items():
 			root = QTreeWidgetItem(self.treeView, [title])
 			root.setExpanded(True)
 			root.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
@@ -437,7 +437,7 @@ class MacroListDockWidget(QWidget):
 				else:
 					ctx.addAction("View code", lambda: self.editCode(container.getMacro(macroname)))
 				ctx.addSeparator()
-				for title, target_container in qApp().macro_containers.items():
+				for title, target_container in APP().macro_containers.items():
 					if target_container.macrosEditable and target_container != container:
 						ctx.addAction("Copy to " + title, lambda trg=target_container: self.copyMacro(container.getMacro(macroname), trg))
 			else:
@@ -461,12 +461,15 @@ class MacroListDockWidget(QWidget):
 		else:
 			TODO()
 
-	def editPreferences(self, macro):
-		result = showSettingsDlg([
+	MacroPreferencesDef = [
 			SettingsField("name", "Name", "text", {}),
-			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+			SettingsField("input_type", "Macro/Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
 			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-		], {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type}, title="Edit Preferences Of Macro \"" + macro.name + "\"", parent=self)
+		]
+	def editPreferences(self, macro):
+		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
+								 {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type},
+								 title="Edit Preferences Of Macro \"" + macro.name + "\"", parent=self)
 		if not result: return
 		macro.name = result["name"]
 		macro.input_type = result["input_type"]
@@ -475,11 +478,7 @@ class MacroListDockWidget(QWidget):
 		self._loadList()
 
 	def createMacro(self, container):
-		result = showSettingsDlg([
-			SettingsField("name", "Name", "text", {}),
-			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-		], title="Create Macro ...", parent=self)
+		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef, title="Create Macro ...", parent=self)
 		if not result: return
 		macro = Macro(container, result["name"], result["input_type"], result["output_type"], "", [], {}, None)
 		container.storeMacro(macro)
@@ -487,11 +486,9 @@ class MacroListDockWidget(QWidget):
 		self._loadList()
 
 	def copyMacro(self, macro, target_container):
-		result = showSettingsDlg([
-			SettingsField("name", "Name", "text", {}),
-			SettingsField("input_type", "Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-		], {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type}, title="Copy Macro ...", parent=self)
+		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
+								 {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type},
+								 title="Copy Macro ...", parent=self)
 		if not result: return
 		new_macro = Macro(target_container, result["name"], result["input_type"], result["output_type"], macro.code, deepcopy(macro.options), deepcopy(macro.metadata), None)
 		target_container.storeMacro(new_macro)

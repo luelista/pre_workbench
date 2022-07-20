@@ -20,7 +20,7 @@ from PyQt5.QtCore import QFileInfo
 from PyQt5.QtWidgets import QFileDialog, \
 	QMessageBox
 
-from pre_workbench.guihelper import qApp
+from pre_workbench.guihelper import APP
 
 
 class MdiFile:
@@ -67,7 +67,7 @@ class MdiFile:
 	def saveAs(self):
 		patterns = self.filePatterns
 		if not "*.*" in patterns: patterns += ';;All Files (*.*)'
-		startDir = os.path.join(qApp().project.projectFolder, self.curFile) if self.isUntitled else self.curFile
+		startDir = os.path.join(APP().project.projectFolder, self.curFile) if self.isUntitled else self.curFile
 		fileName, _ = QFileDialog.getSaveFileName(self, "Save As", startDir, patterns)
 		if not fileName:
 			return False

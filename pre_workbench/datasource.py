@@ -22,11 +22,10 @@ import logging
 import os
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
-from PyQt5.QtWidgets import QApplication
 
 from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
-from pre_workbench.guihelper import qApp
+from pre_workbench.guihelper import APP
 from pre_workbench.objects import ByteBuffer, ByteBufferList, ReloadRequired
 from pre_workbench.structinfo.exceptions import invalid, incomplete
 from pre_workbench.structinfo.pcap_reader import read_pcap_file, PcapFormats
@@ -320,5 +319,5 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.kill()
 
 def formatinfoSelect(dialog):
-	names = QApplication.instance().project.formatInfoContainer.definitions.keys()
+	names = APP().project.formatInfoContainer.definitions.keys()
 	return zip(names, names)

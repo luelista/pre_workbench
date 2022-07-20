@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QDialogButtonBox, QPushButton, \
 	QMessageBox, QInputDialog
 
-from pre_workbench.guihelper import qApp
+from pre_workbench.guihelper import APP
 
 
 class ManageAnnotationSetsDialog(QDialog):
@@ -34,16 +34,16 @@ class ManageAnnotationSetsDialog(QDialog):
 		sel = self.listWidget.currentItem().text()
 		new_name, ok = QInputDialog.getText(self, "Rename", "Please enter new name:", text=sel)
 		if ok:
-			qApp().project.renameAnnotationSet(sel, new_name)
+			APP().project.renameAnnotationSet(sel, new_name)
 			self._update()
 
 	def _delete_click(self):
 		sel = self.listWidget.currentItem().text()
 		if QMessageBox.question(self, "Delete", "Delete Annotation Set \"" + sel + "\"?") == QMessageBox.Yes:
-			qApp().project.deleteAnnotationSet(sel)
+			APP().project.deleteAnnotationSet(sel)
 			self._update()
 
 	def _update(self):
 		self.listWidget.clear()
-		self.listWidget.addItems(qApp().project.getAnnotationSetNames())
+		self.listWidget.addItems(APP().project.getAnnotationSetNames())
 		self._sel_changed(self.listWidget.currentRow())

@@ -71,8 +71,25 @@ string : ESCAPED_STRING
 IDENTIFIER: (LETTER | "_") [LETTER | DIGIT | "_"]*
 MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
+?expression: conjunction_expression
 
-?expression: fun_expr
+?conjunction_expression: conjunction_expression CONJ_OP equality_expression -> math_expr
+            | equality_expression
+
+?equality_expression: equality_expression EQ_OP comparison_expression -> compare_expr
+            | comparison_expression
+
+?comparison_expression: comparison_expression COMP_OP term_expression -> compare_expr
+            | term_expression
+
+?term_expression: term_expression STRICH_OP factor_expression -> math_expr
+            | factor_expression
+
+?factor_expression: factor_expression PUNKT_OP primary_expression -> math_expr
+            | primary_expression
+
+// ?unary_expression
+?primary_expression: fun_expr
             | param_expr
             | "true"             -> true_expr
             | "false"            -> false_expr
@@ -80,27 +97,25 @@ MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
             | number_expr
             | anyfield_expr
             | hierarchy_expr
-            | compare_expr
-            | expression BINARY_OP expression -> math_expr
-            | expression PUNKT_OP expression -> math_expr
-            | expression STRICH_OP expression -> math_expr
             | string_expr
-            | member_expr
-            | array_expr
             | paren_expr
+            | array_expr
+            | member_expr
+
 paren_expr: "(" expression ")"
 compare_expr: expression COMP_OP expression
 param_expr: "$" IDENTIFIER | "${" expression "}"
 fun_expr: IDENTIFIER "(" expression ")"
-DOTS: "^"+
+DOTS: "´"+
 hierarchy_expr: DOTS
-array_expr: expression "[" expression "]"
-member_expr: expression "." IDENTIFIER
+array_expr: primary_expression "[" expression "]"
+member_expr: primary_expression "." IDENTIFIER
 anyfield_expr: IDENTIFIER
-PUNKT_OP: "*" | "/"
-STRICH_OP: "+" | "-"
-COMP_OP: "==" | "!=" | "<" | ">" | "<=" | ">="
-BINARY_OP.5: "||" | "&&" | "&" | "|" | "^" | "<<" | ">>"
+CONJ_OP.5: "||" | "&&"
+PUNKT_OP: "*" | "/" | "<<" | ">>"
+STRICH_OP: "+" | "-" | "&" | "|" | "^"
+EQ_OP: "==" | "!="
+COMP_OP: "<" | ">" | "<=" | ">="
 number_expr: NUMBER
 string_expr: ESCAPED_STRING
 

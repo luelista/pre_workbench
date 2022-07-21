@@ -27,9 +27,10 @@ from copy import deepcopy
 import yaml
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QUrl
-from PyQt5.QtGui import QDesktopServices, QColor
+from PyQt5.QtGui import QDesktopServices, QColor, QKeySequence
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
-	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox
+	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox, \
+	QShortcut, QFileDialog
 
 import pre_workbench.app
 from pre_workbench import configs
@@ -443,9 +444,11 @@ class MacroListDockWidget(QWidget):
 				for target_container_id, target_container in APP().macro_containers.items():
 					if target_container.macrosEditable and target_container != container:
 						ctx.addAction("Copy to " + target_container.containerTitle, lambda trg=target_container: self.copyMacro(container.getMacro(macroname), trg))
+				ctx.addAction("Export ...", lambda: self.exportMacro(container.getMacro(macroname)))
 			else:
 				if container.macrosEditable:
 					ctx.addAction("Create macro ...", lambda: self.createMacro(container))
+					ctx.addAction("Import ...", lambda: self.importMacro(container))
 			ctx.exec(self.treeView.viewport().mapToGlobal(point))
 
 	def deleteMacro(self, container, macroname):
@@ -464,10 +467,27 @@ class MacroListDockWidget(QWidget):
 		else:
 			TODO()
 
+	def exportMacro(self, macro):
+		fileName, _ = QFileDialog.getSaveFileName(self, "Export Macro", os.path.join(APP().project.projectFolder, macro.name + ".macro.yml"), "Macro (*.macro.yml)")
+		if not fileName: return
+		with open(fileName, "w") as f:
+			yaml.dump({"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type, "options": macro.options, "metadata": macro.metadata, "code": macro.code},
+						   f, explicit_start=True, sort_keys=False)
+
+	def importMacro(self, container):
+		fileName, _ = QFileDialog.getOpenFileName(self, "Import Macro",
+												  APP().project.projectFolder,
+												  "Macro (*.macro.yml);;All files (*.*)")
+		if not fileName: return
+		with open(fileName, "r") as f:
+			x = yaml.safe_load(f)
+			macro = Macro(container, x["name"], x["input_type"], x["output_type"], x["code"], x["options"], x["metadata"], None)
+			self.editPreferences(macro)
+
 	MacroPreferencesDef = [
 			SettingsField("name", "Name", "text", {}),
-			SettingsField("input_type", "Macro/Input Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
-			SettingsField("output_type", "Output Type", "select", {"options": zip(Macro.TYPES, Macro.TYPES)}),
+			SettingsField("input_type", "Macro/Input Type", "select", {"options": list(zip(Macro.TYPES, Macro.TYPES))}),
+			SettingsField("output_type", "Output Type", "select", {"options": list(zip(Macro.TYPES, Macro.TYPES))}),
 		]
 	def editPreferences(self, macro):
 		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
@@ -651,14 +671,14 @@ class ExtToolDockWidget(QWidget):
 		toolbar = QToolBar()
 		toolbar.addAction("Run", self._runTool)
 		self.cmdLineEdit = QComboBox(editable=True, minimumWidth=200)
+		QShortcut(QKeySequence(QtCore.Qt.Key_Return), self.cmdLineEdit, activated=self._runTool, context=QtCore.Qt.WidgetWithChildrenShortcut)
 		self._updateMru()
 		toolbar.addWidget(self.cmdLineEdit)
-		self.treeView = QTreeWidget()
-		self.treeView.setColumnCount(1)
-		self.treeView.setColumnWidth(1, 300)
+		self.textBox = QTextEdit()
+		self.textBox.setFont(getMonospaceFont())
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(toolbar)
-		windowLayout.addWidget(self.treeView)
+		windowLayout.addWidget(self.textBox)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 
@@ -673,7 +693,7 @@ class ExtToolDockWidget(QWidget):
 		commandLine = self.cmdLineEdit.currentText()
 		configs.updateMru("ExtToolMru", commandLine, 10)
 		self._updateMru()
-		self.treeView.clear()
+		self.textBox.clear()
 		if not self.selBytes: return
 		f = tempfile.NamedTemporaryFile(delete=False)
 		try:
@@ -682,9 +702,10 @@ class ExtToolDockWidget(QWidget):
 			args = commandLine.format('"' + f.name + '"')
 			result = runProcessWithDlg("External command", "Running external command: " + args[0], self,
 									   args=args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-			for line in result['stdout'].decode('latin1').split('\n'):
-				root = QTreeWidgetItem(self.treeView)
-				root.setText(0, line)
+			self.textBox.setText(result['stdout'].decode('latin1'))
+			#for line in result['stdout'].decode('latin1').split('\n'):
+			#	root = QTreeWidgetItem(self.treeView)
+			#	root.setText(0, line)
 		finally:
 			os.remove(f.name)
 
@@ -701,6 +722,7 @@ class SearchDockWidget(QWidget):
 		toolbar = QToolBar()
 		toolbar.addAction("Find", self._runTool)
 		self.cmdLineEdit = QComboBox(editable=True, minimumWidth=200)
+		QShortcut(QKeySequence(QtCore.Qt.Key_Return), self.cmdLineEdit, activated=self._runTool, context=QtCore.Qt.WidgetWithChildrenShortcut)
 		self._updateMru()
 		toolbar.addWidget(self.cmdLineEdit)
 		self.treeView = QTreeWidget()

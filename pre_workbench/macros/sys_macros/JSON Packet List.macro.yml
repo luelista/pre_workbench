@@ -1,0 +1,21 @@
+---
+name: JSON packet list
+input_type: DATA_SOURCE
+output_type: BYTE_BUFFER_LIST
+options:
+- id: fileName
+  title: File name
+  fieldType: text
+  params:
+    fileselect: open
+    filter: JSON file (*.json)
+- id: payload_key
+  title: Payload key
+  fieldType: text
+  params: {}
+metadata: {}
+code: "import json\n\nfrom pre_workbench.objects import ByteBuffer, ByteBufferList,\
+  \ ReloadRequired\n\nwith open(fileName,\"r\") as file:\n\tlst = json.load(file)\n\
+  \nplist = ByteBufferList()\nfor item in lst:\n\tpayload = re.sub(\"\\s\", \"\",\
+  \ row[payload_key])\n\tpayload_decoded = decoder(payload)\n\tplist.add(ByteBuffer(payload_decoded,\
+  \ metadata=item))\n\noutput = plist\n\n\n"

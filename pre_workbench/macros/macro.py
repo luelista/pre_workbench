@@ -69,7 +69,7 @@ class Macro:
 			locals = {key: getattr(macroenv, key) for key in macroenv.__all__}
 			if params: locals.update(params)
 			locals['input'] = input
-			exec(self.code, globals(), locals)
+			exec(self.code, locals, locals)
 			return locals.get('output')
 		except:
 			QMessageBox.warning(MainWindow, "Macro Execution Failed", traceback.format_exc())
@@ -85,9 +85,7 @@ class SysMacroContainer:
 	def _loadMacro(self, filename):
 		with open(filename, "r") as f:
 			data = yaml.safe_load(f)
-		with open(filename.replace(".macro.yml", ".py"), "r") as f:
-			code = f.read()
-		return Macro(self, os.path.basename(filename.replace(".macro.yml", "")), data["input_type"], data["output_type"], code, data["options"], data["metadata"], None)
+		return Macro(self, os.path.basename(filename.replace(".macro.yml", "")), data["input_type"], data["output_type"], data["code"], data["options"], data["metadata"], None)
 
 	def getMacroNames(self):
 		return [macro.name for macro in self.macros]

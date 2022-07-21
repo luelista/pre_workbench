@@ -1,9 +1,13 @@
 ---
+name: Hello World
 input_type: NONE
 output_type: NONE
 options:
-  - id: name
-    title: Your name
-    fieldType: text
-    params: {}
+- id: name
+  title: Your name
+  fieldType: text
+  params: {}
 metadata: {}
+code: 'alert("Hello, " + name + ".")
+
+  '

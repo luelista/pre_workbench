@@ -1,59 +1,7 @@
 import argparse
-import json
-
-import binascii
 import sys
 
-from lark import Transformer
-
-from pre_workbench.structinfo.expr import Expression
-from pre_workbench.structinfo.parsecontext import ParseContext, stack_frame
-
-
-class WDGenVisitor:
-	def __init__(self, context):
-		self.context = context
-		self.ws_field_defs = list()
-
-	def structfi(self, desc):
-		print("  -- struct " + self.context.get_path("_"))
-		for name, child, comment in desc.fi.children:
-			self.context.id = name
-			child.visit(self.context, self)
-
-	def variantstructfi(self, desc):
-		print("  -- variant " + self.context.get_path("_"))
-
-	def repeatstructfi(self, desc):
-		print("  -- variant " + self.context.get_path("_"))
-
-	def switchfi(self, desc):
-		print("  -- switch " + self.context.get_path("_"))
-
-	def namedfi(self, desc):
-		print("  -- named " + self.context.get_path("_"))
-
-	def fieldfi(self, desc):
-		print("  -- field " + self.context.get_path("_")+" "+desc.fi.format_type)
-		id = self.context.get_path("_")
-		method = "add_le" if self.context.get_param("endianness") == "<" else "add"
-		print("  len = " + str(desc.fi.size))
-		print("  subtree:" + method + "(" + "pf_" + id + ", buffer(offset, len))")
-		print("  offset = offset + len")
-		show = desc.params.get("show", "")
-		self.ws_field_defs.append((self.context.get_path("_"),self.context.top_id(),desc.fi.format_type))
-
-
-	def unionfi(self, desc):
-		print("  -- union " + self.context.get_path("_"))
-
-	def bitstructfi(self, desc):
-		print("  -- bits " + self.context.get_path("_"))
-		for key, len in desc.fi.children:
-			print("  -- "+key+" "+str(len))
-			self.ws_field_defs.append((self.context.get_path("_"), "UINT32"))
-
-
+from pre_workbench.wdgen.lua import generate_lua_dissector
 
 def run_cli():
 	parser = argparse.ArgumentParser(description='PRE Workbench - Wireshark Dissector Generator')
@@ -66,12 +14,16 @@ def run_cli():
 	parser.add_argument('-d', '--definition', metavar='NAME', type=str,
 						help='Name of start grammar definition. Uses first if unspecified')
 	parser.add_argument('-l', '--language', metavar='LANG', type=str,
-						help='Programming language to generate (supported: lua, c, ')
+						help='Programming language to generate (supported: lua)', default="lua")
+	parser.add_argument('--dissector-table', metavar='NAME:KEY', type=str,
+						help='Register the protocol in the given dissector table, under the given key')
+	parser.add_argument('-o', '--output-file', metavar='FILENAME', type=str,
+						help='Output filename for generated code (default: "-" for stdout)', default="-")
 
 	r = parser.parse_args()
 	if r.project:
 		from pre_workbench.project import Project
-		project = Project(r.project)
+		project = Project(r.project, 'PROJECT', '')
 		fic = project.formatInfoContainer
 	elif r.grammar_file:
 		from pre_workbench.structinfo.parsecontext import FormatInfoContainer
@@ -84,23 +36,19 @@ def run_cli():
 		parser.print_help()
 		sys.exit(1)
 
-	definition = r.definition if r.definition else fic.main_name
-	proto_name = fic.main_name
-	print(f'{proto_name}_proto = Proto("{proto_name}", "{proto_name} Protocol")')
-	print(f'function {proto_name}_proto.dissector(buffer, pinfo, tree)')
-	print(f'  local subtree = tree:add({proto_name}_proto, buffer(), "Protocol Data {definition}")')
-	print(f'  parse_{definition}(buffer, pinfo, subtree)')
-	print(f'end')
-	context = ParseContext(fic)
-	generator = WDGenVisitor(context)
-	for key, value in fic.definitions.items():
-		print("-- definition "+key)
-		print("function parse_"+key+"(buffer, pinfo, subtree)")
-		context.id = key
-		value.visit(context, generator)
-		print("end")
-		print("")
+	if r.output_file == '-':
+		def out(s):
+			print(s)
+	else:
+		f = open(r.output_file, "w")
+		def out(s):
+			f.write(s + '\n')
 
+	if r.language == 'lua':
+		generate_lua_dissector(r, fic, out)
+	else:
+		raise NotImplemented
 
 if __name__ == '__main__':
 	run_cli()
+

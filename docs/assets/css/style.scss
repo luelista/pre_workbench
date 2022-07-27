@@ -10,3 +10,8 @@ $header-bg-color-secondary: #e72c9c;
 $section-headings-color: #991583;
 
 @import "{{ site.theme }}";
+
+h4 code {
+  color: #991583 !important;
+  font-weight: bold;
+}

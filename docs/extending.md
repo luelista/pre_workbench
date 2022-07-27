@@ -93,7 +93,7 @@ Example usage for a readonly dialog:
 `showScintillaDialog(MainWindow, "View results", my_result_string, None, readonly=True)`
 
 Example usage for an editor dialog:  
-`edited_data = showScintillaDialog(MainWindow, "Edit data", initial_data, None, readonly=True)`
+`edited_data = showScintillaDialog(MainWindow, "Edit data", initial_data, None)`
 
 
 #### `alert(msg, title)`

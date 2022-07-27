@@ -21,7 +21,7 @@ import re
 import sys
 from base64 import b64decode
 from collections import namedtuple
-from typing import List
+from typing import List, Union
 
 from math import ceil, floor
 
@@ -36,8 +36,9 @@ from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText, APP
 from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
-from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer
+from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer, ByteBufferList
 from pre_workbench.rangetree import RangeTreeWidget
+from pre_workbench.structinfo.parser import parse_definition
 from pre_workbench.util import PerfTimer
 
 group = SettingsSection('HexView2', 'Hex Editor', 'address', 'Address Styles')
@@ -208,12 +209,14 @@ class HexView2(QWidget):
 				for name in self.project.getAnnotationSetNames():
 					#TODO implement this
 					menu.addAction(name, lambda name=name: print(name))
+			self._buildParseBufferSubmenu(ctx, "Parse Selection", -1, None)
 		else:
 			self._buildLoadAnnotationSetSubmenu(ctx, "Load Annotation Set", self.selBuffer, self.buffers[self.selBuffer].annotation_set_name)
 			self._buildParseBufferSubmenu(ctx, "Parse Buffer", self.selBuffer, self.buffers[self.selBuffer].fi_root_name)
+			self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On Buffer", self.selBuffer)
 
 		menu = ctx.addMenu("Run Macro On Selection")
-		for container_id, container, macroName in APP().find_macros_by_input_type("BYTE_ARRAY"):
+		for container_id, container, macroName in APP().find_macros_by_input_types(["BYTE_ARRAY"]):
 			menu.addAction(macroName, lambda c=container, name=macroName: c.getMacro(name).execute(self.getRangeBytes(self.selRange())))
 
 
@@ -230,6 +233,7 @@ class HexView2(QWidget):
 
 		self._buildParseBufferSubmenu(ctx, "Parse" + (" All Buffers" if len(self.buffers) > 1 else " Buffer"), None,
 											valueifsame(buf.fi_root_name for buf in self.buffers))
+		self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On" + (" All Buffers" if len(self.buffers) > 1 else " Buffer"), None)
 
 	def _buildLoadAnnotationSetSubmenu(self, ctx, title, bufIdx, current):
 		if self.project:
@@ -247,12 +251,40 @@ class HexView2(QWidget):
 				act = menu.addAction(name, lambda name=name: self.applyFormatInfo(name, bufIdx))
 				act.setCheckable(True)
 				act.setChecked(name == current)
+			if bufIdx is not None and bufIdx > 0:
+				menu.addAction("New...", lambda: self._newGrammarDef(
+					QInputDialog.getText(self, "New Grammar Definition", "Please enter a name for the new grammar definition:")[0],bufIdx))
+
+	def _newGrammarDef(self, name, bufIdx):
+		if not name: return
+		bbuf = self.buffers[bufIdx]
+		self.formatInfoContainer.definitions[name] = parse_definition('struct(endianness=">") { _undef_1 BYTES[' + str(bbuf.length) + '] }')
+		self.formatInfoContainer.write_file(self.formatInfoContainer.file_name)
+		self.applyFormatInfo(name, bufIdx)
+
+	def _buildRunMacroOnBufferSubmenu(self, ctx, title, bufIdx):
+		menu = ctx.addMenu(title)
+		for container_id, container, macroName in APP().find_macros_by_input_types(["BYTE_BUFFER", "BYTE_BUFFER_LIST"]):
+			menu.addAction(macroName, lambda c=container, name=macroName: self._runMacroOnBuffer(c, name, bufIdx))
+
+	def _runMacroOnBuffer(self, container, macroname, bufIdx):
+		macro = container.getMacro(macroname)
+		bufs = self.buffers if bufIdx is None else [self.buffers[bufIdx]]
+		if macro.input_type == "BYTE_BUFFER":
+			for buf in bufs:
+				macro.execute(buf)
+		elif macro.input_type == "BYTE_BUFFER_LIST":
+			lst = ByteBufferList()
+			for buf in bufs:
+				lst.add(buf)
+			macro.execute(lst)
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
 		self.loadAnnotations(name)
 
 	def loadAnnotations(self, set_name, bufIdx=None):
+		if not set_name: return
 		for buf in self.buffers if bufIdx is None else [self.buffers[bufIdx]]:
 			buf.setRanges(buf.matchRanges(hasMetaKey='_sdef_ref'))
 			if set_name is not None:
@@ -592,7 +624,7 @@ class HexView2(QWidget):
 		abuf = ByteBuffer(buf)
 		self.setBuffer(abuf)
 	
-	def setBuffer(self, bbuf):
+	def setBuffer(self, bbuf : Union[ByteBuffer, BidiByteBuffer, List[ByteBuffer]]):
 		if isinstance(bbuf, BidiByteBuffer):
 			self.buffers = bbuf.buffers
 		elif isinstance(bbuf, ByteBuffer):

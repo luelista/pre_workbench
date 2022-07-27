@@ -1,0 +1,11 @@
+---
+name: Calculate entropy
+input_type: BYTE_BUFFER
+output_type: NONE
+options: []
+metadata: {}
+code: "from collections import defaultdict\nfrom math import log\n\ncounts = defaultdict(lambda:\
+  \ 0)\nfor byte in input.buffer:\n  counts[byte] += 1\n\n\nresult = 0.0\nlen = len(input.buffer)\n\
+  \nfor i in counts.values():\n  frequency = i / len\n  print(i, len, frequency)\n\
+  \  result -= frequency * (log(frequency) / log(2))\n\ninput.metadata[\"entropy\"\
+  ] = round(result/8,4)\n"

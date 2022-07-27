@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import traceback
+from collections import defaultdict
 from glob import glob
 import os.path
 from typing import List, Optional
@@ -14,6 +15,7 @@ from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.structinfo import xdrm
 
+last_params = defaultdict(dict)
 
 class Macro:
 	name: str
@@ -62,8 +64,9 @@ class Macro:
 			QMessageBox.warning(MainWindow, "Refusing to Run Untrusted Macro", "This macro is untrusted. \n\nTo mark it as trusted, open it in the macro editor, review the code, and then save it.\n\nBe careful: Macros run without any additional sandboxing in the context of this applications, and may write to all your user files.")
 			return None
 		if params is None and len(self.options) > 0:
-			params = showSettingsDlg(self.getSettingsFields(), None, "Run Macro \"" + self.name + "\"")
+			params = showSettingsDlg(self.getSettingsFields(), last_params[self.name], "Run Macro \"" + self.name + "\"")
 			if not params: return None
+			last_params[self.name] = params
 		try:
 			from pre_workbench.macros import macroenv
 			locals = {key: getattr(macroenv, key) for key in macroenv.__all__}
@@ -90,8 +93,8 @@ class SysMacroContainer:
 	def getMacroNames(self):
 		return [macro.name for macro in self.macros]
 
-	def getMacroNamesByInputType(self, inputType):
-		return [macro.name for macro in self.macros if macro.input_type == inputType]
+	def getMacroNamesByInputTypes(self, inputTypes):
+		return [macro.name for macro in self.macros if macro.input_type in inputTypes]
 
 	def getMacro(self, name):
 		return next(macro for macro in self.macros if macro.name == name)

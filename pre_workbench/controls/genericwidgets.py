@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QDialog
 
 from pre_workbench.configs import getIcon, SettingsField
+from pre_workbench.consts import INT32_MIN, INT32_MAX
 from pre_workbench.guihelper import showWidgetDlg, filledColorIcon, makeWidgetDlg
 from pre_workbench.syshelper import get_current_rss
 
@@ -178,8 +179,8 @@ class SettingsGroup(QGroupBox):
 			elif d.fieldType == "int" or d.fieldType == "double":
 				field = QSpinBox() if d.fieldType == "int" else QDoubleSpinBox()
 				field.valueChanged.connect(self.spinIntChanged if d.fieldType == "int" else self.spinDoubleChanged)
-				if 'min' in d.params: field.setMinimum(d.params['min'])
-				if 'max' in d.params: field.setMaximum(d.params['max'])
+				field.setMinimum(d.params['min'] if 'min' in d.params else INT32_MIN)
+				field.setMaximum(d.params['max'] if 'max' in d.params else INT32_MAX)
 				empty = 0
 			else:
 				raise TypeError(d.title+" (invalid settings widget type:  "+d.fieldType+")")

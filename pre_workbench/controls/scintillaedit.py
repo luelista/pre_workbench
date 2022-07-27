@@ -27,12 +27,13 @@ from pre_workbench.app import GlobalEvents
 from pre_workbench.configs import SettingsSection
 from pre_workbench.guihelper import makeDlgButtonBox
 from pre_workbench.structinfo import format_info
-
+from pre_workbench.typeregistry import DataWidgetTypes
 
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
 					   "Font", "Font", "font", {}, "monospace,12,-1,7,50,0,0,0,0,0", None)
 
 
+@DataWidgetTypes.register(handles=[str,])
 class ScintillaEdit(QsciScintilla):
 	ARROW_MARKER_NUM = 8
 
@@ -170,6 +171,9 @@ class ScintillaEdit(QsciScintilla):
 			self.SendScintilla(QsciScintilla.SCI_MULTIPLESELECTADDEACH, 0)
 			self.SendScintilla(QsciScintilla.SCI_MULTIPLESELECTADDEACH, 0)
 		super().keyPressEvent(event)
+
+	def setContents(self, content):
+		self.setText(content)
 
 
 class QsciLexerFormatinfo(QsciLexerCPP):

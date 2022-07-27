@@ -138,10 +138,10 @@ class WorkbenchApplication(QApplication):
 		self.plugins[modname] = my_mod
 		spec.loader.exec_module(my_mod)
 
-	def find_macros_by_input_type(self, type):
+	def find_macros_by_input_types(self, types):
 		return [(container_id, container, name)
 					for container_id, container in self.macro_containers.items()
-					for name in container.getMacroNamesByInputType(type)]
+					for name in container.getMacroNamesByInputTypes(types)]
 
 	def get_macro(self, container_id, name):
 		return self.macro_containers[container_id].getMacro(name)

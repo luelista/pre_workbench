@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QListWidget, QListWidgetItem, QFrame, QDialog, QDoubleSpinBox, QSpinBox, QMenu, \
 	QInputDialog, QTreeWidget, QTreeWidgetItem, QMessageBox
 
+from pre_workbench.consts import INT32_MIN, INT32_MAX
 from pre_workbench.guihelper import makeDlgButtonBox
 from pre_workbench.structinfo.expr import Expression, Stringifier
 from pre_workbench.configs import respath
@@ -144,6 +145,8 @@ class IntTypeEditor(QSpinBox):
 	updated = pyqtSignal(str)
 	def __init__(self, parent, schema, rootTypeDefinition):
 		super().__init__(parent)
+		self.setMinimum(INT32_MIN)
+		self.setMaximum(INT32_MAX)
 	def changeEvent(self, e: QEvent) -> None:
 		self.updated.emit("")
 	def set(self, value, opts=None):

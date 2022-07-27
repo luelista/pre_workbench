@@ -17,6 +17,7 @@
 import json
 import os
 import sqlite3
+from typing import List
 
 from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
 from pre_workbench.macros.macro import Macro
@@ -28,7 +29,7 @@ class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):
         self.updated.emit()
 
 class Project:
-    def __init__(self, dirName, containerId, containerTitle):
+    def __init__(self, dirName: str, containerId: str, containerTitle: str):
         self.containerId = containerId
         self.containerTitle = containerTitle
         self.projectFolder = dirName
@@ -39,7 +40,7 @@ class Project:
         self.formatInfoContainer.project = self
         #self.formatInfoContainer = InteractiveFormatInfoContainer(load_from_string=self.getValue("format_info_file", ""))
 
-    def getRelativePath(self, absolutePath):
+    def getRelativePath(self, absolutePath: str):
         path = os.path.relpath(absolutePath, self.projectFolder)
         if path.startswith(".."):
             return absolutePath
@@ -58,7 +59,7 @@ class Project:
         CREATE TABLE IF NOT EXISTS macros (name TEXT PRIMARY KEY, input_type TEXT NOT NULL, output_type TEXT NOT NULL, code TEXT NOT NULL, options BLOB NOT NULL, metadata BLOB NOT NULL);
         ''')
 
-    def getValue(self, key, defaultValue=None):
+    def getValue(self, key: str, defaultValue=None):
         cur = self.db.cursor()
         cur.execute("SELECT value FROM options WHERE name = ?", (key,))
         result = cur.fetchone()
@@ -67,7 +68,7 @@ class Project:
         else:
             return defaultValue
 
-    def setValue(self, key, value):
+    def setValue(self, key: str, value):
         cur = self.db.cursor()
         cur.execute("REPLACE INTO options  (`name`, value) VALUES (?,?)", (key, xdrm.dumps(value)))
         self.db.commit()
@@ -78,12 +79,12 @@ class Project:
         cur.execute("SELECT DISTINCT set_name FROM annotations")
         return [x[0] for x in cur.fetchall()]
 
-    def getAnnotations(self, set_name):
+    def getAnnotations(self, set_name: str):
         cur = self.db.cursor()
         cur.execute("SELECT rowid, start, end, meta FROM annotations WHERE set_name = ?", (set_name,))
         return cur.fetchall()
 
-    def storeAnnotation(self, set_name, range):
+    def storeAnnotation(self, set_name: str, range):
         cur = self.db.cursor()
         if 'rowid' in range.metadata:
             cur.execute('''REPLACE INTO annotations (rowid, set_name, start, end, meta) VALUES (?,?,?,?,?)''',
@@ -94,13 +95,13 @@ class Project:
         self.db.commit()
         range.metadata['rowid'] = cur.lastrowid
 
-    def deleteAnnotationSet(self, set_name):
+    def deleteAnnotationSet(self, set_name: str):
         cur = self.db.cursor()
         cur.execute('''DELETE FROM annotations WHERE set_name = ?''',
                     (set_name,))
         self.db.commit()
 
-    def renameAnnotationSet(self, set_name, new_set_name):
+    def renameAnnotationSet(self, set_name: str, new_set_name: str):
         cur = self.db.cursor()
         cur.execute('''UPDATE annotations SET set_name = ? WHERE set_name = ?''',
                     (new_set_name, set_name,))
@@ -111,12 +112,12 @@ class Project:
         cur.execute("SELECT name FROM macros")
         return [x[0] for x in cur.fetchall()]
 
-    def getMacroNamesByInputType(self, inputType):
+    def getMacroNamesByInputTypes(self, inputTypes: List[str]):
         cur = self.db.cursor()
-        cur.execute("SELECT name FROM macros WHERE input_type = ?", (inputType,))
+        cur.execute(f"SELECT name FROM macros WHERE input_type IN ({','.join(['?']*len(inputTypes))})", inputTypes)
         return [x[0] for x in cur.fetchall()]
 
-    def getMacro(self, name):
+    def getMacro(self, name: str):
         cur = self.db.cursor()
         cur.execute("SELECT input_type, output_type, code, options, metadata, rowid FROM macros WHERE name = ?", (name,))
         input_type, output_type, code, options, metadata, rowid = cur.fetchone()
@@ -136,7 +137,7 @@ class Project:
         self.db.commit()
         macro._rowid = cur.lastrowid
 
-    def deleteMacro(self, name):
+    def deleteMacro(self, name: str):
         cur = self.db.cursor()
         cur.execute("DELETE FROM macros WHERE name = ?", (name,))
         self.db.commit()

@@ -29,7 +29,7 @@ def run_cli():
 	r = parser.parse_args()
 	if r.project:
 		from pre_workbench.project import Project
-		project = Project(r.project)
+		project = Project(r.project, 'PROJECT', '')
 		fic = project.formatInfoContainer
 	elif r.grammar_file:
 		from pre_workbench.structinfo.parsecontext import FormatInfoContainer

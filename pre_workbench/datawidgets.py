@@ -23,15 +23,13 @@ from typing import Optional, List, Tuple
 import yaml
 from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
-    QTableWidgetItem, QMenu, \
+    QMenu, \
     QAbstractItemView, QTableView
 
 import pre_workbench.app
-from pre_workbench import guihelper
 
 from pre_workbench.configs import SettingsField
-from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText
-from pre_workbench.structinfo import xdrm
+from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText, APP
 from pre_workbench.structinfo.expr import Expression
 from pre_workbench.controls.genericwidgets import showSettingsDlg, showListSelectDialog
 from pre_workbench.typeeditor import JsonView
@@ -164,7 +162,6 @@ class PacketListModel(QAbstractItemModel):
     def removeColumns(self, column: int, count: int, parent: QModelIndex = ...) -> bool:
         self.beginRemoveColumns(parent, column, column+count-1)
         self.columns = self.columns[0:column] + self.columns[column+count:]
-        #print(column, count, self.columns)
         self.endRemoveColumns()
         return True
 
@@ -186,7 +183,7 @@ class PacketListWidget(QWidget):
         super().__init__()
         self.initUI()
 
-    def showData(self, data: ByteBuffer):
+    def showData(self, data: List[ByteBuffer]):
         dv = DynamicDataWidget()
         dv.setContents(data)
         dv.setWindowTitle("Data view")
@@ -238,18 +235,36 @@ class PacketListWidget(QWidget):
     def onPacketlistCurrentChanged(self, current, previous):
         pass
 
+    def getSelectedBuffers(self):
+        return [self.listObject.buffers[index.row()] for index in self.packetlist.selectionModel().selectedRows()]
+
     def onPacketlistContextMenu(self, point):
         index = self.packetlist.indexAt(point)
         ctx = QMenu("Context menu", self.packetlist)
         if index.isValid():
-            # TODO support multi selection
-            bbuf = self.listObject.buffers[index.row()]
-            ctx.addAction("Item Details", lambda: self.showData(bbuf))
-            ctx.addAction("Mark/Unmark Packet", lambda: self.packetlistmodel.markPacket(index.row()))
+            ctx.addAction("Item Details", lambda: self.showData(self.getSelectedBuffers()))
+            ctx.addAction("Mark/Unmark Packet", lambda: [self.packetlistmodel.markPacket(index.row()) for index in self.packetlist.selectionModel().selectedRows()])
+            self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On" + (" Selected Buffers" if len(self.packetlist.selectionModel().selectedRows()) > 1 else " Buffer"))
             ctx.addSeparator()
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
 
         ctx.exec(self.packetlist.viewport().mapToGlobal(point))
+
+    def _buildRunMacroOnBufferSubmenu(self, ctx, title):
+        menu = ctx.addMenu(title)
+        for container_id, container, macroName in APP().find_macros_by_input_types(["BYTE_BUFFER", "BYTE_BUFFER_LIST"]):
+            menu.addAction(macroName, lambda c=container, name=macroName: self._runMacroOnSelectedBuffers(c, name))
+
+    def _runMacroOnSelectedBuffers(self, container, macroname):
+        macro = container.getMacro(macroname)
+        if macro.input_type == "BYTE_BUFFER":
+            for buf in self.getSelectedBuffers():
+                macro.execute(buf)
+        elif macro.input_type == "BYTE_BUFFER_LIST":
+            lst = ByteBufferList()
+            for index in self.packetlist.selectionModel().selectedRows():
+                lst.add(self.listObject.buffers[index.row()])
+            macro.execute(lst)
 
     def _generateQuickAddMenu(self, ctx: QMenu, title: str, elements: List[Tuple[str, str]], addIdx: int):
         if len(elements) > 20:
@@ -407,6 +422,7 @@ class DynamicDataWidget(QWidget):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.block_zoom = False
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0,0,0,0)
         self.metadataWidget = JsonView()
@@ -448,10 +464,14 @@ class DynamicDataWidget(QWidget):
         self.childWidget = None  #neccessary, so if the next line throws, the error message will be shown
         self.childWidget = childType()
         try:
-            self.childWidget.meta_updated.connect(self.meta_updated.emit)
+            self.childWidget.meta_updated.connect(self._forwardMetaUpdate)
         except:
             logging.debug(str(childType)+" has no meta_updated signal")
         self.layout().addWidget(self.childWidget,66)
+
+    def _forwardMetaUpdate(self, name, value):
+        if self.block_zoom and name == 'zoom': return
+        self.meta_updated.emit(name, value)
 
     def childActionProxy(self):
         return self.childWidget

@@ -335,6 +335,7 @@ class WorkbenchMain(QMainWindow):
 		self.dockWidgets = {}
 
 		self.zoomWindow = DynamicDataWidget()
+		self.zoomWindow.block_zoom = True # don't forward zoom events from inside the zoom window - causes app crashes
 		self.zoomWindow.meta_updated.connect(self.onMetaUpdateRaw)
 		self.createDockWnd("Zoom", "Zoom", "document-search-result.png", self.zoomWindow, ads.BottomDockWidgetArea, showFirstRun=True)
 		self.zoom_updated.connect(lambda content: self.zoomWindow.setContents(content) if content is not None else None)

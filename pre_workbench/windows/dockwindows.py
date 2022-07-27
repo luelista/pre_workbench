@@ -21,12 +21,11 @@ import re
 import subprocess
 import tempfile
 import weakref
-import shlex
 from copy import deepcopy
 
 import yaml
 from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSignal, QUrl
+from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices, QColor, QKeySequence
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox, \
@@ -36,10 +35,11 @@ import pre_workbench.app
 from pre_workbench import configs
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon, SettingsField
+from pre_workbench.consts import MACRO_CODE_HELP_URL, MACRO_PROPERTIES_HELP_URL
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, TODO
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, TODO, navigateBrowser
 from pre_workbench.app import navigate
 from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
@@ -212,7 +212,7 @@ class StructInfoTreeWidget(QWidget):
 		self.setLayout(windowLayout)
 
 
-@DockWidgetTypes.register(title="Grammar Definition Code", icon="tree--pencil.png", showFirstRun=True)
+@DockWidgetTypes.register(title="Grammar Definitions", icon="tree--pencil.png", showFirstRun=True)
 class StructInfoCodeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -237,7 +237,7 @@ class StructInfoCodeWidget(QWidget):
 		self.editor.show()
 
 
-@DockWidgetTypes.register(title="Grammar Parse Result", icon="tree--arrow.png", showFirstRun=True)
+@DockWidgetTypes.register(title="Parse Result", icon="tree--arrow.png", showFirstRun=True)
 class RangeTreeDockWidget(QWidget):
 	def __init__(self):
 		super().__init__()
@@ -435,7 +435,7 @@ class MacroListDockWidget(QWidget):
 				ctx.addAction("Execute", lambda: self.executeMacro(container.getMacro(macroname)))
 				if container.macrosEditable:
 					ctx.addAction("Edit code", lambda: self.editCode(container.getMacro(macroname)))
-					ctx.addAction("Preferences", lambda: self.editPreferences(container.getMacro(macroname)))
+					ctx.addAction("Properties", lambda: self.editPreferences(container.getMacro(macroname)))
 					ctx.addAction("Edit options", lambda: self.editOptions(container.getMacro(macroname)))
 					ctx.addAction("Delete macro", lambda: self.deleteMacro(container, macroname))
 				else:
@@ -492,7 +492,8 @@ class MacroListDockWidget(QWidget):
 	def editPreferences(self, macro):
 		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
 								 {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type},
-								 title="Edit Preferences Of Macro \"" + macro.name + "\"", parent=self)
+								 title="Edit Properties Of Macro \"" + macro.name + "\"", parent=self,
+								  help_callback=lambda: navigateBrowser(MACRO_PROPERTIES_HELP_URL))
 		if not result: return
 		macro.name = result["name"]
 		macro.input_type = result["input_type"]
@@ -501,7 +502,8 @@ class MacroListDockWidget(QWidget):
 		self._loadList()
 
 	def createMacro(self, container):
-		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef, title="Create Macro ...", parent=self)
+		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef, title="Create Macro ...", parent=self,
+								  help_callback=lambda: navigateBrowser(MACRO_PROPERTIES_HELP_URL))
 		if not result: return
 		macro = Macro(container, result["name"], result["input_type"], result["output_type"], "", [], {}, None)
 		container.storeMacro(macro)
@@ -511,7 +513,8 @@ class MacroListDockWidget(QWidget):
 	def copyMacro(self, macro, target_container):
 		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
 								 {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type},
-								 title="Copy Macro ...", parent=self)
+								 title="Copy Macro ...", parent=self,
+								  help_callback=lambda: navigateBrowser(MACRO_PROPERTIES_HELP_URL))
 		if not result: return
 		new_macro = Macro(target_container, result["name"], result["input_type"], result["output_type"], macro.code, deepcopy(macro.options), deepcopy(macro.metadata), None)
 		target_container.storeMacro(new_macro)
@@ -521,7 +524,8 @@ class MacroListDockWidget(QWidget):
 		verb = "Edit" if macro.container.macrosEditable else "View"
 		from PyQt5.Qsci import QsciLexerPython
 		res = showScintillaDialog(self, verb + " Code Of Macro \""+macro.name+"\"", macro.code, None,
-								  readonly=not macro.container.macrosEditable, lexer=QsciLexerPython())
+								  readonly=not macro.container.macrosEditable, lexer=QsciLexerPython(),
+								  help_callback=lambda: navigateBrowser(MACRO_CODE_HELP_URL))
 		if res:
 			if macro.container.macrosEditable:
 				macro.code = res

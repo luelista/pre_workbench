@@ -120,7 +120,7 @@ class ObjectWindow(QWidget):
 	def _getDatasourcesList(self):
 		builtinDS = DataSourceTypes.getSelectList("DisplayName")
 		macroDS = [("MACRO/" + container_id + "/" + macroname, "Macro: " + macroname)
-				   for container_id, container, macroname in APP().find_macros_by_input_type("DATA_SOURCE")]
+				   for container_id, container, macroname in APP().find_macros_by_input_types(["DATA_SOURCE"])]
 		return builtinDS + macroDS
 
 	def _getDatasource(self, id):

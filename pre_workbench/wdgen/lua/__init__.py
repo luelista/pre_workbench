@@ -20,6 +20,7 @@ def generate_lua_dissector(r, fic, out):
 		generator.out("function parse_"+key+"(buffer, pinfo, treenode, title_prefix, fval)")
 		generator.out(f'  local subtree = treenode:add({proto_name}_proto, buffer(), title_prefix .. "{key}")')
 		generator.out("  local offset = 0")
+		generator.out("  local field_item")
 		context.id = key
 		value.visit(context, generator)
 		generator.out(f'  subtree:set_len(offset)')

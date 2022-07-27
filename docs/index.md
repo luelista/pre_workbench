@@ -12,6 +12,8 @@ title: Welcome to PRE Workbench Docs
 
 [Key Bindings](key-bindings)
 
+[Plugins and Macros](extending)
+
 # Features
 
 
@@ -49,8 +51,9 @@ Preferences, widget layout, open files and grammars are stored per project.
 ### Plugin and macro support
 Macros can be added at user-level (~/.config) and at project level (.pre_workbench), and some example macros are
 bundled with the application -- to use macros, click "View" > "Tool Windows" > "Macros".
-To enable plugin support, configure a plugin directory in the settings dialog. More information in the 
+To enable plugin support, configure a plugin directory in the settings dialog. More information in the
+[Plugins and Macros documentation](extending) and in the
 [release notes](https://github.com/luelista/pre_workbench/releases/tag/0.7.8).
-Find some example plugins on [Github](https://github.com/luelista/prewb_example_plugins).
+You can find some example plugins on [Github](https://github.com/luelista/prewb_example_plugins).
 
 

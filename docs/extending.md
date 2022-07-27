@@ -1,6 +1,15 @@
 # Plugin and Macro Support
 
 ## Plugins
+Plugin support is currently experimental and needs to be explicitly enabled.
+
+You can load all *.py files from a folder as plugins, by setting a Plugin Directory in the settings dialog, 
+or by running PRE Workbench with the `--plugins-dir=...` argument.
+
+Plugins can e.g. register custom file types, dock widgets or selection heuristics.
+
+The best way to develop plugins is to open your plugin directory as a PyCharm project and configure PyCharm to use
+the virtualenv in which your PRE Workbench is installed. This way, you get full autocomplete support on internal objects.
 
 * [Example Plugins](https://github.com/luelista/prewb_example_plugins)
 
@@ -8,10 +17,14 @@
 
 ### Editing
 
-To manage macros, use the *Macros* tool window (View > Tool Windows > Macros).
-Macros can be stored per user, per project, or provided with the application as examples.
-In the *Macros* tool window, you can create, import, export and edit your macros.
+To manage macros, use the *Macros* tool window (View > Tool Windows > Macros). There you can create, import, export, edit
+and run your macros.
+
+Macros can be stored in your user directory (~/.config / %APPDATA%) and in the project database (.pre_workbench).
+Additionally, some example macros are bundled with the application.
+
 You can also copy macros between the different storage locations (builtin, user, project).
+
 Macros without a required input object (Input Type = NONE) can be directly run from the tool window by double-clicking.
 
 ![Tool Window](images/macros-tool-window.png)

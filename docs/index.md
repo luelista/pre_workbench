@@ -14,6 +14,9 @@ title: Welcome to PRE Workbench Docs
 
 [Plugins and Macros](extending)
 
+[Wireshark Dissector Generator](code-generation)
+
+
 # Features
 
 

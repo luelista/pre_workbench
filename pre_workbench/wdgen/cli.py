@@ -11,11 +11,13 @@ def run_cli():
 						help='Grammar definitions from text file')
 	parser.add_argument('-e', '--grammar-string', metavar='GRAMMAR', type=str,
 						help='Grammar definitions from command line argument')
+	parser.add_argument('-t', '--only-types', metavar='TYPENAMES', type=str,
+						help='Generate code only for specified types (comma-separated list)')
 	parser.add_argument('-d', '--definition', metavar='NAME', type=str,
 						help='Name of start grammar definition. Uses first if unspecified')
 	parser.add_argument('-l', '--language', metavar='LANG', type=str,
 						help='Programming language to generate (supported: lua)', default="lua")
-	parser.add_argument('--dissector-table', metavar='NAME:KEY', type=str,
+	parser.add_argument('--dissector-table', metavar='NAME:KEY', type=str, action='append',
 						help='Register the protocol in the given dissector table, under the given key')
 	parser.add_argument('-o', '--output-file', metavar='FILENAME', type=str,
 						help='Output filename for generated code (default: "-" for stdout)', default="-")

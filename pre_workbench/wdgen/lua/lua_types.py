@@ -52,8 +52,11 @@ class WDGenVisitor:
 		self.out("  -- field " + self.context.get_path("_")+" "+desc.fi.format_type)
 		long_id = self.context.get_path("_")
 		short_id = self.context.top_id()
-		method = "add_le" if self.context.get_param("endianness") == "<" else "add"
-		le_prefix = "le_" if self.context.get_param("endianness") == "<" else ""
+		if "STRING" in desc.fi.format_type:
+			encoding = 'ENC_UTF_8' if 'utf' in self.context.get_param('charset') else 'ENC_ASCII'
+		else:
+			encoding = "ENC_LITTLE_ENDIAN" if self.context.get_param("endianness") == "<" else "ENC_BIG_ENDIAN"
+			le_prefix = "le_" if self.context.get_param("endianness") == "<" else ""
 		if desc.fi.size == DYN_LEN:
 			raise NotImplementedError('DYN_LEN not implemented')
 		elif desc.fi.size == PREFIX_LEN:
@@ -62,16 +65,18 @@ class WDGenVisitor:
 			self.out("  len = " + to_lua_expr(desc.fi.size_expr) + "  -- expression-based length")
 		else:
 			self.out("  len = " + str(desc.fi.size) + "  -- static length")
-		self.out(f"  field_item = subtree:{method}(f_{long_id}, buffer(offset, len))")
+		if desc.fi.size <= 0: self.out("  if len > 0 then")
+		self.out(f"    field_item, fval['{short_id}'] = subtree:add_packet_field(f_{long_id}, buffer(offset, len), {encoding})")
 		if desc.fi.format_type in ('INT8', 'INT16', 'INT24', 'INT32'):
-			self.out(f"  fval['{short_id}'] = buffer(offset, len):{le_prefix}int()")
+			self.out(f"    fval['{short_id}'] = buffer(offset, len):{le_prefix}int()")
 		elif desc.fi.format_type in ('CHAR', 'UINT8', 'UINT16', 'UINT24', 'UINT32'):
-			self.out(f"  fval['{short_id}'] = buffer(offset, len):{le_prefix}uint()")
+			self.out(f"    fval['{short_id}'] = buffer(offset, len):{le_prefix}uint()")
 		magic = self.context.get_param("magic", raise_if_missing=False)
 		if magic is not None:
-			self.out(f"  if fval['{short_id}'] ~= " + repr(magic) + " then")
-			self.out(f'    field_item:add_expert_info(PI_MALFORMED, PI_ERROR, "magic value mismatch, expected {magic}, got " .. fval["{short_id}"])')
-			self.out(f"  end")
+			self.out(f"    if fval['{short_id}'] ~= " + repr(magic) + " then")
+			self.out(f'      field_item:add_expert_info(PI_MALFORMED, PI_ERROR, "magic value mismatch, expected {magic}, got " .. fval["{short_id}"])')
+			self.out(f"    end")
+		if desc.fi.size <= 0: self.out("  end")
 		self.out("  offset = offset + len")
 		show = desc.params.get("show", "")
 		self.ws_field_defs.append((self.context.get_path("."), short_id, desc.fi.format_type, self.context.get_param('show',raise_if_missing=False), self.context.get_param('charset',raise_if_missing=False)))

@@ -3,8 +3,12 @@ from pre_workbench.wdgen.lua.lua_types import WDGenVisitor
 
 
 def generate_lua_dissector(r, fic, out):
-	definition = r.definition if r.definition else fic.main_name
-	proto_name = fic.main_name
+	if r.only_types:
+		only_types = r.only_types.split(",")
+	else:
+		only_types = None
+	proto_name = only_types[0] if only_types else fic.main_name
+	definition = r.definition if r.definition else proto_name
 
 	context = ParseContext(fic)
 	generator = WDGenVisitor(context, proto_name)
@@ -15,7 +19,11 @@ def generate_lua_dissector(r, fic, out):
 	generator.out(f'  subtree:set_len(end_offset)')
 	generator.out(f'end')
 	generator.out("")
+
+
 	for key, value in fic.definitions.items():
+		if only_types and key not in only_types: continue
+
 		generator.out("-- definition "+key)
 		generator.out("function parse_"+key+"(buffer, pinfo, treenode, title_prefix, fval)")
 		generator.out(f'  local subtree = treenode:add({proto_name}_proto, buffer(), title_prefix .. "{key}")')
@@ -32,22 +40,23 @@ def generate_lua_dissector(r, fic, out):
 	out(f'{proto_name}_proto = Proto("{proto_name}", "{proto_name} Protocol")')
 
 	out("\n--------------------------------------------\n-- ws_field_defs")
-	for (key, id, format_type, show, charset) in generator.ws_field_defs:
+	for (long_id, short_id, format_type, show, charset) in generator.ws_field_defs:
 		if 'STRING' in format_type:
 			display = 'base.UNICODE' if charset and 'utf' in charset else 'base.ASCII'
 		elif format_type == 'BYTES':
 			display = 'base.NONE'
 		else:
 			display = 'base.HEX' if show and 'hex' in show else 'base.DEC'
-		out(f'local f_{key.replace(".","_")} = ProtoField.{format_type.lower()}("{key}", "{id}", {display})')
-	fields = ','.join('f_' + key.replace(".","_") for (key, id, format_type, show, charset) in generator.ws_field_defs)
+		out(f'local f_{long_id.replace(".","_")} = ProtoField.new("{short_id}", "{long_id}", ftypes.{format_type}, nil, {display})')
+	fields = ','.join('f_' + long_id.replace(".","_") for (long_id, short_id, format_type, show, charset) in generator.ws_field_defs)
 	out(proto_name + '_proto.fields = {' + fields + '}')
 
 	out("\n--------------------------------------------\n-- parser functions")
 	out(generator.get_result())
 
 	if r.dissector_table:
-		name, key = r.dissector_table.split(":")
 		out("\n--------------------------------------------\n-- registration")
-		out(f'local dissector_table = DissectorTable.get("{name}")')
-		out(f'dissector_table:add({key}, {proto_name}_proto)')
+		for dissector_table in r.dissector_table:
+			name, key = dissector_table.split(":")
+			out(f'local dissector_table = DissectorTable.get("{name}")')
+			out(f'dissector_table:add({key}, {proto_name}_proto)')

@@ -40,6 +40,7 @@ class ObjectWindow(QWidget):
 		self.params = {}
 
 		self.dataSource = None
+		self.dataObject = None
 		self.dataSourceType = ""
 		self._initUI(collapseSettings)
 		self.setConfig(kw)
@@ -86,6 +87,10 @@ class ObjectWindow(QWidget):
 		self.cancelAction.setEnabled(False)
 		exportAction = toolbar.addAction(getIcon("document-export.png"), "Export")
 		exportAction.triggered.connect(self.exportInTab)
+		# macroMenu = toolbar.addAction(getIcon("scripts.png"), "Run Macro On Object")
+		# self.macroMenu = QMenu(self)
+		# macroMenu.setMenu(self.macroMenu)
+		# self.macroMenu.aboutToShow.connect(self._fillMacroMenu)
 		layout.addWidget(toolbar)
 		layout.addWidget(self.sourceConfig)
 
@@ -169,13 +174,15 @@ class ObjectWindow(QWidget):
 			self.dataSource.on_finished.connect(self.onFinished)
 			result = self.dataSource.startFetch()
 			self.dataDisplay.setContents(result)
-
+			self.dataObject = result
 		except Exception as e:
 			self.dataDisplay.setErrMes(traceback.format_exc(), "Error: " + str(e))
 			self.cancelAction.setEnabled(False)
+			self.dataObject = None
 
 	def childActionProxy(self):
 		return self.dataDisplay.childWidget
 
 	def exportInTab(self):
 		pass
+

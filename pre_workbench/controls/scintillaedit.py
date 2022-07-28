@@ -19,13 +19,13 @@ import logging
 import darkdetect
 from PyQt5.Qsci import QsciScintilla, QsciLexerCPP, QsciAPIs
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont
+from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont, QContextMenuEvent
 from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
 
 from pre_workbench import configs
 from pre_workbench.app import GlobalEvents
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import makeDlgButtonBox
+from pre_workbench.guihelper import makeDlgButtonBox, APP
 from pre_workbench.structinfo import format_info
 from pre_workbench.typeregistry import DataWidgetTypes
 
@@ -171,6 +171,21 @@ class ScintillaEdit(QsciScintilla):
 			self.SendScintilla(QsciScintilla.SCI_MULTIPLESELECTADDEACH, 0)
 			self.SendScintilla(QsciScintilla.SCI_MULTIPLESELECTADDEACH, 0)
 		super().keyPressEvent(event)
+
+	def contextMenuEvent(self, e: QContextMenuEvent):
+		ctx = self.createStandardContextMenu()
+		if self.hasSelectedText():
+			menu = ctx.addMenu("Run Macro On Selection")
+			for container_id, container, macroName in APP().find_macros_by_input_types(["STRING"]):
+				menu.addAction(macroName, lambda c=container, name=macroName: self._runMacroOnSelection(c, name))
+
+		ctx.exec(e.globalPos())
+
+	def _runMacroOnSelection(self, container, macroname):
+		macro = container.getMacro(macroname)
+		r = macro.execute(self.selectedText())
+		if macro.output_type == 'STRING' and r is not None:
+			self.replaceSelectedText(r)
 
 	def setContents(self, content):
 		self.setText(content)

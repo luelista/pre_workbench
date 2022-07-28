@@ -109,7 +109,6 @@ class WorkbenchApplication(QApplication):
 			"PROJECT": self.project
 		}
 
-
 		configs.registerOption(SettingsSection('General', 'General', 'Plugins', 'Plugins'),
 							   "PluginsDir", "Plugin directory", "text",
 							   {"fileselect": "dir", "caption": "Select folder from which all *.py files should be loaded as plugins"},
@@ -130,7 +129,12 @@ class WorkbenchApplication(QApplication):
 	def _load_plugin(self, filespec):
 		import importlib.util
 		import sys
-		modname = "pre_workbench.plugins." + os.path.basename(filespec).replace(".py", "")
+		modname = "pre_workbench.plugins." + os.path.basename(filespec)[:-3]
+		enabled_plugins = configs.getValue("EnabledPlugins", [])
+		if modname not in enabled_plugins:
+			logging.info("Skipping plugin " + modname + " (from file " + filespec + ") - not enabled")
+			return
+
 		logging.info("Loading plugin "+modname+" from file "+filespec)
 		spec = importlib.util.spec_from_file_location(modname, filespec)
 		my_mod = importlib.util.module_from_spec(spec)

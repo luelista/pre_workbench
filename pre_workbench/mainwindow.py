@@ -23,6 +23,7 @@ import os
 import sys
 import traceback
 import uuid
+from glob import glob
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSignalMapper, QTimer, pyqtSignal, QUrl)
 from PyQt5.QtGui import QKeySequence, QColor, QDesktopServices
@@ -30,13 +31,14 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessage
 	QPushButton
 from PyQtAds import ads
 
+from pre_workbench.consts import WDGEN_HELP_URL
 from pre_workbench.errorhandler import check_for_updates
 from pre_workbench.guihelper import navigateBrowser, TODO, APP, showWidgetDlg
 from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs, consts
 # noinspection PyUnresolvedReferences
 from pre_workbench import windows
-from pre_workbench.configs import getIcon, SettingsSection
+from pre_workbench.configs import getIcon, SettingsSection, SettingsField
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
@@ -44,7 +46,8 @@ from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWi
 	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget, \
 	MacroListDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
-from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg
+from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg, showListSelectDialog, \
+	showSettingsDlg
 from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.windows.content.hexfile import HexFileWindow
@@ -247,9 +250,9 @@ class WorkbenchMain(QMainWindow):
 		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
-		exportMenu = fileMenu.addMenu('Export')
-		exportMenu.addAction("As Python Script")
-		exportMenu.addAction("As Wireshark Lua Dissector")
+		exportMenu = fileMenu.addMenu('&Export')
+		exportMenu.addAction("As &Python Script")
+		exportMenu.addAction(QAction("As Wireshark &Lua Dissector", self, triggered=self.onWiresharkExport))
 		fileMenu.addSeparator()
 
 		fileMenu.addAction(self.loadProjectAct)
@@ -288,7 +291,7 @@ class WorkbenchMain(QMainWindow):
 		##### Annotations #####
 		annotationsMenu = menubar.addMenu('&Annotations')
 		annotationsMenu.addAction(self.clearRangesAct)
-		self.loadAnnotationSetMenu = annotationsMenu.addMenu("Load Annotation Set")
+		self.loadAnnotationSetMenu = annotationsMenu.addMenu("Load &Annotation Set")
 		annotationsMenu.aboutToShow.connect(self._updateParserMenu)
 		annotationsMenu.addAction(self.manageAnnotationSetsAct)
 
@@ -296,19 +299,22 @@ class WorkbenchMain(QMainWindow):
 		##### PARSER #####
 		parserMenu = menubar.addMenu('&Parser')
 		parserMenu.addAction(self.reloadGrammarAct)
-		self.applyFormatInfoMenu = parserMenu.addMenu("Parse Buffer")
+		self.applyFormatInfoMenu = parserMenu.addMenu("&Parse Buffer")
 		parserMenu.aboutToShow.connect(self._updateParserMenu)
 
 		##### TOOLS #####
 		toolsMenu = menubar.addMenu('&Tools')
-		showConfigAction = QAction("Show config", self, triggered=lambda: self.showChild(JsonView(jdata=configs.configDict)),
+		self.macroMenu = toolsMenu.addMenu('&Run Macro')
+		self.macroMenu.aboutToShow.connect(self._updateMacroMenu)
+		showConfigAction = QAction("Show Raw &Config", self, triggered=lambda: self.showChild(JsonView(jdata=configs.configDict)),
 								   shortcut='Ctrl+Shift+,')
 		toolsMenu.addAction(showConfigAction)
-		editConfigAction = QAction(getIcon("wrench-screwdriver.png"), "Preferences ...", self, triggered=lambda: self.onPreferences(),
+		editConfigAction = QAction(getIcon("wrench-screwdriver.png"), "&Preferences ...", self, triggered=lambda: self.onPreferences(),
 								   menuRole=QAction.PreferencesRole, shortcut='Ctrl+,')
 		toolsMenu.addAction(editConfigAction)
 		if APP().plugins_dir:
-			toolsMenu.addAction(QAction("Open Plugins Dir", self, triggered=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(APP().plugins_dir))))
+			toolsMenu.addAction(QAction("&Open Plugins Directory", self, triggered=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(APP().plugins_dir))))
+			toolsMenu.addAction(QAction("&Manage Plugins", self, triggered=self.onManagePlugins))
 
 		##### WINDOW #####
 		self.windowMenu = menubar.addMenu("&Window")
@@ -317,11 +323,11 @@ class WorkbenchMain(QMainWindow):
 
 		##### HELP #####
 		helpMenu = menubar.addMenu("&Help")
-		helpMenu.addAction(QAction("Getting started", self, triggered=lambda: navigateBrowser(consts.GETTING_STARTED_URL)))
-		helpMenu.addAction(QAction("Syntax reference", self, triggered=lambda: navigateBrowser(consts.SYNTAX_REFERENCE_URL)))
-		helpMenu.addAction(QAction("Key bindings", self, triggered=lambda: navigateBrowser(consts.KEY_BINDINGS_URL)))
+		helpMenu.addAction(QAction("Getting Started", self, triggered=lambda: navigateBrowser(consts.GETTING_STARTED_URL)))
+		helpMenu.addAction(QAction("Syntax Reference", self, triggered=lambda: navigateBrowser(consts.SYNTAX_REFERENCE_URL)))
+		helpMenu.addAction(QAction("Key Bindings", self, triggered=lambda: navigateBrowser(consts.KEY_BINDINGS_URL)))
 
-		helpMenu.addAction(QAction("Issue tracker", self, triggered=lambda: navigateBrowser(consts.ISSUE_TRACKER_URL)))
+		helpMenu.addAction(QAction("Issue Tracker", self, triggered=lambda: navigateBrowser(consts.ISSUE_TRACKER_URL)))
 		helpMenu.addSeparator()
 		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))
@@ -418,6 +424,31 @@ class WorkbenchMain(QMainWindow):
 				configs.setValue(k,v)
 		GlobalEvents.on_config_change.emit()
 
+	def onManagePlugins(self):
+		plugins = ["pre_workbench.plugins." + os.path.basename(file)[:-3]
+				   for file in glob(os.path.join(APP().plugins_dir, "*.py"))]
+		enabled_plugins = configs.getValue("EnabledPlugins", [])
+		result = showListSelectDialog(list(zip(plugins, plugins)), enabled_plugins,
+									  title="Manage Plugins - Select To Enable",
+									  parent=self, multiselect=True, min_width=400)
+		if result is not None:
+			configs.setValue("EnabledPlugins", result)
+
+	def onWiresharkExport(self):
+		from pre_workbench.datasource import formatinfoSelect
+		r = showSettingsDlg([
+			SettingsField("definition", "Start Grammar Definition", "text", {"listselectcallback":formatinfoSelect}),
+			SettingsField("only_types", "Only Export These Definitions", "text", {"listselectcallback":formatinfoSelect,"multiselect":","}),
+			SettingsField("dissector_table", "Dissector Table", "text", {}),
+			SettingsField("output_file", "Output File", "text", {"fileselect":"save","filter":"Lua Script (*.lua)"}),
+		], self.project.getValue("LastWiresharkExportOptions", {}), "Wireshark Dissector Export", self, min_width=550,
+		help_callback=lambda: navigateBrowser(WDGEN_HELP_URL))
+		if r:
+			from pre_workbench.wdgen.lua import generate_lua_dissector
+			self.project.setValue("LastWiresharkExportOptions", r)
+			with open(r['output_file'], 'w') as out:
+				generate_lua_dissector(r['definition'], r['only_types'], r['dissector_table'].split(','), self.project.formatInfoContainer, out)
+
 	def onMruClicked(self):
 		self.openFile(self.sender().data())
 
@@ -465,6 +496,11 @@ class WorkbenchMain(QMainWindow):
 		for name in self.project.formatInfoContainer.definitions.keys():
 			self.applyFormatInfoMenu.addAction(name, TODO)
 		#menu.addAction("New...", lambda: )
+
+	def _updateMacroMenu(self):
+		self.macroMenu.clear()
+		for container_id, container, macroName in APP().find_macros_by_input_types(["NONE"]):
+			self.macroMenu.addAction(macroName, lambda c=container, name=macroName: c.getMacro(name).execute(None))
 
 	def onSubWindowActivated(self, old: ads.CDockWidget, now: ads.CDockWidget):
 		logging.log(logging.TRACE, "onSubWindowActivated")

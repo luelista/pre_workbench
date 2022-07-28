@@ -39,15 +39,12 @@ def run_cli():
 		sys.exit(1)
 
 	if r.output_file == '-':
-		def out(s):
-			print(s)
+		out = sys.stdout
 	else:
-		f = open(r.output_file, "w")
-		def out(s):
-			f.write(s + '\n')
+		out = open(r.output_file, "w")
 
 	if r.language == 'lua':
-		generate_lua_dissector(r, fic, out)
+		generate_lua_dissector(r.definition, r.only_types, r.dissector_table, fic, out)
 	else:
 		raise NotImplemented
 

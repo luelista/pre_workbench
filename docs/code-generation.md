@@ -44,6 +44,7 @@ Call the code generator as follows:
 
 ```
 prewb_codegen -P path/to/project -o ~/.local/lib/wireshark/plugins/my_proto.lua --dissector-table udp.port:4321
+# or
 prewb_codegen -F my_proto.txt -o ~/.local/lib/wireshark/plugins/my_proto.lua --dissector-table udp.port:4321
 ```
 

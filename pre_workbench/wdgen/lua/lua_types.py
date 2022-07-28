@@ -1,9 +1,10 @@
-
+from collections import namedtuple
 from io import StringIO
 
 from pre_workbench.structinfo.format_info import DYN_LEN, EXPR_LEN, PREFIX_LEN
 from pre_workbench.wdgen.lua.lua_expr import to_lua_expr
 
+ws_field_def = namedtuple('ws_field_def', ('long_id', 'short_id', 'format_type', 'show', 'charset'))
 
 class WDGenVisitor:
 	def __init__(self, context, proto_name):
@@ -79,7 +80,12 @@ class WDGenVisitor:
 		if desc.fi.size <= 0: self.out("  end")
 		self.out("  offset = offset + len")
 		show = desc.params.get("show", "")
-		self.ws_field_defs.append((self.context.get_path("."), short_id, desc.fi.format_type, self.context.get_param('show',raise_if_missing=False), self.context.get_param('charset',raise_if_missing=False)))
+		self.ws_field_defs.append(ws_field_def(
+			long_id=self.context.get_path("."),
+			short_id=short_id,
+			format_type=desc.fi.format_type,
+			show=self.context.get_param('show',raise_if_missing=False),
+			charset=self.context.get_param('charset',raise_if_missing=False)))
 		self.out("")
 
 

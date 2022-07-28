@@ -1,5 +1,4 @@
 import hashlib
-import json
 import logging
 import traceback
 from collections import defaultdict
@@ -13,7 +12,6 @@ from PyQt5.QtWidgets import QMessageBox
 from pre_workbench.app import MainWindow
 from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
-from pre_workbench.structinfo import xdrm
 
 last_params = defaultdict(dict)
 
@@ -76,6 +74,19 @@ class Macro:
 			return locals.get('output')
 		except:
 			QMessageBox.warning(MainWindow, "Macro Execution Failed", traceback.format_exc())
+
+	# def _coerce_input_type(self, input):
+	# 	if self.input_type == Macro.TYPE_BYTE_BUFFER:
+	# 		if type(input).__name__ == 'ByteBuffer':
+	# 			return input
+	# 		elif isinstance(input, (bytes, bytearray)):
+	# 			return ByteBuffer(input)
+	# 	elif self.input_type == Macro.TYPE_BYTE_BUFFER_LIST:
+	# 		if type(input).__name__ == 'ByteBufferList':
+	# 			return input
+	# 		elif isinstance(input, list)
+	# 	raise TypeError('Invalid input of type '+type(input).__name__+' to macro expecting '+self.input_type)
+
 
 class SysMacroContainer:
 	def __init__(self):

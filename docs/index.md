@@ -59,4 +59,5 @@ To enable plugin support, configure a plugin directory in the settings dialog. M
 [release notes](https://github.com/luelista/pre_workbench/releases/tag/0.7.8).
 You can find some example plugins on [Github](https://github.com/luelista/prewb_example_plugins).
 
-
+# Screenshot
+![Screenshot](images/app-screenshot.png)

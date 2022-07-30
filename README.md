@@ -6,6 +6,7 @@ It supports various sources to import protocol traffic from, helps the
 discovery process by displaying different views and heuristic-based 
 highlighting on data, and aids in documenting and sharing findings.
 
+![Screenshot](docs/images/app-screenshot.png)
 
 ## Installation
 

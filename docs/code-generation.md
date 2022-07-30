@@ -66,6 +66,7 @@ printf '\x00\x11\x22\x33\x00\x00\x00\x00' | nc -u localhost 4321
 
 
 ## Usage
+If you installed PRE Workbench as a Python module, you can run the code generator from the command line, using the command *prewb_codegen*.
 ```
 usage: prewb_codegen [-h] [-P DIR] [-F FILENAME] [-e GRAMMAR] [-t TYPENAMES] [-d NAME] [-l LANG] [--dissector-table NAME:KEY] [-o FILENAME]
 
@@ -90,6 +91,19 @@ optional arguments:
   -o FILENAME, --output-file FILENAME
                         Output filename for generated code (default: "-" for stdout)
 ```
+
+
+In any case, you can run it from the GUI from the *Parser* menu. The available features are similar in both usage modes.
+The GUI feature always uses the current project as source for the grammar definitions,
+as if `--project` on the CLI.
+
+With the "Only Export These Definitions" option, you can limit which definitions are exported.
+Either specify a comma-separated list or use the blue select button.
+
+The "Dissector Table" option accepts a comma-separated list of dissector table name and pattern,
+under which the dissector will register itself. Example: "wtap_encap:149,udp.port:7890" registers
+as a raw DLT_USER protocol (DLT: 149) as well as a udp-based protocol (port: 7890).
+![Screenshot](images/ws-gen-dialog.png)
 
 
 ## Limitations

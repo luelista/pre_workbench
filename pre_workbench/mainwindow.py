@@ -28,7 +28,7 @@ from glob import glob
 from PyQt5.QtCore import (Qt, pyqtSlot, QSignalMapper, QTimer, pyqtSignal, QUrl)
 from PyQt5.QtGui import QKeySequence, QColor, QDesktopServices
 from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication, \
-	QPushButton
+	QPushButton, QTextBrowser, QDialogButtonBox
 from PyQtAds import ads
 
 from pre_workbench.consts import WDGEN_HELP_URL
@@ -38,7 +38,7 @@ from pre_workbench.app import NavigateCommands, GlobalEvents
 from pre_workbench import configs, consts
 # noinspection PyUnresolvedReferences
 from pre_workbench import windows
-from pre_workbench.configs import getIcon, SettingsSection, SettingsField
+from pre_workbench.configs import getIcon, SettingsSection, SettingsField, icon_searchpaths
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
@@ -69,6 +69,7 @@ class WorkbenchMain(QMainWindow):
 		self.activeDocumentMeta = dict()
 		self.activeDocumentWindow = None
 		self._initUI()
+		APP().update_splash("Restoring windows...")
 		self.restoreChildren()
 		self.mdiArea.restoreState(self.project.getValue("DockState", b""))
 
@@ -231,9 +232,7 @@ class WorkbenchMain(QMainWindow):
 
 		##### FILE #####
 		fileMenu = menubar.addMenu('&File')
-		newTbAct = QToolButton(self, icon=getIcon('document--plus.png'), text='New', popupMode=QToolButton.InstantPopup)
 		newTbMenu = fileMenu.addMenu("New Tab")
-		newTbAct.setMenu(newTbMenu)
 		for wndTyp, meta in WindowTypes.types:
 			text = 'New '+meta.get('displayName', meta.get('name'))
 			newAct = QAction(text, self, statusTip=text,
@@ -242,7 +241,6 @@ class WorkbenchMain(QMainWindow):
 			if wndTyp.__name__ == 'ObjectWindow': newAct.setShortcut('Ctrl+N')
 			#fileMenu.addAction(newAct)
 			newTbMenu.addAction(newAct)
-		mainToolbar.addWidget(newTbAct)
 		#fileMenu.addAction(self.newAct)
 
 		fileMenu.addAction(self.openAct)
@@ -250,9 +248,8 @@ class WorkbenchMain(QMainWindow):
 		fileMenu.addAction(self.saveAsAct)
 		fileMenu.addAction(self.reloadFileAct)
 		fileMenu.addSeparator()
-		exportMenu = fileMenu.addMenu('&Export')
-		exportMenu.addAction("As &Python Script")
-		exportMenu.addAction(QAction("As Wireshark &Lua Dissector", self, triggered=self.onWiresharkExport))
+		#exportMenu = fileMenu.addMenu('&Export')
+		#exportMenu.addAction("As &Python Script")
 		fileMenu.addSeparator()
 
 		fileMenu.addAction(self.loadProjectAct)
@@ -301,6 +298,7 @@ class WorkbenchMain(QMainWindow):
 		parserMenu.addAction(self.reloadGrammarAct)
 		self.applyFormatInfoMenu = parserMenu.addMenu("&Parse Buffer")
 		parserMenu.aboutToShow.connect(self._updateParserMenu)
+		parserMenu.addAction(QAction("Export As Wireshark &Lua Dissector", self, triggered=self.onWiresharkExport))
 
 		##### TOOLS #####
 		toolsMenu = menubar.addMenu('&Tools')
@@ -332,10 +330,17 @@ class WorkbenchMain(QMainWindow):
 		helpMenu.addAction(QAction("About PRE Workbench", self, triggered=lambda: self.showAboutBox(),
 								   menuRole=QAction.AboutRole))
 
+		##### MAIN TOOLBAR #####
+		newTbAct = QToolButton(self, icon=getIcon('document--plus.png'), text='New', popupMode=QToolButton.InstantPopup)
+		newTbAct.setMenu(newTbMenu)
+		mainToolbar.addWidget(newTbAct)
 		mainToolbar.addAction(self.openAct)
 		mainToolbar.addAction(self.saveAct)
 		mainToolbar.addAction(self.saveAsAct)
 		mainToolbar.addAction(editConfigAction)
+		runMacroAction = QToolButton(self, icon=getIcon("scripts.png"), text="Run Macro", popupMode=QToolButton.InstantPopup)
+		runMacroAction.setMenu(self.macroMenu)
+		mainToolbar.addWidget(runMacroAction)
 
 	def _initDockWindows(self):
 		self.dockWidgets = {}
@@ -408,14 +413,22 @@ class WorkbenchMain(QMainWindow):
 		self.show()
 
 	def showAboutBox(self):
-		QMessageBox.about(self, "PRE Workbench", "Protocol Reverse Engineering Workbench\n"
-												 "Version " + get_app_version() +"\n\n"
-												 "Copyright (c) 2022 Mira Weller\n"
-												 "Licensed under the GNU General Public License Version 3\n\n"
-												 + consts.WEBSITE_URL + "\n\n"
-						  "Config Dir: " + configs.dirs.user_config_dir + "\n"
-						  "Plugins Dir: " + APP().plugins_dir + "\n" +
-						  ("Loaded Plugins:\n" + "\n".join(APP().plugins.keys()) if len(APP().plugins) > 0 else ""))
+		from pre_workbench import errorhandler
+		showWidgetDlg(QTextBrowser(minimumWidth=520,minimumHeight=300,searchPaths=icon_searchpaths,openLinks=False,anchorClicked=navigateBrowser,
+							html="<img src='appicon.png' style='float: left; '><br><b>Protocol Reverse Engineering Workbench</b><br>"
+							"Version " + get_app_version() +"<br><br>"
+							"Copyright (c) 2022 Mira Weller<br>"
+							"Licensed under the GNU General Public License Version 3<br style='clear:left'><br><hr>"
+							"<table>"
+							"<tr><td>Website: </td><td><a href='"+ consts.WEBSITE_URL + "'>"+ consts.WEBSITE_URL + "</a></td></tr>"
+							"<tr><td>Issue Tracker: </td><td><a href='"+ consts.ISSUE_TRACKER_URL + "'>"+ consts.ISSUE_TRACKER_URL + "</a></td></tr>"
+							"<tr><td>&nbsp;</td><td></td></tr>"
+							"<tr><td>Config Dir: </td><td><a href='file:" + configs.dirs.user_config_dir + "'>" + configs.dirs.user_config_dir + "</a></td></tr>"
+							"<tr><td>Log File: </td><td>" + errorhandler.logFile + "</td></tr>"
+							"<tr><td>Plugins Dir: </td><td><a href='file:" + APP().plugins_dir + "'>" + APP().plugins_dir + "</a></td></tr>" +
+							("<tr><td>Loaded Plugins:</td><td>" + "<br>".join(APP().plugins.keys())+"</td></tr>" if len(APP().plugins) > 0 else "")
+							+ "</table>"),
+					  "About PRE Workbench", lambda: None, self, buttons=QDialogButtonBox.Close)
 
 	def onPreferences(self):
 		res = showPreferencesDlg(configs.configDefinitions, configs.configDict, "Preferences", self)

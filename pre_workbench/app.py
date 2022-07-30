@@ -83,11 +83,16 @@ class WorkbenchApplication(QApplication):
 		if self.args.gc_debug:
 			gc.set_debug(gc.DEBUG_STATS)
 
+		self._show_splash()
+		self.update_splash("Loading configuration...")
+		from pre_workbench.project import Project
+		self.user_prj = Project(configs.dirs.user_config_dir, "USER", "User-local")
 		if not self.args.reset_config:
 			configs.loadFromFile()
 		else:
 			logging.warning("Resetting configuration!")
-		self._show_splash()
+			self.user_prj.db.execute("DELETE FROM options")
+			self.user_prj.db.commit()
 
 		configs.registerOption(SettingsSection('View', 'View', 'Theme', 'Theme'),
 							   "AppTheme", "Theme", "select", {"options": [(x, x) for x in QStyleFactory.keys()]},
@@ -95,7 +100,6 @@ class WorkbenchApplication(QApplication):
 		load_file_watch(self, os.path.join(os.path.dirname(__file__), "stylesheet.css"),
 						lambda contents: self.setStyleSheet(contents))
 
-		from pre_workbench.project import Project
 		prj_dir = self._find_project()
 		if not prj_dir: sys.exit(1)
 		self.project = Project(prj_dir, "PROJECT", "Project: "+os.path.basename(prj_dir))
@@ -105,7 +109,7 @@ class WorkbenchApplication(QApplication):
 		from pre_workbench.macros.macro import SysMacroContainer
 		self.macro_containers = {
 			"BUILTIN": SysMacroContainer(),
-			"USER": Project(configs.dirs.user_config_dir, "USER", "User-local"),
+			"USER": self.user_prj,
 			"PROJECT": self.project
 		}
 
@@ -122,6 +126,7 @@ class WorkbenchApplication(QApplication):
 			self.plugins_dir = None
 
 		if self.plugins_dir:
+			self.update_splash("Loading plugins...")
 			configs.icon_searchpaths.append(self.plugins_dir)
 			for file in glob(os.path.join(self.plugins_dir, "*.py")):
 				self._load_plugin(file)
@@ -135,6 +140,7 @@ class WorkbenchApplication(QApplication):
 			logging.info("Skipping plugin " + modname + " (from file " + filespec + ") - not enabled")
 			return
 
+		self.update_splash("Loading plugin " + modname)
 		logging.info("Loading plugin "+modname+" from file "+filespec)
 		spec = importlib.util.spec_from_file_location(modname, filespec)
 		my_mod = importlib.util.module_from_spec(spec)
@@ -212,8 +218,11 @@ class WorkbenchApplication(QApplication):
 	def _show_splash(self):
 		splashimg = configs.respath("icons/splash.jpg")
 		self.splash = QSplashScreen(QPixmap(splashimg))
-		self.splash.showMessage("Version "+get_app_version(), QtCore.Qt.AlignBottom|QtCore.Qt.AlignLeft, QtCore.Qt.white)
+		self.update_splash()
 		self.splash.show()
+
+	def update_splash(self, message=""):
+		self.splash.showMessage(message + "\nVersion " + get_app_version(), QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft, QtCore.Qt.white)
 
 
 class ArgumentParserWithGUI(argparse.ArgumentParser):
@@ -238,6 +247,7 @@ def run_app():
 	app = WorkbenchApplication(sys.argv)
 	CurrentProject = app.project
 
+	app.update_splash("Loading main window...")
 	from pre_workbench.mainwindow import WorkbenchMain
 	MainWindow = WorkbenchMain(app.project)
 	MainWindow.show()

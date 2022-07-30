@@ -90,9 +90,9 @@ def filledColorIcon(color: str, size: int) -> QIcon:
 	return QIcon(pix)
 
 
-def makeDlgButtonBox(dlg, ok_callback, retval_callback, help_callback=None):
+def makeDlgButtonBox(dlg, ok_callback, retval_callback, help_callback=None, buttons=QDialogButtonBox.Cancel|QDialogButtonBox.Ok):
 	btn = QDialogButtonBox()
-	btn.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok|(QDialogButtonBox.Help if help_callback else 0))
+	btn.setStandardButtons(buttons | (QDialogButtonBox.Help if help_callback else QDialogButtonBox.NoButton))
 	if ok_callback is not None:
 		def ok_slot():
 			try:
@@ -109,17 +109,17 @@ def makeDlgButtonBox(dlg, ok_callback, retval_callback, help_callback=None):
 	return btn
 
 
-def makeWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300, help_callback=None):
+def makeWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300, help_callback=None, buttons=QDialogButtonBox.Cancel|QDialogButtonBox.Ok):
 	dlg = QDialog(parent)
 	dlg.setMinimumWidth(min_width)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.layout().addWidget(widget)
-	return dlg, makeDlgButtonBox(dlg, ok_callback, retval_callback, help_callback)
+	return dlg, makeDlgButtonBox(dlg, ok_callback, retval_callback, help_callback, buttons)
 
 
-def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300, help_callback=None):
-	dlg, btn = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback, min_width, help_callback)
+def showWidgetDlg(widget, title, retval_callback, parent=None, ok_callback=None, min_width=300, help_callback=None, buttons=QDialogButtonBox.Cancel|QDialogButtonBox.Ok):
+	dlg, btn = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback, min_width, help_callback, buttons)
 	if dlg.exec() == QDialog.Rejected: return None
 	if not ok_callback: return retval_callback()
 

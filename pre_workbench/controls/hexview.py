@@ -251,7 +251,7 @@ class HexView2(QWidget):
 				act = menu.addAction(name, lambda name=name: self.applyFormatInfo(name, bufIdx))
 				act.setCheckable(True)
 				act.setChecked(name == current)
-			if bufIdx is not None and bufIdx > 0:
+			if bufIdx is not None and bufIdx >= 0:
 				menu.addAction("New...", lambda: self._newGrammarDef(
 					QInputDialog.getText(self, "New Grammar Definition", "Please enter a name for the new grammar definition:")[0],bufIdx))
 

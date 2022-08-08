@@ -14,15 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import binascii
 import json
 import os.path
-import traceback
 import logging
 
 from lark import Lark, Transformer
 
-from pre_workbench.structinfo import display_styles
+from pre_workbench.structinfo import ExprFunctions
 
 grammar_file = os.path.join(os.path.dirname(__file__), "format_info.lark")
 logging.info("grammar_file: %s", grammar_file)
@@ -90,12 +88,9 @@ class Evaluator(Transformer):
 
 	def fun_expr(self, node):
 		name, param = node
-		if name == "snip":
-			return str(param)[:32]
-		elif name == "len":
-			return len(param)
-		elif hasattr(display_styles, name):
-			return getattr(display_styles, name)(param)
+		fn, meta = ExprFunctions.find(name=name)
+		if fn:
+			return fn(param)
 		else:
 			raise Exception("Call to unknown function '"+name+"'")
 
@@ -117,15 +112,18 @@ class ParseContextEvaluator(Evaluator):
 		try:
 			return self.parse_context.unpack_value(node[0][node[1]])
 		except KeyError as e:
-			raise Exception("item has no member named "+str(node[1]))
+			raise Exception("item has no member named \""+str(node[1])+"\"")
 
 	def anyfield_expr(self, node):
 		id = node[0]
 		for i in range(len(self.parse_context.stack)-1, -1, -1):
 			frame = self.parse_context.stack[i]
-			if frame.value is not None and id in frame.value:
-				return self.parse_context.unpack_value(frame.value[id])
-		raise Exception("field "+id+" not found")
+			if frame.value is not None:
+				if id == 'this':
+					return frame.value
+				if id in frame.value:
+					return self.parse_context.unpack_value(frame.value[id])
+		raise Exception("field \""+id+"\" not found")
 
 	def param_expr(self, node):
 		return self.parse_context.get_param(node[0])

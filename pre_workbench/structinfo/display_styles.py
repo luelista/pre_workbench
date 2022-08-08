@@ -15,20 +15,38 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import binascii
 
+from pre_workbench.structinfo import ExprFunctions
 
+ExprFunctions.register()(str)
+ExprFunctions.register()(len)
+
+
+@ExprFunctions.register()
 def dec(i):
 	return str(i)
 
+
+@ExprFunctions.register()
 def hex(i):
 	if isinstance(i, (bytes, bytearray)):
 		return binascii.hexlify(i, ":").decode('ascii')
 	else:
 		return "0x%x" % i
 
+
+@ExprFunctions.register()
 def dotted_quad(b):
 	return ".".join("%d" % i for i in b)
 
-def ip6(b):
-	return ":".join("%x" % i for i in b)
 
-str = str
+@ExprFunctions.register()
+def ip6(b):
+	from ipaddress import IPv6Address
+	return str(IPv6Address(b))
+
+
+@ExprFunctions.register()
+def snip(param):
+	return str(param)[:32]
+
+

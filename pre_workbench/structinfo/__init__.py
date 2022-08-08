@@ -18,7 +18,7 @@
 from pre_workbench.typeregistry import TypeRegistry
 
 FITypes = TypeRegistry()
-
+ExprFunctions = TypeRegistry()
 
 """
 class RangeTreeModel(QAbstractItemModel):

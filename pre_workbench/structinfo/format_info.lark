@@ -82,10 +82,10 @@ MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 ?comparison_expression: comparison_expression COMP_OP term_expression -> compare_expr
             | term_expression
 
-?term_expression: term_expression STRICH_OP factor_expression -> math_expr
+?term_expression: term_expression TERM_OP factor_expression -> math_expr
             | factor_expression
 
-?factor_expression: factor_expression PUNKT_OP primary_expression -> math_expr
+?factor_expression: factor_expression FACTOR_OP primary_expression -> math_expr
             | primary_expression
 
 // ?unary_expression
@@ -112,8 +112,8 @@ array_expr: primary_expression "[" expression "]"
 member_expr: primary_expression "." IDENTIFIER
 anyfield_expr: IDENTIFIER
 CONJ_OP.5: "||" | "&&"
-PUNKT_OP: "*" | "/" | "<<" | ">>"
-STRICH_OP: "+" | "-" | "&" | "|" | "^"
+FACTOR_OP: "*" | "/" | "<<" | ">>"
+TERM_OP: "+" | "-" | "&" | "|" | "^"
 EQ_OP: "==" | "!="
 COMP_OP: "<" | ">" | "<=" | ">="
 number_expr: NUMBER

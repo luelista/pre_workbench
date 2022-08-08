@@ -28,7 +28,8 @@ class TypeRegistry(QObject):
 		def wrapper(typ):
 			for k,v in meta.items():
 				setattr(typ, k, v)
-			meta["name"] = typ.__name__
+			if not "name" in meta:
+				meta["name"] = typ.__name__
 			for index, (checktyp, _) in enumerate(self.types):
 				if checktyp.__name__ == typ.__name__:
 					del self.types[index]

@@ -23,7 +23,7 @@ from math import ceil, floor
 
 from bitstring import BitStream
 
-from pre_workbench.structinfo import display_styles, FITypes
+from pre_workbench.structinfo import FITypes, ExprFunctions
 from pre_workbench.structinfo.exceptions import *
 from pre_workbench.structinfo.expr import deserialize_expr, Expression
 from pre_workbench.structinfo.parsecontext import ParseContext
@@ -44,14 +44,17 @@ class FormatInfo:
 		self.fi = typeRef()
 		self.fi.init(**params)
 		self.params = params
-		if "show" not in self.params:
-			self.formatter = str
-		elif hasattr(display_styles, self.params["show"]):
-			self.formatter = getattr(display_styles, self.params["show"])
-		elif "%" in self.params["show"]:
-			self.formatter = lambda x: self.params["show"] % x
+		if "show" in self.params:
+			# TODO: BUG: when this is called from Project load, plugin functions won't be registered yet
+			formatter, _ = ExprFunctions.find(name=self.params["show"])
+			if formatter:
+				self.formatter = formatter
+			elif "%" in self.params["show"]:
+				self.formatter = lambda x: self.params["show"] % x
+			else:
+				self.formatter = lambda x: self.params["show"].format(x) if x is not None else None
 		else:
-			self.formatter = lambda x: self.params["show"].format(x) if x is not None else None
+			self.formatter = str
 
 	def updateParams(self, **changes):
 		for k,v in changes.items():

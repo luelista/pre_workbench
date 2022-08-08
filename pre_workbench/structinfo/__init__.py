@@ -20,6 +20,9 @@ from pre_workbench.typeregistry import TypeRegistry
 FITypes = TypeRegistry()
 ExprFunctions = TypeRegistry()
 
+# noinspection PyUnresolvedReferences
+import pre_workbench.structinfo.display_styles
+
 """
 class RangeTreeModel(QAbstractItemModel):
 	def __init__(self, root, parent=None):

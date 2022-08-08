@@ -42,6 +42,7 @@ from pre_workbench.configs import getIcon, SettingsSection, SettingsField, icon_
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
+# noinspection PyUnresolvedReferences
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
 	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget, \
 	MacroListDockWidget

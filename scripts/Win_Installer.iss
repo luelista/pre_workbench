@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
   
 #define MyAppName "PRE Workbench"
-#define MyAppVersion "0.8.1"
+#define MyAppVersion "0.8.2"
 #define MyAppPublisher "Mira Weller"
 #define MyAppURL "https://luelista.github.io/pre_workbench"
 #define MyAppExeName "PRE Workbench.exe"

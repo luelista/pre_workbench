@@ -17,8 +17,9 @@ import logging
 import traceback
 import os.path
 
+from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QSize
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar, QToolButton, QAction
 
 from pre_workbench.configs import SettingsField, getIcon
 from pre_workbench.datasource import DataSourceTypes, MacroDataSource
@@ -80,7 +81,12 @@ class ObjectWindow(QWidget):
 		metadataVisAction = toolbar.addAction(getIcon("tags-label.png"), "Metadata")
 		metadataVisAction.setCheckable(True)
 		toolbar.addSeparator()
-		self.reloadAction = toolbar.addAction(getIcon("arrow-circle-double.png"), "Reload")
+
+		self.reloadAction = QAction(getIcon("arrow-circle-double.png"), "Load Data")
+		reloadButton = QToolButton()
+		reloadButton.setDefaultAction(self.reloadAction)
+		reloadButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+		toolbar.addWidget(reloadButton)
 		self.reloadAction.triggered.connect(self.reload)
 		self.cancelAction = toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
 		self.cancelAction.triggered.connect(self.onCancelFetch)

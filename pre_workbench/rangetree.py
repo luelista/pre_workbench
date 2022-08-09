@@ -24,13 +24,14 @@ from PyQt5.QtCore import (Qt)
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QMenu, QFileDialog, QTreeWidget, QTreeWidgetItem, \
 	QTreeWidgetItemIterator, QMessageBox, QAction
+from pre_workbench.consts import SYNTAX_REFERENCE_URL
 
 from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
-from pre_workbench.guihelper import getMonospaceFont, filledColorIcon, setClipboardText
+from pre_workbench.guihelper import getMonospaceFont, filledColorIcon, setClipboardText, navigateBrowser
 from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
 from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI, \
 	UnionFI, BitStructFI
@@ -193,7 +194,7 @@ class RangeTreeWidget(QTreeWidget):
 		def ok_callback(result):
 			element.from_text(result)
 			self._afterUpdate()
-		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback)
+		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback, help_callback=lambda: navigateBrowser(SYNTAX_REFERENCE_URL))
 
 	def editField2(self, element: FormatInfo):
 		def ok_callback(params):

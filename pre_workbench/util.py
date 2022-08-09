@@ -51,4 +51,7 @@ class SimpleThread(QThread):
         self.resultReturned.connect(finish_fn)
         self.start()
     def run(self) -> None:
-        self.resultReturned.emit(self.thread_fn())
+        try:
+            self.resultReturned.emit(self.thread_fn())
+        except:
+            logging.exception("Exception in SimpleThread")

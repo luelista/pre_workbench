@@ -66,7 +66,7 @@ def showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, tit
 	for value, text in listOptions:
 		w = QListWidgetItem(text, widget)
 		w.setData(1000, value)
-		if value == selectedOption or (multiselect and value in selectedOption):
+		if value == selectedOption or (multiselect and selectedOption and value in selectedOption):
 			widget.setCurrentItem(w)
 			w.setSelected(True)
 	dlg, box = makeWidgetDlg(widget, title, retval_callback, parent, ok_callback, min_width, help_callback=help_callback)

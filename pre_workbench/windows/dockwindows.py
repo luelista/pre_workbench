@@ -35,7 +35,7 @@ import pre_workbench.app
 from pre_workbench import configs
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import getIcon, SettingsField
-from pre_workbench.consts import MACRO_CODE_HELP_URL, MACRO_PROPERTIES_HELP_URL
+from pre_workbench.consts import MACRO_CODE_HELP_URL, MACRO_PROPERTIES_HELP_URL, SYNTAX_REFERENCE_URL
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
@@ -217,21 +217,31 @@ class StructInfoCodeWidget(QWidget):
 	def __init__(self):
 		super().__init__()
 		self._initUI()
+		self.editor.ctrlEnterPressed.connect(self._applyContent)
+		self.editor.modificationChanged.connect(self._modificationChanged)
 		self._updateContent()
 		pre_workbench.app.CurrentProject.formatInfoContainer.updated.connect(self._updateContent)
-		self.editor.ctrlEnterPressed.connect(self._applyContent)
 
 	def _updateContent(self):
 		self.editor.setText(pre_workbench.app.CurrentProject.formatInfoContainer.to_text())
+		self.editor.setModified(False)
 
 	def _applyContent(self):
 		pre_workbench.app.CurrentProject.formatInfoContainer.load_from_string(self.editor.text())
 		pre_workbench.app.CurrentProject.formatInfoContainer.write_file(None)
+		self.editor.setModified(False)
+
+	def _modificationChanged(self, mod):
+		self.toolbar.setVisible(mod)
 
 	def _initUI(self):
+		self.toolbar = QToolBar()
+		self.toolbar.addAction("Apply Definitions", self._applyContent)
+		self.toolbar.addAction("Syntax Reference", lambda: navigateBrowser(SYNTAX_REFERENCE_URL))
 		self.editor = ScintillaEdit()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.editor)
+		windowLayout.addWidget(self.toolbar)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
 		self.editor.show()

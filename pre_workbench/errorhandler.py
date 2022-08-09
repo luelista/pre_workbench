@@ -63,7 +63,10 @@ def check_for_updates():
 			return version
 	except Exception as e:
 		logging.exception("Update check failed :(")
-		print(e.read())
+		try:
+			logging.warning("Update check result: "+str(e.read()))
+		except:
+			logging.warning("Unable to read update check result")
 
 def excepthook(excType, excValue, tracebackobj):
 	global enableReports

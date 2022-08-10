@@ -282,7 +282,7 @@ class PacketListWidget(QWidget):
 
         ctx = QMenu("Context menu", self.packetlist)
         if index > -1:
-            ctx.addAction("Header "+str(index))
+            ctx.addAction("Header "+str(index)).setDisabled(True)
             ctx.addAction("Edit", lambda: self.onEditColumn(index))
             ctx.addAction("Remove Column", lambda: self.packetlistmodel.removeColumn(index))
             ctx.addSeparator()

@@ -121,14 +121,18 @@ class FormatInfo:
 			context.pop()
 
 	def __repr__(self):
-		return type(self.fi).__name__+ params_to_text(0, None, self.params)
+		return self.fi_type + params_to_text(0, None, self.params)
 
 	def visit(self, context, visitor):
 		try:
 			context.push(self)
-			return getattr(visitor, type(self.fi).__name__.lower())(self)
+			return getattr(visitor, self.fi_type.lower())(self)
 		finally:
 			context.pop()
+
+	@property
+	def fi_type(self):
+		return type(self.fi).__name__
 
 @FITypes.register(type_id=2)
 class StructFI:

@@ -1,4 +1,8 @@
 from collections import defaultdict
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+	from pre_workbench.algo.range import Range
 
 cdef class RangeList:
 	cdef list ranges
@@ -50,7 +54,12 @@ cdef class RangeList:
 		if not metaKey in self.annotationContainsCache: self._cacheMetaValuesContains(metaKey)
 		return self.annotationContainsCache[metaKey][start]
 
-	def findMatchingRanges(self, start=None, end=None, contains=None, overlaps=None, **kw):
+	def findMatchingRanges(self,
+						   start: Optional[int]=None,
+						   end: Optional[int]=None,
+						   contains: Optional[int]=None,
+						   overlaps: Optional[Range]=None,
+						   containsRange: Optional[Range]=None, **kw):
 		cdef int scanChunk = -1
 		if start is not None:
 			scanChunk = start // self.chunkSize
@@ -63,15 +72,17 @@ cdef class RangeList:
 			lastChunk = overlaps.end // self.chunkSize
 			if firstChunk == lastChunk:
 				scanChunk = firstChunk
+		elif containsRange is not None:
+			scanChunk = containsRange.start // self.chunkSize
 
 		if scanChunk != -1:
 			if scanChunk >= self.chunkCount: return
 			for el in self.chunks[scanChunk]:
-				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
+				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, containsRange=containsRange, **kw):
 					yield el
 		else:
 			for el in self.ranges:
-				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, **kw):
+				if el.matches(start=start, end=end, contains=contains, overlaps=overlaps, containsRange=containsRange, **kw):
 					yield el
 
 	def __len__(self):

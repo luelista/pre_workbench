@@ -27,7 +27,7 @@ from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog
+from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QMessageBox
 
 from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench import configs, guihelper
@@ -38,6 +38,7 @@ from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer, ByteBufferList
 from pre_workbench.rangetree import RangeTreeWidget
+from pre_workbench.structinfo.format_info import builtinTypes
 from pre_workbench.structinfo.parser import parse_definition
 from pre_workbench.util import PerfTimer
 
@@ -102,6 +103,8 @@ class HexView2(QWidget):
 		self.selBuffer = 0
 		self.selStart = 0
 		self.selEnd = 0
+		self.clickGrammarUndefRef = None
+		self.clickGrammarFieldRef = None
 		self.itemY = list()
 		self.lastHit = None
 		self.selecting = False
@@ -171,10 +174,7 @@ class HexView2(QWidget):
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
 			if hit.offset < self.selStart or hit.offset > self.selEnd or hit.buffer != self.selBuffer:
-				self.selStart = self.selEnd = hit.offset
-				self.selBuffer = hit.buffer
-				self.selecting = False
-				self.redrawSelection()
+				self.select(hit.offset, hit.offset, hit.buffer, False)
 			self._buildSelectionContextMenu(ctxMenu)
 		else:
 			self._buildGeneralContextMenu(ctxMenu)
@@ -188,6 +188,18 @@ class HexView2(QWidget):
 		ctx.addSeparator()
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
+		if self.clickGrammarUndefRef:
+			for name, (len, fun) in builtinTypes.items():
+				if len == self.selLength() and fun:
+					ctx.addAction(name, lambda name=name: self.clickGrammarAdd(name))
+			ctx.addAction(f"BYTES[{self.selLength()}]", lambda: self.clickGrammarAdd(f"BYTES[{self.selLength()}]"))
+			ctx.addAction(f"STRING[{self.selLength()}]", lambda: self.clickGrammarAdd(f"STRING[{self.selLength()}](charset=\"utf8\")"))
+			ctx.addAction("struct { ... }", lambda: self.clickGrammarAdd("struct { _undef_1 BYTES[" + str(self.selLength()) + "] }"))
+			ctx.addSeparator()
+		if self.clickGrammarFieldRef:
+			ctx.addAction("Undefine field " + self.clickGrammarFieldRef[0].field_name, self.clickGrammarUndefine)
+			ctx.addSeparator()
+
 		try:
 			match = next(
 				self.buffers[self.selBuffer].matchRanges(start=self.selFirst(), end=self.selLast()+1, doesntHaveMetaKey='_sdef_ref'))
@@ -278,6 +290,78 @@ class HexView2(QWidget):
 			for buf in bufs:
 				lst.add(buf)
 			macro.execute(lst)
+
+	def clickGrammarAdd(self, definitionStr):
+		new_field_name = QInputDialog.getText(self, "New Field", "Please enter a name for the new field of type "+definitionStr+":")[0]
+		if not new_field_name: return
+		bytes_range, struct_range = self.clickGrammarUndefRef
+		bytes = bytes_range.metadata['_sdef_ref']
+		struct = struct_range.metadata['_sdef_ref']
+		if any(True for i, el in enumerate(struct.fi.children) if el[0] == new_field_name):
+			QMessageBox.warning(self, "Error", "The struct already contains a field named \"" + new_field_name + "\"")
+			return
+
+		sel = self.selRange()
+		idx = next(i for i, el in enumerate(struct.fi.children) if el[0] == bytes_range.field_name)
+
+		# resize or remove current _undef_
+		offset_in_bytes = sel.start - bytes_range.start
+		if offset_in_bytes > 0:
+			from pre_workbench.structinfo.expr import deserialize_expr
+			bytes.updateParams(size=deserialize_expr(str(offset_in_bytes)))
+			idx += 1
+		else:
+			del struct.fi.children[idx]
+
+		# insert new field
+		new_def = parse_definition(definitionStr)
+		new_def_size = sel.length()
+		struct.fi.children.insert(idx, (new_field_name, new_def, ''))
+		idx += 1
+
+		# insert new _undef_ behind new field, if needed
+		remaining_size = bytes_range.length() - offset_in_bytes - new_def_size
+		if remaining_size > 0:
+			new_bytes_def = parse_definition(f'BYTES[{remaining_size}]')
+			struct.fi.children.insert(idx, ('_undef_XXX', new_bytes_def, ''))
+
+		# re-number all _undef_ fields
+		self._clickGrammarRenumber(struct_range)
+
+		self.formatInfoContainer.write_file(self.formatInfoContainer.file_name)
+
+	def clickGrammarUndefine(self):
+		field_range, struct_range = self.clickGrammarFieldRef
+		struct = struct_range.metadata['_sdef_ref']
+
+		start = end = next(i for i, el in enumerate(struct.fi.children) if el[0] == field_range.field_name)
+		undef_len = field_range.length()
+		if start > 0 and struct.fi.children[start - 1][0].startswith('_undef_'):
+			undef_len += struct.fi.children[start - 1][1].fi.size_expr.evaluate_dict({})
+			start -= 1
+		if end + 1 < len(struct.fi.children) and struct.fi.children[end + 1][0].startswith('_undef_'):
+			undef_len += struct.fi.children[end + 1][1].fi.size_expr.evaluate_dict({})
+			end += 1
+
+		print(f"replacing {start} to {end} with BYTES[{undef_len}]")
+		struct.fi.children[start:end+1] = [('_undef_', parse_definition(f'BYTES[{undef_len}]'), '')]
+
+		# re-number all _undef_ fields
+		self._clickGrammarRenumber(struct_range)
+
+		self.formatInfoContainer.write_file(self.formatInfoContainer.file_name)
+
+
+
+	def _clickGrammarRenumber(self, struct_range):
+		struct = struct_range.metadata['_sdef_ref']
+		number = 1
+		for i in range(len(struct.fi.children)):
+			name, fi, comment = struct.fi.children[i]
+			if name.startswith('_undef_'):
+				struct.fi.children[i] = (f'_undef_{number}', fi, comment)
+				number += 1
+		
 
 	def setDefaultAnnotationSet(self, name):
 		self.annotationSetDefaultName = name
@@ -519,11 +603,33 @@ class HexView2(QWidget):
 		#self.fiTreeWidget.hilightFormatInfoTree(r)
 
 		with PerfTimer("selectionChanged event handlers"):
+			shortest = None
+			self.clickGrammarUndefRef = None
+			self.clickGrammarFieldRef = None
 			if self.selBuffer < len(self.buffers):
 				self.selectionChanged.emit(r)
 
-			QApplication.postEvent(self, QStatusTipEvent("Buffer #%d  Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)"%(
-				self.selBuffer, self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength())))
+				ranges = list(self.buffers[self.selBuffer].matchRanges(containsRange=self.selRange(), hasMetaKey='_sdef_ref'))
+				print(ranges)
+				print([r.metadata['_sdef_ref'] for r in ranges])
+				print([type(r.metadata['_sdef_ref']).__name__ for r in ranges])
+				print([r.field_name for r in ranges])
+				if len(ranges) >= 2 and ranges[1].metadata['_sdef_ref'].fi_type == 'StructFI':
+					if (ranges[0].metadata['_sdef_ref'].fi_type == 'FieldFI' and ranges[0].metadata['_sdef_ref'].fi.format_type == 'BYTES'
+							and ranges[0].field_name.startswith('_undef_')):
+						self.clickGrammarUndefRef = (ranges[0], ranges[1])
+						print("clickGrammar Match!")
+						print("bytes: ",ranges[0])
+						print("struct:",ranges[1])
+					else:
+						self.clickGrammarFieldRef = (ranges[0], ranges[1])
+				try:
+					shortest = min(ranges, key=len)
+				except ValueError:
+					pass
+
+			QApplication.postEvent(self, QStatusTipEvent("Buffer #%d  Selection %d-%d (%d bytes)   0x%X - 0x%X (0x%X bytes)    %r   %s"%(
+				self.selBuffer, self.selStart,self.selEnd,self.selLength(),self.selStart,self.selEnd,self.selLength(),shortest,"ClickGrammar Available!" if self.clickGrammarUndefRef else "")))
 
 
 	def selectRange(self, rangeObj, scrollIntoView=False):

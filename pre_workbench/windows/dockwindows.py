@@ -94,19 +94,22 @@ class FileBrowserWidget(QWidget):
 			selectedFile = file.absoluteFilePath()
 			selectedFolder = selectedFile if file.isDir() else file.absolutePath()
 			if file.isDir():
-				ctx.addAction("Open as directory of binary files", lambda: navigate("WINDOW", "Type=ObjectWindow", "FileName=" + selectedFile,
+				ctx.addAction("Open as Directory of Binary Files", lambda: navigate("WINDOW", "Type=ObjectWindow", "FileName=" + selectedFile,
 																			   "dataSourceType=DirectoryOfBinFilesDataSource"))
 				ctx.addSeparator()
-				ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
+				ctx.addAction("Open in File Manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 			else:
+				ctx.addAction("Open as Data Source", lambda: navigate("WINDOW", "Type=ObjectWindow", "FileName=" + selectedFile,
+																			   "dataSourceType=DirectoryOfBinFilesDataSource"))
+				mnuOpenWith = ctx.addMenu('Open with ...')
 				for wndTyp, meta in WindowTypes.types:
-					text = 'Open with '+meta.get('displayName', meta['name'])
-					ctx.addAction(QAction(text, self, statusTip=text, icon=getIcon(meta.get('icon', 'document.png')),
+					text = meta.get('displayName', meta['name'])
+					mnuOpenWith.addAction(QAction(text, self, statusTip=text, icon=getIcon(meta.get('icon', 'document.png')),
 											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
 				ctx.addSeparator()
-				ctx.addAction("Open in default application", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
+				ctx.addAction("Open in Default Application", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 		else:
-			ctx.addAction("Open in file manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.model.rootPath())))
+			ctx.addAction("Open in File Manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.model.rootPath())))
 		#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
 		ctx.exec(self.tree.viewport().mapToGlobal(point))
 

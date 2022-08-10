@@ -38,8 +38,12 @@ title: Welcome to PRE Workbench Docs
 
 ### Interactive documentation of procotol structure as grammar
 - Description language for binary protocols
+- "Click-Grammar": Edit in parallel using code and GUI (see screencast below)
 - Applying a grammar to multiple packages
 - Display of fields from grammar in table
+
+<blockquote class="imgur-embed-pub" lang="en" data-id="a/1t0hMp8"  ><a href="//imgur.com/a/1t0hMp8">PRE Workbench (Click-Grammar)</a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>
+
 
 ## Other features
 ### Data inspector

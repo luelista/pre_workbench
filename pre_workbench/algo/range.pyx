@@ -1,4 +1,4 @@
-
+from typing import Optional
 
 cdef class Range:
 	cdef readonly object value
@@ -33,19 +33,26 @@ cdef class Range:
 	def length(self):
 		return self.bytes_size
 
+	def __len__(self):
+		return self.bytes_size
+
 	cpdef bint contains(self, int i):
 		return self.start <= i < self.end
 
 	cpdef bint overlaps(self, Range other):
-		return self.contains(other.start) or self.contains(other.end - 1) or other.contains(
-			self.start) or other.contains(self.end - 1)
+		return self.contains(other.start) or self.contains(other.end - 1) or \
+			   other.contains(self.start) or other.contains(self.end - 1)
 
-	def matches(self, start=None, end=None, contains=None, hasMetaKey=None, doesntHaveMetaKey=None,
-				overlaps=None, **kw):
+	cpdef bint containsRange(self, Range other):
+		return self.contains(other.start) and self.contains(other.end - 1)
+
+	def matches(self, start:Optional[int]=None, end:Optional[int]=None, contains:Optional[int]=None, hasMetaKey=None, doesntHaveMetaKey=None,
+				overlaps:Optional['Range']=None, containsRange:Optional['Range']=None, **kw):
 		if start is not None and start != self.start: return False
 		if end is not None and end != self.end: return False
 		if contains is not None and not self.contains(contains): return False
 		if overlaps is not None and not self.overlaps(overlaps): return False
+		if containsRange is not None and not self.containsRange(containsRange): return False
 		if hasMetaKey is not None and hasMetaKey not in self.metadata: return False
 		if doesntHaveMetaKey is not None and doesntHaveMetaKey in self.metadata: return False
 		for k, v in kw.items():

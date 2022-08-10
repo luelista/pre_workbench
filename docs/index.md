@@ -3,6 +3,7 @@ title: Welcome to PRE Workbench Docs
 ---
 
 # Documentation
+<a href="#screenshot"><img src="images/app-screenshot.png" style="width: 50%; float:right"></a>
 
 [Installation](install)
 

@@ -100,7 +100,7 @@ class FileBrowserWidget(QWidget):
 				ctx.addAction("Open in File Manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
 			else:
 				ctx.addAction("Open as Data Source", lambda: navigate("WINDOW", "Type=ObjectWindow", "FileName=" + selectedFile,
-																			   "dataSourceType=DirectoryOfBinFilesDataSource"))
+																			   "dataSourceType=FileDataSource"))
 				mnuOpenWith = ctx.addMenu('Open with ...')
 				for wndTyp, meta in WindowTypes.types:
 					text = meta.get('displayName', meta['name'])
@@ -153,9 +153,9 @@ class MdiWindowListWidget(QWidget):
 
 	def _initUI(self):
 		self.list = QListWidget()
-		#self.list.doubleClicked.connect(self.onDblClick)
-		self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-		self.list.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
+		# TODO fix context menu
+		#self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+		#self.list.customContextMenuRequested.connect(self.onCustomContextMenuRequested)
 		self.list.itemClicked.connect(self.gotoItem)
 
 		windowLayout = QVBoxLayout()

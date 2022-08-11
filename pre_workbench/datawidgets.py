@@ -24,11 +24,11 @@ import yaml
 from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
     QMenu, \
-    QAbstractItemView, QTableView
+    QAbstractItemView, QTableView, QAction, QInputDialog, QMessageBox
 
 import pre_workbench.app
 
-from pre_workbench.configs import SettingsField
+from pre_workbench.configs import SettingsField, getIcon
 from pre_workbench.guihelper import getMonospaceFont, setClipboardText, getClipboardText, APP
 from pre_workbench.structinfo.expr import Expression
 from pre_workbench.controls.genericwidgets import showSettingsDlg, showListSelectDialog
@@ -181,6 +181,7 @@ class PacketListWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.lastFindExpression = ""
         self.initUI()
 
     def showData(self, data: List[ByteBuffer]):
@@ -216,6 +217,25 @@ class PacketListWidget(QWidget):
         self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
         #tabs.addTab(self.packetlist, "Raw Frames")
         layout.addWidget(self.packetlist)
+        self.actions = [
+            QAction(getIcon("magnifier-flag.png"), "Find By Expression", triggered=self._findByExpression),
+            QAction(getIcon("flag.png"), "Mark/Unmark Selected Packets", triggered=self._markUnmarkSelection),
+            QAction(getIcon("table-reset.png"), "Reset Header", triggered=lambda: self.packetlistmodel.autoCols()),
+            QAction(getIcon("table-insert-column-tag.png"), "Add Metadata Column", triggered=lambda: self._quickAddDialog("Quick Add Metadata Column", self._getQuickAddMetadataElements(), None)),
+            QAction(getIcon("table-insert-column-bookmark.png"), "Add Field Column", triggered=lambda: self._quickAddDialog("Quick Add Field Column", self._getQuickAddFieldElements(), None)),
+        ]
+
+    def _findByExpression(self):
+        expr_str = QInputDialog.getText(self, "Find By Expression", "Please enter expression. All rows for which the expression is true will be marked, all others unmarked.", text=self.lastFindExpression)[0]
+        if not expr_str: return
+        self.lastFindExpression = expr_str
+        expr = Expression(expr_str=expr_str)
+        matches = 0
+        for rowIndex, buf in enumerate(self.packetlistmodel.listObject.buffers):
+            match = buf.metadata['marked'] = bool(expr.evaluate_bbuf(buf))
+            if match: matches += 1
+            self.packetlistmodel.headerDataChanged.emit(Qt.Vertical, rowIndex, rowIndex)
+        QMessageBox.information(self, "Find By Expression", f"Of {len(self.packetlistmodel.listObject.buffers)} buffers, {matches} matched the expression " + expr.serialize())
 
     def _rowHeaderClicked(self, rowIndex: int):
         self.packetlistmodel.markPacket(rowIndex)
@@ -225,6 +245,7 @@ class PacketListWidget(QWidget):
         logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
         self.packetlistmodel.setList(self.listObject)
+        self.meta_updated.emit("actions", self.actions)
 
     def onPacketlistSelectionChanged(self, selected, deselected):
         buffers = list()
@@ -243,12 +264,15 @@ class PacketListWidget(QWidget):
         ctx = QMenu("Context menu", self.packetlist)
         if index.isValid():
             ctx.addAction("Item Details", lambda: self.showData(self.getSelectedBuffers()))
-            ctx.addAction("Mark/Unmark Packet", lambda: [self.packetlistmodel.markPacket(index.row()) for index in self.packetlist.selectionModel().selectedRows()])
+            ctx.addAction("Mark/Unmark Packet", self._markUnmarkSelection)
             self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On" + (" Selected Buffers" if len(self.packetlist.selectionModel().selectedRows()) > 1 else " Buffer"))
             ctx.addSeparator()
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
 
         ctx.exec(self.packetlist.viewport().mapToGlobal(point))
+
+    def _markUnmarkSelection(self):
+        [self.packetlistmodel.markPacket(index.row()) for index in self.packetlist.selectionModel().selectedRows()]
 
     def _buildRunMacroOnBufferSubmenu(self, ctx, title):
         menu = ctx.addMenu(title)
@@ -266,16 +290,27 @@ class PacketListWidget(QWidget):
                 lst.add(self.listObject.buffers[index.row()])
             macro.execute(lst)
 
+    def _quickAddDialog(self, title: str, elements: List[Tuple[str, str]], addIdx: int):
+        def on_ok(keys):
+            for key in keys:
+                self.packetlistmodel.addColumn(ColumnInfo(key, key), addIdx)
+        showListSelectDialog(elements, None, title, self, on_ok, multiselect=True)
+
     def _generateQuickAddMenu(self, ctx: QMenu, title: str, elements: List[Tuple[str, str]], addIdx: int):
         if len(elements) > 20:
-            def on_ok(keys):
-                for key in keys:
-                    self.packetlistmodel.addColumn(ColumnInfo(key, key), addIdx)
-            ctx.addAction(title + " ...", lambda: showListSelectDialog(elements, None, title, self, on_ok, multiselect=True))
+            ctx.addAction(title + " ...", lambda: self._quickAddDialog(title, elements, addIdx))
         else:
             quick = ctx.addMenu(title)
             for key, text in elements:
                 quick.addAction(text, lambda key=key, text=text: self.packetlistmodel.addColumn(ColumnInfo(key, text), addIdx))
+
+    def _getQuickAddMetadataElements(self):
+        return [("${\"" + key + "\"}", "$" + key) for key in
+                    sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False))]
+
+    def _getQuickAddFieldElements(self):
+        return [("fields[\""+key+"\"]", key) for key in
+                    sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True))]
 
     def onHeaderContextMenu(self, point):
         index = self.packetlist.horizontalHeader().logicalIndexAt(point)
@@ -289,13 +324,9 @@ class PacketListWidget(QWidget):
         addIdx = None if index == -1 else index
         ctx.addAction("Add Column ...", lambda: self.onAddColumn(addIdx))
 
-        elements = [("${\"" + key + "\"}", "$" + key) for key in
-                    sorted(self.listObject.getAllKeys(metadataKeys=True, fieldKeys=False))]
-        self._generateQuickAddMenu(ctx, "Quick Add Metadata Column", elements, addIdx)
+        self._generateQuickAddMenu(ctx, "Quick Add Metadata Column", self._getQuickAddMetadataElements(), addIdx)
 
-        elements = [("fields[\""+key+"\"]", key) for key in
-                    sorted(self.listObject.getAllKeys(metadataKeys=False, fieldKeys=True))]
-        self._generateQuickAddMenu(ctx, "Quick Add Field Column", elements, addIdx)
+        self._generateQuickAddMenu(ctx, "Quick Add Field Column", self._getQuickAddFieldElements(), addIdx)
 
         ctx.addSeparator()
         magic = "!!pre_workbench/packetListHeaderState\n"

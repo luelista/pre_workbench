@@ -74,34 +74,36 @@ class ObjectWindow(QWidget):
 		#tb.addItem(self.sourceConfig, "Data Source Options")
 		#layout.addWidget(ExpandWidget("Data Source Options", self.sourceConfig, collapseSettings))
 
-		toolbar = QToolBar()
-		dsoVisAction = toolbar.addAction(getIcon("gear--pencil.png"), "Data Source Options")
+		self.toolbar = QToolBar()
+		dsoVisAction = self.toolbar.addAction(getIcon("gear--pencil.png"), "Data Source Options")
 		dsoVisAction.setCheckable(True); dsoVisAction.setChecked(not collapseSettings)
 		dsoVisAction.toggled.connect(lambda val: self.sourceConfig.setVisible(val))
-		metadataVisAction = toolbar.addAction(getIcon("tags-label.png"), "Metadata")
+		metadataVisAction = self.toolbar.addAction(getIcon("tags-label.png"), "Metadata")
 		metadataVisAction.setCheckable(True)
-		toolbar.addSeparator()
+		self.toolbar.addSeparator()
 
 		self.reloadAction = QAction(getIcon("arrow-circle-double.png"), "Load Data")
 		reloadButton = QToolButton()
 		reloadButton.setDefaultAction(self.reloadAction)
 		reloadButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-		toolbar.addWidget(reloadButton)
+		self.toolbar.addWidget(reloadButton)
 		self.reloadAction.triggered.connect(self.reload)
-		self.cancelAction = toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
+		self.cancelAction = self.toolbar.addAction(getIcon("control-stop-square.png"), "Cancel")
 		self.cancelAction.triggered.connect(self.onCancelFetch)
 		self.cancelAction.setEnabled(False)
-		exportAction = toolbar.addAction(getIcon("document-export.png"), "Export")
+		exportAction = self.toolbar.addAction(getIcon("document-export.png"), "Export")
 		exportAction.triggered.connect(self.exportInTab)
-		# macroMenu = toolbar.addAction(getIcon("scripts.png"), "Run Macro On Object")
+		self.childActions = []
+		self.toolbar.addSeparator()
+		# macroMenu = self.toolbar.addAction(getIcon("scripts.png"), "Run Macro On Object")
 		# self.macroMenu = QMenu(self)
 		# macroMenu.setMenu(self.macroMenu)
 		# self.macroMenu.aboutToShow.connect(self._fillMacroMenu)
-		layout.addWidget(toolbar)
+		layout.addWidget(self.toolbar)
 		layout.addWidget(self.sourceConfig)
 
 		self.dataDisplay = DynamicDataWidget()
-		self.dataDisplay.meta_updated.connect(self.meta_updated.emit)
+		self.dataDisplay.meta_updated.connect(self._forwardMetaUpdate)
 		metadataVisAction.toggled.connect(self.dataDisplay.setMetadataVisible)
 		#tb.addItem(self.dataDisplay, "Results")
 		#layout.addWidget(ExpandWidget("Results", self.dataDisplay))
@@ -175,6 +177,11 @@ class ObjectWindow(QWidget):
 	def reload(self):
 		try:
 			self.cancelAction.setEnabled(True)
+
+			for old in self.childActions:
+				self.toolbar.removeAction(old)
+			self.childActions = []
+
 			clz = self._getDatasource(self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
@@ -192,3 +199,12 @@ class ObjectWindow(QWidget):
 	def exportInTab(self):
 		pass
 
+	def _forwardMetaUpdate(self, name, value):
+		if name == 'actions':
+			for old in self.childActions:
+				self.toolbar.removeAction(old)
+			self.childActions = value
+			for new in self.childActions:
+				self.toolbar.addAction(new)
+
+		self.meta_updated.emit(name, value)

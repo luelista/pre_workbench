@@ -41,6 +41,7 @@ from pre_workbench import windows
 from pre_workbench.configs import getIcon, SettingsSection, SettingsField, icon_searchpaths
 from pre_workbench.datawidgets import DynamicDataWidget
 from pre_workbench.util import get_app_version, SimpleThread
+from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
 # noinspection PyUnresolvedReferences
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
@@ -632,7 +633,7 @@ class WorkbenchMain(QMainWindow):
 
 		root,ext = os.path.splitext(FileName)
 		winType, _ = WindowTypes.find(fileExts=ext)
-		if winType is None: winType = HexFileWindow
+		if winType is None: winType = ObjectWindow
 
 		try:
 			wnd = winType(fileName=FileName)

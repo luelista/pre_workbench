@@ -909,6 +909,8 @@ class HexView2(QWidget):
 	def highlightMatch(self, qp: QPainter, matchrange: Tuple[int, int, int], desc: str, color: QColor):
 		(bufIdx, start, end) = matchrange
 		self.selHeurMatches.append(SelectionHeuristicMatch(bufIdx, start, end, desc, color))
+		((firstBuf, firstOffset), (lastBuf, lastOffset)) = self.visibleRange()
+		if bufIdx == firstBuf and start < firstOffset: start = firstOffset
 		for i in range(start, end):
 			(xHex, xAscii, y, dy) = self.offsetToClientPos(bufIdx, i)
 			if dy is None: break

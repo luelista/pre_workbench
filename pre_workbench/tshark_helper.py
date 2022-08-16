@@ -78,7 +78,9 @@ class PdmlToPacketListParser:
 			if "value" in attrib and len(attrib["value"]) == size * 2:
 				#try:
 					self.next_packet.setBytes(pos, binascii.unhexlify(attrib["value"]))
-
+					#if 'value' in attrib: attrib['value'] = attrib['show']
+					if 'showname' in attrib: attrib['print'] = attrib['showname']
+					if 'show' in attrib: attrib['value'] = attrib['show']
 					self.parse_context.push(attrib, v)
 					self.parse_context.buf_offset += size
 					v.append( self.parse_context.pack_value(attrib["value"]) )

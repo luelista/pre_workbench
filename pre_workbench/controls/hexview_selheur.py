@@ -16,12 +16,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import struct
+from typing import TYPE_CHECKING
 
 from PyQt5.QtGui import QColor, QPen, QPainter
 
 from pre_workbench.configs import SettingsField
 from pre_workbench.objects import ByteBuffer
 from pre_workbench.typeregistry import TypeRegistry
+
+if TYPE_CHECKING:
+	from pre_workbench.controls.hexview import HexView2
 
 SelectionHelpers = TypeRegistry()
 
@@ -69,22 +73,11 @@ def findInRange(bbuf, ranges, values):
 					i += 1
 
 
-def highlightMatch(editor, qp: QPainter, matchrange, desc, color):
-	(bufIdx,start,end)=matchrange
-	for i in range(start,end):
-		(xHex, xAscii, y, dy) = editor.offsetToClientPos(bufIdx, i)
-		if dy is None: break
-		p = QPen(color)
-		p.setWidth(3)
-		qp.setPen(p)
-		qp.drawLine(xHex+3, y+dy, xHex+editor.dxHex-3, y+dy)
-		qp.drawLine(xAscii+1, y+dy, xAscii+editor.dxAscii-2, y+dy)
-
 
 @SelectionHelpers.register(color="#ff00ff", defaultEnabled=True, options=[
 	SettingsField("minLength", "Minimum Selection Length", "int", {"default":2}),
 ])
-def selectionLengthMatcher(editor, qp, bbuf, sel, options):
+def selectionLengthMatcher(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer, sel, options):
 	"""
 	Searches for the length of the selection in various formats in the 16 bytes preceding, the selection itself and the 16 bytes following the selection.
 
@@ -94,11 +87,11 @@ def selectionLengthMatcher(editor, qp, bbuf, sel, options):
 	sellen = end - start + 1
 	if sellen < options.get("minLength", 2): return
 	for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen)):
-		highlightMatch(editor, qp, match,desc,QColor("#ff00ff"))
+		editor.highlightMatch(qp, match, "Selection Length as " + desc, QColor("#ff00ff"))
 
 
 @SelectionHelpers.register(color="#993399", defaultEnabled=False)
-def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel, options):
+def fuzzySelectionLengthMatcher(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer, sel, options):
 	"""
 	Same as selectionLengthMatcher, but searches for the length +1, +2 and +4.
 	"""
@@ -107,22 +100,22 @@ def fuzzySelectionLengthMatcher(editor, qp, bbuf, sel, options):
 	if sellen == 0: return
 	if sellen >= 5:
 		for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen+1, sellen+2, sellen+4)):
-			highlightMatch(editor, qp, match,desc,QColor("#993399"))
+			editor.highlightMatch(qp, match, "Fuzzy Selection Length as " + desc, QColor("#993399"))
 
 
 @SelectionHelpers.register(color="#775511", defaultEnabled=False)
-def debug_highlightMatchRange(editor, qp, bbuf, sel, options):
+def debug_highlightMatchRange(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer, sel, options):
 	"""
 	Highlights the 16 bytes preceding the selection, because they are searched for other matches
 
 	Internal debug tool
 
 	"""
-	highlightMatch(editor, qp, rangeBefore(bbuf, sel), "", QColor("#775511"))
+	editor.highlightMatch(qp, rangeBefore(bbuf, sel), "debug_highlightMatchRange", QColor("#775511"))
 
 
-@SelectionHelpers.register(color="#555555", defaultEnabled=True)
-def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel, options):
+@SelectionHelpers.register(color="#666666", defaultEnabled=True)
+def highlightSelectionAsLength(editor: "HexView2", qp: QPainter, bbuf:ByteBuffer, sel, options):
 	"""
 	Parses the current selection as integer and uses the value as a length, to highlight the range with this length
 	following the selection.
@@ -135,18 +128,18 @@ def highlightSelectionAsLength(editor, qp, bbuf:ByteBuffer, sel, options):
 	if end-start>8: return
 	val = bbuf.getInt(start,end,endianness=">",signed=False)
 	if val > 0 and end+val <= len(bbuf):
-		highlightMatch(editor, qp, (bufIdx, end, end+val), "", QColor("#555555"))
+		editor.highlightMatch(qp, (bufIdx, end, end+val), "Selection As Length (BE)", QColor("#666666"))
 		return
 	val = bbuf.getInt(start,end,endianness="<",signed=False)
 	if val > 0 and end+val <= len(bbuf):
-		highlightMatch(editor, qp, (bufIdx, end, end+val), "", QColor("#555555"))
+		editor.highlightMatch(qp, (bufIdx, end, end+val), "Selection As Length (LE)", QColor("#666666"))
 		return
 
 
 @SelectionHelpers.register(color="#009999", defaultEnabled=True, options=[
 	SettingsField("minLength", "Minimum Selection Length", "int", {"default":2}),
 ])
-def highlightRepetitions(editor, qp, bbuf, sel, options):
+def highlightRepetitions(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer, sel, options):
 	"""
 	Searches for the byte values of the selection in the whole visible buffer, highlighting all occurrences.
 	"""
@@ -160,7 +153,7 @@ def highlightRepetitions(editor, qp, bbuf, sel, options):
 		start = firstOffset if i == firstBuf else 0
 		end = lastOffset if i == lastBuf else len(editor.buffers[i])
 		logging.debug("highlightRepetitions: scanning #%d bytes %d-%d",i,start,end)
-		for match, desc in findInRange(editor.buffers[i], [(i, start, end)], [(selbytes, "")]):
+		for match, desc in findInRange(editor.buffers[i], [(i, start, end)], [(selbytes, "Repetition")]):
 			if match == (bufIdx, selstart, selend + 1): continue
-			highlightMatch(editor, qp, match, desc, QColor("#009999"))
+			editor.highlightMatch(qp, match, desc, QColor("#009999"))
 

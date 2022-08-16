@@ -21,19 +21,19 @@ import re
 import sys
 from base64 import b64decode
 from collections import namedtuple
-from typing import List, Union
+from typing import List, Union, Tuple
 
 from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
-from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent
+from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent, QPen
 from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QMessageBox
 
 from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench import configs, guihelper
 from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsSection
-from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText, APP
+from pre_workbench.guihelper import setClipboardText, showWidgetDlg, getClipboardText, APP, filledColorIcon
 from pre_workbench.app import GlobalEvents
 from pre_workbench.controls.hexview_selheur import SelectionHelpers
 from pre_workbench.objects import ByteBuffer, parseHexFromClipboard, BidiByteBuffer, ByteBufferList
@@ -73,6 +73,7 @@ configs.registerOption(group, 'backgroundColor', 'backgroundColor', 'color', {},
 pattern_heading = re.compile("[#]{0,6}")
 
 HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset', 'region'])
+SelectionHeuristicMatch = namedtuple('SelectionHeuristicMatch', ['buffer', 'start', 'end', 'description', 'color'])
 
 class HexView2(QWidget):
 	onNewSubflowCategory = pyqtSignal(str, object)
@@ -105,6 +106,7 @@ class HexView2(QWidget):
 		self.selEnd = 0
 		self.clickGrammarUndefRef = None
 		self.clickGrammarFieldRef = None
+		self.selHeurMatches = list()
 		self.itemY = list()
 		self.lastHit = None
 		self.selecting = False
@@ -173,7 +175,7 @@ class HexView2(QWidget):
 		hit = self._hitTest(point)
 		ctxMenu = QMenu("Context menu", self)
 		if hit is not None:
-			if hit.offset < self.selStart or hit.offset > self.selEnd or hit.buffer != self.selBuffer:
+			if hit.offset < self.selFirst() or hit.offset > self.selLast() or hit.buffer != self.selBuffer:
 				self.select(hit.offset, hit.offset, hit.buffer, False)
 			self._buildSelectionContextMenu(ctxMenu)
 		else:
@@ -185,6 +187,11 @@ class HexView2(QWidget):
 		ctx.addAction("Copy Selection C Array", lambda: self.copySelection((", ", "0x%02X")))
 		ctx.addAction("Copy Selection Hexdump\tCtrl-Shift-C", lambda: self.copySelection("hexdump"))
 		#ctx.addAction("Copy selected annotations", lambda: self.copySelection("hexdump"))
+		if len(self.selHeurMatches) > 0:
+			mnu = ctx.addMenu("Selection Heuristic Matches")
+			for match in self.selHeurMatches:
+				mnu.addAction(filledColorIcon(match.color, 16), "[%d:%d] %s" % (match.start, match.end, match.description),
+							  lambda match=match: self.select(match.start, match.end-1, match.buffer))
 		ctx.addSeparator()
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
@@ -873,6 +880,7 @@ class HexView2(QWidget):
 		return y + self.dyLine
 
 	def _drawSelection(self, qp):
+		self.selHeurMatches.clear()
 		if len(self.buffers) == 0 or len(self.itemY) == 0: return
 
 		selMin = min(self.selStart, self.selEnd)
@@ -897,6 +905,18 @@ class HexView2(QWidget):
 			if dy is not None:
 				qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
 				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
+
+	def highlightMatch(self, qp: QPainter, matchrange: Tuple[int, int, int], desc: str, color: QColor):
+		(bufIdx, start, end) = matchrange
+		self.selHeurMatches.append(SelectionHeuristicMatch(bufIdx, start, end, desc, color))
+		for i in range(start, end):
+			(xHex, xAscii, y, dy) = self.offsetToClientPos(bufIdx, i)
+			if dy is None: break
+			p = QPen(color)
+			p.setWidth(3)
+			qp.setPen(p)
+			qp.drawLine(xHex + 3, y + dy, xHex + self.dxHex - 3, y + dy)
+			qp.drawLine(xAscii + 1, y + dy, xAscii + self.dxAscii - 2, y + dy)
 
 	########### CALCULATION    #########################
 	def lineNumberToByteOffset(self, lineNumber:int) -> HitTestResult:

@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import subprocess
+from typing import Union
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QUrl
@@ -84,9 +85,13 @@ def APP():
 	return QApplication.instance()
 
 
-def filledColorIcon(color: str, size: int) -> QIcon:
+def isOptionPressed():
+	return (int(APP().keyboardModifiers()) & QtCore.Qt.AltModifier) != 0
+
+
+def filledColorIcon(color: Union[str, QColor], size: int) -> QIcon:
 	pix = QPixmap(size, size)
-	pix.fill(QColor(color))
+	pix.fill(color if isinstance(color, QColor) else QColor(color))
 	return QIcon(pix)
 
 

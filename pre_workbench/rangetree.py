@@ -31,7 +31,8 @@ from pre_workbench.algo.range import Range
 from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.controls.scintillaedit import showScintillaDialog
-from pre_workbench.guihelper import getMonospaceFont, filledColorIcon, setClipboardText, navigateBrowser
+from pre_workbench.guihelper import getMonospaceFont, filledColorIcon, setClipboardText, navigateBrowser, \
+	isOptionPressed
 from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
 from pre_workbench.structinfo.format_info import FormatInfo, StructFI, VariantStructFI, SwitchFI, RepeatStructFI, \
 	UnionFI, BitStructFI
@@ -112,6 +113,7 @@ class RangeTreeWidget(QTreeWidget):
 
 			parentSource = item.parent().data(0, RangeTreeWidget.SourceDescRole) if item.parent() else None
 			if isinstance(source, FormatInfo):
+				ctx.addAction("Edit ...", lambda: self.editField(source))
 				if isinstance(source.fi, (StructFI, UnionFI)):
 					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
 					ctx.addSeparator()
@@ -121,14 +123,14 @@ class RangeTreeWidget(QTreeWidget):
 				if isinstance(source.fi, SwitchFI):
 					ctx.addAction("Add case ...", lambda: self.addField(source, "SwitchItem"))
 					ctx.addSeparator()
-				if parentSource is not None and isinstance(parentSource.fi, (StructFI, UnionFI, BitStructFI)):
-					ctx.addAction("Remove this field", lambda: self.removeField(parentSource, range.field_name))
-					ctx.addSeparator()
-				ctx.addAction("Edit ...", lambda: self.editField(source))
-				ctx.addAction("Edit tree ...", lambda: self.editField2(source))
+				if isOptionPressed():
+					ctx.addAction("Edit tree ...", lambda: self.editField2(source))
 				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
-				ctx.addAction("Hide", lambda: self.styleSelection(source, hide=1))
+				ctx.addAction("Hide field", lambda: self.styleSelection(source, hide=1))
+				if parentSource is not None and isinstance(parentSource.fi, (StructFI, UnionFI, BitStructFI)):
+					ctx.addAction("Delete field", lambda: self.removeField(parentSource, range.field_name))
+					ctx.addSeparator()
 				ctx.addSeparator()
 				for key, name, style in guihelper.getHighlightStyles():
 					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))
@@ -162,20 +164,24 @@ class RangeTreeWidget(QTreeWidget):
 
 	def removeField(self, parent, field_name):
 		ch = parent.params['children']
-		del ch[next(i for i,(key,el) in enumerate(ch) if key == field_name)]
+		del ch[next(i for i,(comment,key,el) in enumerate(ch) if key == field_name)]
 		parent.updateParams(children=ch)
 		self._afterUpdate()
 
 	def editDisplayParams(self, parent):
+		from pre_workbench.structinfo import ExprFunctions
+		showModes = [("","")] + ExprFunctions.getSelectList('name')
 		params = showSettingsDlg([
 			SettingsField("color", "Background color", "color", {"color":True}),
 			SettingsField("textcolor", "Text color", "color", {"color":True}),
 			SettingsField("section", "Section header", "text", {}),
+			SettingsField("show", "Value display style", "select", {"editable":True,"options":showModes}),
 		], title="Edit display params", values=parent.params, parent=self)
 		if params is None: return
 		if params.get("color") == "": params["color"] = None
 		if params.get("textcolor") == "": params["textcolor"] = None
 		if params.get("section") == "": params["section"] = None
+		if params.get("show") == "": params["show"] = None
 		parent.updateParams(**params)
 		self._afterUpdate()
 

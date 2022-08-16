@@ -187,7 +187,7 @@ class PacketListWidget(QWidget):
     def showData(self, data: List[ByteBuffer]):
         dv = DynamicDataWidget()
         dv.setContents(data)
-        dv.setWindowTitle("Data view")
+        dv.setWindowTitle("Item Details")
         pre_workbench.app.MainWindow.showChild(dv, True)
 
     def initUI(self):
@@ -217,9 +217,14 @@ class PacketListWidget(QWidget):
         self.packetlist.selectionModel().currentChanged.connect(self.onPacketlistCurrentChanged)
         #tabs.addTab(self.packetlist, "Raw Frames")
         layout.addWidget(self.packetlist)
-        self.actions = [
-            QAction(getIcon("magnifier-flag.png"), "Find By Expression", triggered=self._findByExpression),
-            QAction(getIcon("flag.png"), "Mark/Unmark Selected Packets", triggered=self._markUnmarkSelection),
+        self.ctx_item_actions = [
+            QAction(getIcon("document-search-result.png"), "Item Details", triggered=lambda: self.showData(self.getSelectedBuffers()), enabled=False),
+            QAction(getIcon("flag.png"), "Mark/Unmark Selected Packets", triggered=self._markUnmarkSelection, enabled=False),
+        ]
+        self.ctx_general_actions = [
+            QAction(getIcon("binocular-flag.png"), "Find By Expression", triggered=self._findByExpression),
+        ]
+        self.actions = self.ctx_item_actions + self.ctx_general_actions + [
             QAction(getIcon("table-reset.png"), "Reset Header", triggered=lambda: self.packetlistmodel.autoCols()),
             QAction(getIcon("table-insert-column-tag.png"), "Add Metadata Column", triggered=lambda: self._quickAddDialog("Quick Add Metadata Column", self._getQuickAddMetadataElements(), None)),
             QAction(getIcon("table-insert-column-bookmark.png"), "Add Field Column", triggered=lambda: self._quickAddDialog("Quick Add Field Column", self._getQuickAddFieldElements(), None)),
@@ -252,6 +257,8 @@ class PacketListWidget(QWidget):
         for index in self.packetlist.selectionModel().selectedRows():
             buffers.append(self.listObject.buffers[index.row()])
         self.meta_updated.emit("zoom", buffers)
+        for action in self.ctx_item_actions:
+            action.setEnabled(len(buffers) > 0)
 
     def onPacketlistCurrentChanged(self, current, previous):
         pass
@@ -263,11 +270,13 @@ class PacketListWidget(QWidget):
         index = self.packetlist.indexAt(point)
         ctx = QMenu("Context menu", self.packetlist)
         if index.isValid():
-            ctx.addAction("Item Details", lambda: self.showData(self.getSelectedBuffers()))
-            ctx.addAction("Mark/Unmark Packet", self._markUnmarkSelection)
+            for action in self.ctx_item_actions:
+                ctx.addAction(action)
             self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On" + (" Selected Buffers" if len(self.packetlist.selectionModel().selectedRows()) > 1 else " Buffer"))
             ctx.addSeparator()
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
+        for action in self.ctx_general_actions:
+            ctx.addAction(action)
 
         ctx.exec(self.packetlist.viewport().mapToGlobal(point))
 

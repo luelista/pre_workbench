@@ -168,6 +168,7 @@ class SettingsGroup(QGroupBox):
 				field.textChanged.connect(self.textChanged)
 			elif d.fieldType == "select":
 				field = QComboBox()
+				field.setEditable(d.params.get("editable",False))
 				opts = list(d.params["options"])
 				for value, text in opts:
 					field.addItem(text, value)

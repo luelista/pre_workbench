@@ -6,6 +6,7 @@ from pre_workbench.wdgen.lua.lua_expr import to_lua_expr
 
 ws_field_def = namedtuple('ws_field_def', ('long_id', 'short_id', 'format_type', 'show', 'charset'))
 
+
 class WDGenVisitor:
 	def __init__(self, context, proto_name):
 		self.context = context

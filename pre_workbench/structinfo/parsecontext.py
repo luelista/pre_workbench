@@ -291,12 +291,12 @@ class AnnotatingParseContext(ParseContext):
 		source_desc = self.stack[-1].desc
 		self.log("pack(A)",type(source_desc).__name__, self.top_offset(), self.top_length())#, value)
 		range = Range(self.top_offset(), self.top_offset() + self.top_length(), super().pack_value(value), source_desc=source_desc, field_name=str(self.top_id()))
-		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': self.stack[-1].desc, 'show': str(value) })
-		fi = self.stack[-1].desc
-		if isinstance(fi, FormatInfo):
-			range.metadata.update(fi.extra_params(context=self))
-		elif isinstance(fi, dict):
-			range.metadata.update(fi)
+		range.metadata.update({ 'name': self.get_path(), 'pos': self.top_offset(), 'size': self.top_length(), '_sdef_ref': source_desc, 'show': str(value) })
+
+		if isinstance(source_desc, FormatInfo):
+			range.metadata.update(source_desc.extra_params(context=self))
+		elif isinstance(source_desc, dict):
+			range.metadata.update(source_desc)
 		return range
 
 	def pack_error(self, ex):

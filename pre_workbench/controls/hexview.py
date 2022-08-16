@@ -189,12 +189,13 @@ class HexView2(QWidget):
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		#ctx.addAction("Selection 0x%X - 0x%X (0x%X bytes)"%(self.selStart,self.selEnd,self.selLength()))
 		if self.clickGrammarUndefRef:
-			for name, (len, fun) in builtinTypes.items():
-				if len == self.selLength() and fun:
+			for name, (length, fun) in builtinTypes.items():
+				if length == self.selLength() and fun:
 					ctx.addAction(name, lambda name=name: self.clickGrammarAdd(name))
 			ctx.addAction(f"BYTES[{self.selLength()}]", lambda: self.clickGrammarAdd(f"BYTES[{self.selLength()}]"))
 			ctx.addAction(f"STRING[{self.selLength()}]", lambda: self.clickGrammarAdd(f"STRING[{self.selLength()}](charset=\"utf8\")"))
 			ctx.addAction("struct { ... }", lambda: self.clickGrammarAdd("struct { _undef_1 BYTES[" + str(self.selLength()) + "] }"))
+			ctx.addAction("bits { ... }", lambda: self.clickGrammarAdd("bits { _undef_1 : " + str(self.selLength()*8) + " }"))
 			ctx.addSeparator()
 		if self.clickGrammarFieldRef:
 			ctx.addAction("Undefine field " + self.clickGrammarFieldRef[0].field_name, self.clickGrammarUndefine)
@@ -609,13 +610,12 @@ class HexView2(QWidget):
 			if self.selBuffer < len(self.buffers):
 				self.selectionChanged.emit(r)
 
+				def is_fi_type(range, typeName):
+					return hasattr(range.metadata.get('_sdef_ref'), 'fi_type') and range.metadata['_sdef_ref'].fi_type == typeName
+
 				ranges = list(self.buffers[self.selBuffer].matchRanges(containsRange=self.selRange(), hasMetaKey='_sdef_ref'))
-				print(ranges)
-				print([r.metadata['_sdef_ref'] for r in ranges])
-				print([type(r.metadata['_sdef_ref']).__name__ for r in ranges])
-				print([r.field_name for r in ranges])
-				if len(ranges) >= 2 and ranges[1].metadata['_sdef_ref'].fi_type == 'StructFI':
-					if (ranges[0].metadata['_sdef_ref'].fi_type == 'FieldFI' and ranges[0].metadata['_sdef_ref'].fi.format_type == 'BYTES'
+				if len(ranges) >= 2 and is_fi_type(ranges[1], 'StructFI'):
+					if (is_fi_type(ranges[0], 'FieldFI') and ranges[0].metadata['_sdef_ref'].fi.format_type == 'BYTES'
 							and ranges[0].field_name.startswith('_undef_')):
 						self.clickGrammarUndefRef = (ranges[0], ranges[1])
 						print("clickGrammar Match!")

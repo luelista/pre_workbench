@@ -33,8 +33,10 @@ from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
 
 class FormatInfo:
 	def __init__(self, info=None, typeRef=None, params=None):
+		self.params = dict()
 		if info is not None: self.deserialize(info)
 		if typeRef is not None: self.setContents(typeRef, params)
+
 	def deserialize(self, info):
 		type_id, params = info
 		t, _ = FITypes.find(type_id=type_id)
@@ -42,8 +44,16 @@ class FormatInfo:
 
 	def setContents(self, typeRef, params):
 		self.fi = typeRef()
-		self.fi.init(**params)
-		self.params = params
+		self.updateParams(**params)
+
+	def updateParams(self, **changes):
+		for k,v in changes.items():
+			if v is None:
+				self.params.pop(k, None)
+			else:
+				self.params[k] = v
+		self.fi.init(**self.params)
+
 		if "show" in self.params:
 			# TODO: BUG: when this is called from Project load, plugin functions won't be registered yet
 			formatter, _ = ExprFunctions.find(name=self.params["show"])
@@ -55,14 +65,6 @@ class FormatInfo:
 				self.formatter = lambda x: self.params["show"].format(x) if x is not None else None
 		else:
 			self.formatter = str
-
-	def updateParams(self, **changes):
-		for k,v in changes.items():
-			if v is None:
-				self.params.pop(k, None)
-			else:
-				self.params[k] = v
-		self.fi.init(**self.params)
 
 	"""
 	Serializes a FormatInfo to its parsable text representation
@@ -301,7 +303,7 @@ def guess_timestamp_unit(num):
 
 def _parse_unsigned_int_timestamp(c, n):
 	num = c.peek_int(n, signed=False)
-	unit = c.get_param('unit',raise_if_missing=None)
+	unit = c.get_param('unit', raise_if_missing=False)
 	if unit is None:
 		unit = guess_timestamp_unit(num)
 	if unit == 'us':

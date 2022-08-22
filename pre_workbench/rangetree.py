@@ -108,12 +108,14 @@ class RangeTreeWidget(QTreeWidget):
 	def _onCustomContextMenuRequested(self, point):
 		ctx = QMenu("Context menu", self)
 		if item := self.itemAt(point):
-			range = item.data(0, RangeTreeWidget.RangeRole)
+			item_range = item.data(0, RangeTreeWidget.RangeRole)
 			source = item.data(0, RangeTreeWidget.SourceDescRole)
 
 			parentSource = item.parent().data(0, RangeTreeWidget.SourceDescRole) if item.parent() else None
 			if isinstance(source, FormatInfo):
 				ctx.addAction("Edit ...", lambda: self.editField(source))
+				if isOptionPressed():
+					ctx.addAction("Edit tree ...", lambda: self.editField2(source))
 				if isinstance(source.fi, (StructFI, UnionFI)):
 					ctx.addAction("Add field ...", lambda: self.addField(source, "StructField"))
 					ctx.addSeparator()
@@ -123,13 +125,11 @@ class RangeTreeWidget(QTreeWidget):
 				if isinstance(source.fi, SwitchFI):
 					ctx.addAction("Add case ...", lambda: self.addField(source, "SwitchItem"))
 					ctx.addSeparator()
-				if isOptionPressed():
-					ctx.addAction("Edit tree ...", lambda: self.editField2(source))
 				ctx.addAction("Visualization ...", lambda: self.editDisplayParams(source))
 				ctx.addAction("Repeat ...", lambda: self.repeatField(source))
 				ctx.addAction("Hide field", lambda: self.styleSelection(source, hide=1))
 				if parentSource is not None and isinstance(parentSource.fi, (StructFI, UnionFI, BitStructFI)):
-					ctx.addAction("Delete field", lambda: self.removeField(parentSource, range.field_name))
+					ctx.addAction("Delete field", lambda: self.removeField(parentSource, item_range.field_name))
 					ctx.addSeparator()
 				ctx.addSeparator()
 				for key, name, style in guihelper.getHighlightStyles():

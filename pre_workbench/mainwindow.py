@@ -455,6 +455,7 @@ class WorkbenchMain(QMainWindow):
 			SettingsField("definition", "Start Grammar Definition", "text", {"listselectcallback":formatinfoSelect}),
 			SettingsField("only_types", "Only Export These Definitions", "text", {"listselectcallback":formatinfoSelect,"multiselect":","}),
 			SettingsField("dissector_table", "Dissector Table", "text", {}),
+			SettingsField("raise_not_implemented", "Raise NotImplementedErrors", "check", {"default":True}),
 			SettingsField("output_file", "Output File", "text", {"fileselect":"save","filter":"Lua Script (*.lua)"}),
 		], self.project.getValue("LastWiresharkExportOptions", {}), "Wireshark Dissector Export", self, min_width=550,
 		help_callback=lambda: navigateBrowser(WDGEN_HELP_URL))
@@ -462,7 +463,9 @@ class WorkbenchMain(QMainWindow):
 			from pre_workbench.wdgen.lua import generate_lua_dissector
 			self.project.setValue("LastWiresharkExportOptions", r)
 			with open(r['output_file'], 'w') as out:
-				generate_lua_dissector(r['definition'], r['only_types'], r['dissector_table'].split(','), self.project.formatInfoContainer, out)
+				generate_lua_dissector(r['definition'], r['only_types'], r['dissector_table'].split(','), self.project.formatInfoContainer, r['raise_not_implemented'], out)
+			with open(r['output_file'], 'r') as infile:
+				self.zoomWindow.setContents(infile.read())
 
 	def onMruClicked(self):
 		self.openFile(self.sender().data())

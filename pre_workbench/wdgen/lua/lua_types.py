@@ -1,18 +1,20 @@
+import logging
 from collections import namedtuple
 from io import StringIO
 
-from pre_workbench.structinfo.format_info import DYN_LEN, EXPR_LEN, PREFIX_LEN
+from pre_workbench.structinfo.format_info import DYN_LEN, EXPR_LEN, PREFIX_LEN, FormatInfo
 from pre_workbench.wdgen.lua.lua_expr import to_lua_expr
 
 ws_field_def = namedtuple('ws_field_def', ('long_id', 'short_id', 'format_type', 'show', 'charset'))
 
 
 class WDGenVisitor:
-	def __init__(self, context, proto_name):
+	def __init__(self, context, proto_name, raise_not_implemented):
 		self.context = context
 		self.ws_field_defs = list()
 		self.proto_name = proto_name
 		self.output = StringIO()
+		self.raise_not_implemented = raise_not_implemented
 
 	def out(self, s):
 		self.output.write(s + '\n')
@@ -28,10 +30,11 @@ class WDGenVisitor:
 
 	def variantstructfi(self, desc):
 		self.out("  -- variant " + self.context.get_path("_"))
-		raise NotImplementedError("Type 'variant' not implemented yet for code generation")
+		self._not_implemented("Type 'variant'", desc)
 
 	def repeatstructfi(self, desc):
 		self.out("  -- repeat " + self.context.get_path("_"))
+		if desc.fi.until_invalid: self._not_implemented("Parameter 'until_invalid' on type 'repeat'", desc)
 		if desc.fi.times_expr:
 			self.out("  for i_" + self.context.get_path("_") + " = 1," + to_lua_expr(desc.fi.times_expr) + " do")
 			desc.fi.children.visit(self.context, self)
@@ -44,7 +47,7 @@ class WDGenVisitor:
 
 	def switchfi(self, desc):
 		self.out("  -- switch " + self.context.get_path("_"))
-		raise NotImplementedError("Type 'switch' not implemented yet for code generation")
+		self._not_implemented("Type 'switch'", desc)
 
 	def namedfi(self, desc):
 		self.out("  -- named " + self.context.get_path("_"))
@@ -60,9 +63,11 @@ class WDGenVisitor:
 			encoding = "ENC_LITTLE_ENDIAN" if self.context.get_param("endianness") == "<" else "ENC_BIG_ENDIAN"
 			le_prefix = "le_" if self.context.get_param("endianness") == "<" else ""
 		if desc.fi.size == DYN_LEN:
-			raise NotImplementedError('DYN_LEN not implemented')
+			self._not_implemented('DYN_LEN', desc)
+			return
 		elif desc.fi.size == PREFIX_LEN:
-			raise NotImplementedError('PREFIX_LEN not implemented')
+			self._not_implemented('PREFIX_LEN', desc)
+			return
 		elif desc.fi.size == EXPR_LEN:
 			self.out("  len = " + to_lua_expr(desc.fi.size_expr) + "  -- expression-based length")
 		else:
@@ -92,12 +97,24 @@ class WDGenVisitor:
 
 	def unionfi(self, desc):
 		self.out("  -- union " + self.context.get_path("_"))
-		raise NotImplementedError("Type 'union' not implemented yet for code generation")
+		self._not_implemented("Type 'union'", desc)
 
 	def bitstructfi(self, desc):
 		self.out("  -- bits " + self.context.get_path("_"))
-		raise NotImplementedError("Type 'bits' not implemented yet for code generation")
+		self._not_implemented("Type 'bits'", desc)
 		for key, len in desc.fi.children:
-			self.out("  -- "+key+" "+str(len))
-			self.ws_field_defs.append((self.context.get_path("."), "UINT32"))
+			self.out("  -- "+key+" : "+str(len))
+			self.ws_field_defs.append(ws_field_def(
+				long_id=self.context.get_path(".")+"."+key,
+				short_id=key,
+				format_type="UINT32",
+				show=None,
+				charset=None))
 
+	def _not_implemented(self, what, desc: FormatInfo):
+		if self.raise_not_implemented:
+			raise NotImplementedError(f"{self.context.get_path()}: {what} not implemented yet for code generation")
+		else:
+			self.out(f"  -- TODO: {what} not implemented yet for code generation")
+			self.out("  --[===[\n" + desc.to_text(2) + "\n  --]===]\n")
+			logging.warning(f"{self.context.get_path()}: {what} not implemented yet for code generation")

@@ -247,7 +247,7 @@ class PacketListWidget(QWidget):
 
     def setContents(self, lstObj: Optional[ByteBufferList]):
         self.listObject = lstObj
-        logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
+        #logging.debug("PacketListWidget::setContents %r %d", lstObj, len(lstObj))
         self.setWindowTitle(str(lstObj))
         self.packetlistmodel.setList(self.listObject)
         self.meta_updated.emit("actions", self.actions)

@@ -27,7 +27,7 @@ end
 '''
 
 
-def generate_lua_dissector(definition, only_types, dissector_table, fic, out):
+def generate_lua_dissector(definition, only_types, dissector_table, fic, raise_not_implemented, out):
 	if only_types:
 		only_types = only_types.split(",")
 	else:
@@ -36,7 +36,7 @@ def generate_lua_dissector(definition, only_types, dissector_table, fic, out):
 	if not definition: definition = proto_name
 
 	context = ParseContext(fic)
-	generator = WDGenVisitor(context, proto_name)
+	generator = WDGenVisitor(context, proto_name, raise_not_implemented)
 	generator.out(entry_func_template.replace('{proto_name}', proto_name).replace('{definition}', definition))
 
 	for key, value in fic.definitions.items():

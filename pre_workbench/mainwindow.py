@@ -197,15 +197,15 @@ class WorkbenchMain(QMainWindow):
 		self.mapChildAction(self.reloadFileAct, "reloadFile")
 
 		# TODO
-		"""self.closeAct = QAction("Cl&ose", self,
+		self.closeAct = QAction("Cl&ose", self, shortcut='Ctrl+W',
 				statusTip="Close the active window",
-				triggered=self.mdiArea.closeActiveSubWindow)
+				triggered=self.closeActiveChildWindow)
 
-		self.closeAllAct = QAction("Close &All", self,
+		self.closeAllAct = QAction("Close &All", self, shortcut='Ctrl+Shift+W',
 				statusTip="Close all the windows",
-				triggered=self.mdiArea.closeAllSubWindows)
+				triggered=self.closeAllChildWindows)
 
-		self.nextAct = QAction("Ne&xt", self, shortcut=QKeySequence.NextChild,
+		"""self.nextAct = QAction("Ne&xt", self, shortcut=QKeySequence.NextChild,
 				statusTip="Move the focus to the next window",
 				triggered=self.mdiArea.activateNextSubWindow)
 
@@ -480,21 +480,19 @@ class WorkbenchMain(QMainWindow):
 
 	def _updateWindowMenu(self):
 		#TODO
-		return
 		self.windowMenu.clear()
 		self.windowMenu.addAction(self.closeAct)
 		self.windowMenu.addAction(self.closeAllAct)
 		self.windowMenu.addSeparator()
-		self.windowMenu.addAction(self.nextAct)
-		self.windowMenu.addAction(self.previousAct)
+		#self.windowMenu.addAction(self.nextAct)
+		#self.windowMenu.addAction(self.previousAct)
 
-		windows = self.mdiArea.dockWidgetsMap().values()
-		if len(windows) != 0: self.windowMenu.addSeparator()
+		windows = self.getChildWindows()
 
 		for i, window in enumerate(windows):
 			child = window.widget()
 
-			text = "%d %s" % (i + 1, child.windowTitle())
+			text = "%d %s" % (i + 1, window.windowTitle())
 			if i < 9:
 				text = '&' + text
 
@@ -503,6 +501,19 @@ class WorkbenchMain(QMainWindow):
 			action.setChecked(child is self.activeMdiChild())
 			action.triggered.connect(self.windowMapper.map)
 			self.windowMapper.setMapping(action, window)
+
+	def getChildWindows(self):
+		return [wnd for wnd in self.mdiArea.dockWidgetsMap().values() if
+				(wnd.features() & ads.CDockWidget.DockWidgetDeleteOnClose) != ads.CDockWidget.NoDockWidgetFeatures]
+
+	def closeActiveChildWindow(self):
+		activeSubWindow = self.mdiArea.focusedDockWidget()
+		if activeSubWindow:
+			activeSubWindow.closeDockWidget()
+
+	def closeAllChildWindows(self):
+		for wnd in self.getChildWindows():
+			wnd.closeDockWidget()
 
 	def _updateParserMenu(self):
 		self.loadAnnotationSetMenu.clear()

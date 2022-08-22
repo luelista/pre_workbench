@@ -276,6 +276,8 @@ class WorkbenchMain(QMainWindow):
 			#a = toolWndMenu.addAction(name, lambda name=name: self.mdiArea.findDockWidget(name).toggleView(True))
 			toolWndMenu.addAction(self.mdiArea.findDockWidget(name).toggleViewAction())
 			toolWndToolbar.addAction(self.mdiArea.findDockWidget(name).toggleViewAction())
+		toolbarsMenu = viewMenu.addMenu('Tool Bars')
+		toolbarsMenu.addActions([mainToolbar.toggleViewAction(), toolWndToolbar.toggleViewAction()])
 		viewMenu.addSeparator()
 		a = QAction("Zoom In", self, shortcut='Ctrl++')
 		self.mapChildAction(a, "zoomIn")

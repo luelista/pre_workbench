@@ -17,6 +17,7 @@
 import logging
 import uuid
 
+import yaml
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QEvent, QSize)
 from PyQt5.QtGui import QKeyEvent, QFont
@@ -26,7 +27,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, \
 	QInputDialog, QTreeWidget, QTreeWidgetItem, QMessageBox
 
 from pre_workbench.consts import INT32_MIN, INT32_MAX
-from pre_workbench.guihelper import makeDlgButtonBox
+from pre_workbench.guihelper import makeDlgButtonBox, setClipboardText
 from pre_workbench.structinfo.expr import Expression, Stringifier
 from pre_workbench.configs import respath
 from pre_workbench.structinfo import xdrm
@@ -577,6 +578,7 @@ class JsonView(QTreeWidget):
 			if parentTyp is list:
 				ctx.addSeparator()
 				ctx.addAction("Remove this item", lambda: self.removeField(item))
+			ctx.addAction("Copy as YAML", lambda: setClipboardText(yaml.dump(self.tree_fetch(item))))
 
 		ctx.exec(self.mapToGlobal(point))
 

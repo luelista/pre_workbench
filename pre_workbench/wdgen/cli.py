@@ -19,6 +19,8 @@ def run_cli():
 						help='Programming language to generate (supported: lua)', default="lua")
 	parser.add_argument('--dissector-table', metavar='NAME:KEY', type=str, action='append',
 						help='Register the protocol in the given dissector table, under the given key')
+	parser.add_argument('--raise-not-implemented', type=bool, default=True, action=argparse.BooleanOptionalAction,
+						help='Raise an exception if PGDL features are used which are not implemented in the generator yet')
 	parser.add_argument('-o', '--output-file', metavar='FILENAME', type=str,
 						help='Output filename for generated code (default: "-" for stdout)', default="-")
 
@@ -44,7 +46,7 @@ def run_cli():
 		out = open(r.output_file, "w")
 
 	if r.language == 'lua':
-		generate_lua_dissector(r.definition, r.only_types, r.dissector_table, fic, out)
+		generate_lua_dissector(r.definition, r.only_types, r.dissector_table, fic, r.raise_not_implemented, out)
 	else:
 		raise NotImplemented
 

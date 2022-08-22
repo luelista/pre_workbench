@@ -31,6 +31,7 @@ from pre_workbench.structinfo.exceptions import invalid, incomplete
 from pre_workbench.structinfo.pcap_reader import read_pcap_file, PcapFormats
 from pre_workbench.typeregistry import TypeRegistry
 from pre_workbench.tshark_helper import findTshark, PdmlToPacketListParser, findInterfaces
+from pre_workbench.util import PerfTimer
 
 group = SettingsSection('DataSources', 'Data Sources', 'wireshark', 'Wireshark Integration')
 try:
@@ -193,11 +194,13 @@ class PcapFileDataSource(SyncDataSource):
 		]
 
 	def process(self):
-		with open(self.params['fileName'], "rb") as f:
-			plist = read_pcap_file(f)
+		with PerfTimer('Load PCAP file'):
+			with open(self.params['fileName'], "rb") as f:
+				plist = read_pcap_file(f)
 
-		for bbuf in plist.buffers:
-			apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
+		with PerfTimer('Parse Buffers'):
+			for bbuf in plist.buffers:
+				apply_grammar_on_bbuf(bbuf, self.params["formatInfo"])
 
 		return plist
 

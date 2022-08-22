@@ -16,10 +16,12 @@
 import logging
 import traceback
 import os.path
+import time
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, QSize
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar, QToolButton, QAction
+from PyQt5.QtGui import QStatusTipEvent
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QToolBar, QToolButton, QAction, QApplication
 
 from pre_workbench.configs import SettingsField, getIcon
 from pre_workbench.datasource import DataSourceTypes, MacroDataSource
@@ -167,9 +169,14 @@ class ObjectWindow(QWidget):
 
 	def onFinished(self):
 		self.cancelAction.setEnabled(False)
+		QApplication.postEvent(self, QStatusTipEvent(
+			"Loaded data in %f sec" % (time.perf_counter() - self._start_fetch_timestamp)))
+
 
 	def onCancelFetch(self):
 		self.dataSource.cancelFetch()
+		QApplication.postEvent(self, QStatusTipEvent(
+			"Data fetch cancelled by user after %f sec" % (time.perf_counter() - self._start_fetch_timestamp)))
 
 	def reloadFile(self):  # action Ctrl-R
 		self.reload()
@@ -185,6 +192,7 @@ class ObjectWindow(QWidget):
 			clz = self._getDatasource(self.params["dataSourceType"])
 			self.dataSource = clz(self.params)
 			self.dataSource.on_finished.connect(self.onFinished)
+			self._start_fetch_timestamp = time.perf_counter()
 			result = self.dataSource.startFetch()
 			self.dataDisplay.setContents(result)
 			self.dataObject = result

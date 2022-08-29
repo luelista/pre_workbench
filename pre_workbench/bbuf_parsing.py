@@ -39,6 +39,7 @@ def apply_grammar_on_bbuf(bbuf, grammarDefName, on_new_subflow_category=None):
 	parse_context.on_new_subflow_category = on_new_subflow_category
 	bbuf.fi_root_name = grammarDefName
 	bbuf.fi_tree = parse_context.parse(grammarDefName)
+	bbuf.subflow_categories = parse_context.subflow_categories
 	if parse_context.failed:
 		logging.exception("Failed to apply grammar definition", exc_info=parse_context.failed)
 		logging.getLogger("DataSource").error("Failed to apply grammar definition: " + str(parse_context.failed))

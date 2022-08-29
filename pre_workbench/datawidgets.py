@@ -430,8 +430,8 @@ class ByteBufferWidget(QWidget):
             pass
 
     def _onParseResultsUpdated(self, fi_trees):
-        self.tabWidget.clear()
-        self.tabWidget.addTab(self.textbox, "Raw buffer")
+        #TODO this is the wrong place - it happens after the newSubflowCategory calls and clears them again immediately   self.tabWidget.clear()
+        #self.tabWidget.addTab(self.textbox, "Raw buffer")
         self.meta_updated.emit("grammar", fi_trees)
 
     def _newSubflowCategory(self, category, parse_context):

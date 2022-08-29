@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import logging
 from typing import List, Dict, Any, Optional
 
 import binascii
@@ -33,7 +34,7 @@ class ReloadRequired(Exception):
 
 
 class ByteBuffer(QObject):
-	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container', 'annotation_set_name')
+	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container', 'annotation_set_name', 'subflow_categories')
 	on_new_data = pyqtSignal()
 	def __init__(self, buf=None, metadata=None):
 		super().__init__()
@@ -45,6 +46,7 @@ class ByteBuffer(QObject):
 		self.fi_root_name = None
 		self.fi_container = None
 		self.annotation_set_name = None
+		self.subflow_categories = dict()
 
 	def setContent(self, buf):
 		if buf is None:
@@ -183,7 +185,7 @@ class ByteBufferList(QObject):
 
 	def reassemble(self, subflow_key: tuple, bufmeta, databytes, datameta):
 		if subflow_key not in self.buffers_hash:
-			print("Starting new buffer for key",subflow_key)
+			logging.debug("Starting new buffer for key %r",subflow_key)
 			bbuf = ByteBuffer(metadata=bufmeta)
 			self.buffers_hash[subflow_key] = bbuf
 			self.add(bbuf)
@@ -262,7 +264,7 @@ class BidiByteBuffer:
 				buf = bytes()
 			else:
 				cleaned_line = line.replace("0x","").replace(", ","").replace(" };","")
-				print(cleaned_line)
+				logging.debug("cleaned_line: %r", cleaned_line)
 				buf += binascii.unhexlify(cleaned_line)
 
 		if bufheader != None:

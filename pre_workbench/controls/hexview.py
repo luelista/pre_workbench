@@ -27,7 +27,8 @@ from math import ceil, floor
 
 from PyQt5.QtCore import (Qt, QSize, pyqtSignal)
 from PyQt5.QtGui import QPainter, QFont, QColor, QPixmap, QFontMetrics, QKeyEvent, QStatusTipEvent, QMouseEvent, QPen
-from PyQt5.QtWidgets import QWidget, QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMenu, QSizePolicy, QAction, QInputDialog, QMessageBox, \
+	QAbstractScrollArea
 
 from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench import configs, guihelper
@@ -75,7 +76,7 @@ pattern_heading = re.compile("[#]{0,6}")
 HitTestResult = namedtuple('HitTestResult', ['buffer', 'offset', 'region'])
 SelectionHeuristicMatch = namedtuple('SelectionHeuristicMatch', ['buffer', 'start', 'end', 'description', 'color'])
 
-class HexView2(QWidget):
+class HexView2(QAbstractScrollArea):
 	onNewSubflowCategory = pyqtSignal(str, object)
 	parseResultsUpdated = pyqtSignal(list)
 	selectionChanged = pyqtSignal(object)
@@ -90,9 +91,9 @@ class HexView2(QWidget):
 		logging.debug("HexView - formatInfoContainer = %r", self.formatInfoContainer)
 		self.annotationSetDefaultName = annotationSetDefaultName
 		self.buffers = list()
-		self.firstLine = 0
-		self.scrollY = 0
-		self.partialLineScrollY = 0
+		#self.firstLine = 0
+		#self.scrollY = 0
+		#self.partialLineScrollY = 0
 		self.setFocusPolicy(Qt.StrongFocus)
 
 		self.backgroundPixmap = QPixmap()
@@ -110,6 +111,7 @@ class HexView2(QWidget):
 		self.itemY = list()
 		self.lastHit = None
 		self.selecting = False
+		self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self._onCustomContextMenuRequested)
 		if byteBuffer is None:
@@ -118,6 +120,22 @@ class HexView2(QWidget):
 			self.setBuffer(byteBuffer)
 		self.setMouseTracking(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+	@property
+	def scrollY(self):
+		return self.verticalScrollBar().value()
+
+	@scrollY.setter
+	def scrollY(self, value):
+		self.verticalScrollBar().setValue(value)
+
+	@property
+	def firstLine(self):
+		return floor(self.scrollY / self.dyLine)
+
+	@property
+	def partialLineScrollY(self):
+		return self.scrollY - (self.dyLine * self.firstLine)
 
 	def _loadOptions(self, *dummy):
 		self.bytesPerLine = configs.getValue('HexView2.general.bytesPerLine')
@@ -351,7 +369,7 @@ class HexView2(QWidget):
 			undef_len += struct.fi.children[end + 1][1].fi.size_expr.evaluate_dict({})
 			end += 1
 
-		print(f"replacing {start} to {end} with BYTES[{undef_len}]")
+		logging.debug(f"clickGrammarUndefine: replacing {start} to {end} with BYTES[{undef_len}]")
 		struct.fi.children[start:end+1] = [('_undef_', parse_definition(f'BYTES[{undef_len}]'), '')]
 
 		# re-number all _undef_ fields
@@ -472,6 +490,7 @@ class HexView2(QWidget):
 	def _newSubflowCategory(self, category, parse_context, **kv):
 		logging.debug("on_new_subflow_category: %r",category)
 		self.onNewSubflowCategory.emit(category, parse_context)
+		logging.debug("on_new_subflow_category done: %r",category)
 
 	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
@@ -493,10 +512,8 @@ class HexView2(QWidget):
 			deltaY = e.pixelDelta().y()
 		if deltaY == 0: return
 		self.scrollY = max(0, min((self.maxLine()-1)*self.dyLine, self.scrollY - deltaY))
-		self.firstLine = floor(self.scrollY / self.dyLine)
-		self.partialLineScrollY = self.scrollY - (self.dyLine * self.firstLine)
 		logging.debug("wheelEvent deltaY=%d scrollY=%d partial=%d",deltaY,self.scrollY,self.partialLineScrollY)
-		self.redraw()
+		#self.redraw()
 
 	def scrollIntoView(self, bufIndex:int, offset:int):
 		line = self.byteOffsetToLineNumber(bufIndex, offset)
@@ -506,9 +523,8 @@ class HexView2(QWidget):
 			self._setFirstLine(line - 5)  #TODO - ich weiß vorher nicht, wie viele zeilen auf den schirm passen
 
 	def _setFirstLine(self, line):
-		self.firstLine = max(0, min(self.maxLine()-1, line))
-		self.scrollY = self.firstLine * self.dyLine
-		self.redraw()
+		self.scrollY = max(0, min(self.maxLine()-1, line)) * self.dyLine
+		#self.redraw()
 
 	############## MOUSE EVENTS - SELECTION  ############################
 
@@ -561,7 +577,8 @@ class HexView2(QWidget):
 		return (start,end)
 
 	def _hitTest(self, point):
-		x, y = point.x(), point.y()
+		dx = -self.horizontalScrollBar().value()
+		x, y = point.x()-dx, point.y()
 		linePos = None
 		if (x >= self.xAscii):
 			pos = floor((x - self.xAscii) / self.dxAscii)
@@ -625,9 +642,7 @@ class HexView2(QWidget):
 					if (is_fi_type(ranges[0], 'FieldFI') and ranges[0].metadata['_sdef_ref'].fi.format_type == 'BYTES'
 							and ranges[0].field_name.startswith('_undef_')):
 						self.clickGrammarUndefRef = (ranges[0], ranges[1])
-						print("clickGrammar Match!")
-						print("bytes: ",ranges[0])
-						print("struct:",ranges[1])
+						logging.debug("clickGrammar Match! / bytes: %r / struct: %r",ranges[0],ranges[1])
 					else:
 						self.clickGrammarFieldRef = (ranges[0], ranges[1])
 				try:
@@ -709,10 +724,10 @@ class HexView2(QWidget):
 			super().keyPressEvent(e)
 
 	def focusInEvent(self, event) -> None:
-		self.update()
+		self.viewport().update()
 
 	def focusOutEvent(self, event) -> None:
-		self.update()
+		self.viewport().update()
 
 	def zoomIn(self):
 		self.fontHex.setPointSize(self.fontHex.pointSize() + 1)
@@ -746,7 +761,8 @@ class HexView2(QWidget):
 			self.buffers = bbuf
 		else:
 			raise TypeError("Invalid type passed to HexView2.setBuffer: "+str(type(bbuf)))
-		self.firstLine = 0
+		self.scrollY = 0
+		self.verticalScrollBar().setMaximum(self.maxLine() * self.dyLine)
 		self.parseResultsUpdated.emit([buf.fi_tree for buf in self.buffers])
 		self.select(0, 0, 0)
 		self.redraw()
@@ -755,16 +771,22 @@ class HexView2(QWidget):
 
 	def resizeEvent(self, e):
 		self.redraw()
+		self.verticalScrollBar().setPageStep(self.height())
+		self.horizontalScrollBar().setPageStep(self.width())
+		self.horizontalScrollBar().setMaximum(max(0, self.xAscii + self.dxAscii * (self.bytesPerLine+3) - self.width()))
 		#self.fiTreeWidget.resize(self.width() - self.fiTreeWidget.pos().x()-10, self.height()-40)
 
 	def sizeHint(self):
 		return QSize(self.xAscii + self.dxAscii * self.bytesPerLine + 10, 256)
 
+	def scrollContentsBy(self, dx, dy):
+		self.redraw()
+
 	def redraw(self):
 		self.pixmapsInvalid = True
 		for buffer in self.buffers:
 			buffer.invalidateCaches()
-		self.update()
+		self.viewport().update()
 
 	def drawPixmaps(self):
 		if self.size().height() < 3 or self.size().width() < 3: return
@@ -784,7 +806,7 @@ class HexView2(QWidget):
 			qpTxt.end()
 
 	def redrawSelection(self):
-		self.update()
+		self.viewport().update()
 
 	def paintEvent(self, e):
 		with PerfTimer("paintEvent"):
@@ -796,7 +818,7 @@ class HexView2(QWidget):
 				self.pixmapsInvalid = False
 			try:
 				qp = QPainter()
-				qp.begin(self)
+				qp.begin(self.viewport())
 				qp.drawPixmap(0, 0, self.backgroundPixmap)
 				self._drawSelection(qp)
 				self._drawHover(qp)
@@ -822,21 +844,20 @@ class HexView2(QWidget):
 	
 	def _drawLine(self, qpTxt, qpBg, lineNumber, y):
 		TXT_DY = self.fontAscent + self.linePadding
+		dx = -self.horizontalScrollBar().value()
 
 		bufIdx, offset, _ = self.lineNumberToByteOffset(lineNumber)
 		buffer = self.buffers[bufIdx]
 		if offset == 0:
 			# draw buffer separator
-			qpBg.fillRect(2,int(y),100,1,QColor("red"))
+			qpBg.fillRect(dx+2,int(y),100,1,QColor("red"))
 			qpTxt.setFont(self.fontSection[0]); qpTxt.setPen(self.fsAscii)
-			qpTxt.drawText(self.xHex, int(y+self.fontSection[0].pointSize() * 1.7), repr(buffer.metadata))
+			qpTxt.drawText(dx+self.xHex, int(y+self.fontSection[0].pointSize() * 1.7), repr(buffer.metadata))
 			y += self.fontSection[0].pointSize() * 2
 
 		end = min(len(buffer), offset + self.bytesPerLine)
 		ii = 0
 		for i in range(offset, end):
-			theByte = buffer.getByte(i)
-
 			# if specified, print section header
 			#sectionAnnotations = buffer.getAnnotationValues(start=i, annotationProperty="section");
 			sectionAnnotations = buffer.ranges.getMetaValuesStartingAt(i, "section")
@@ -846,35 +867,36 @@ class HexView2(QWidget):
 				for row in sectionAnnotations:
 					bangs = len(pattern_heading.match(row).group())
 					qpTxt.setFont(self.fontSection[bangs])
-					qpTxt.drawText(self.xHex, int(y+self.fontSection[bangs].pointSize() * 1.7), row)
+					qpTxt.drawText(dx+self.xHex, int(y+self.fontSection[bangs].pointSize() * 1.7), row)
 					y += self.fontSection[bangs].pointSize() * 2
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(QColor("#555555"))
-				if (ii != 0): qpTxt.drawText(self.xAddress, int(y+TXT_DY), self.addressFormat.format(i));
+				if (ii != 0): qpTxt.drawText(dx+self.xAddress, int(y+TXT_DY), self.addressFormat.format(i));
 
 			if (ii == 0):  #print address for first byte in line
 				qpTxt.setFont(self.fontAddress)
 				qpTxt.setPen(self.fsAddress)
-				qpTxt.drawText(self.xAddress, int(y+TXT_DY), self.addressFormat.format(offset))
+				qpTxt.drawText(dx+self.xAddress, int(y+TXT_DY), self.addressFormat.format(offset))
 
 			# if specified, draw background color from style attribute
 			bg = buffer.getStyle(i, "color", None)
 			fg = buffer.getStyle(i, "textcolor", None)
 			if (bg):
-				qpBg.fillRect(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+1), self.dxHex, self.dyLine-2, QColor(bg))
-				qpBg.fillRect(self.xAscii + ii * self.dxAscii, int(y+1), self.dxAscii, self.dyLine-2, QColor(bg))
+				qpBg.fillRect(dx+self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+1), self.dxHex, self.dyLine-2, QColor(bg))
+				qpBg.fillRect(dx+self.xAscii + ii * self.dxAscii, int(y+1), self.dxAscii, self.dyLine-2, QColor(bg))
 
 			# store item's Y position and buffer pos
 			self.itemY.append((bufIdx, i, int(y)))
 
 			# print HEX and ASCII representation of this byte
+			theByte = buffer.getByte(i)
 			qpTxt.setFont(self.fontHex)
 			qpTxt.setPen( self.fsHex if not fg else QColor(fg))
-			qpTxt.drawText(self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+TXT_DY), self.hexFormat.format(theByte))
+			qpTxt.drawText(dx+self.xHex + ii * self.dxHex + int(ii/self.hexSpaceAfter)*self.hexSpaceWidth + 2, int(y+TXT_DY), self.hexFormat.format(theByte))
 			qpTxt.setFont(self.fontAscii)
 			qpTxt.setPen(self.fsAscii if not fg else QColor(fg))
 			asciichar = chr(theByte) if (theByte > 0x20 and theByte < 0x80) else "."
-			qpTxt.drawText(self.xAscii + ii * self.dxAscii, int(y+TXT_DY), asciichar)
+			qpTxt.drawText(dx+self.xAscii + ii * self.dxAscii, int(y+TXT_DY), asciichar)
 			ii += 1
 
 		return y + self.dyLine
@@ -940,11 +962,12 @@ class HexView2(QWidget):
 		return self.firstLine + ceil(len(self.itemY)/self.bytesPerLine)
 
 	def offsetToClientPos(self, buffer:int, offset:int):
+		dx = -self.horizontalScrollBar().value()
 		column = offset % self.bytesPerLine
 		for bufIdx, bufOffset, itemY in self.itemY:
 			if bufIdx == buffer and bufOffset == offset:
-				return (self.xHex + column * self.dxHex + int(column / self.hexSpaceAfter) * self.hexSpaceWidth,
-						self.xAscii + self.dxAscii * column,
+				return (dx+self.xHex + column * self.dxHex + int(column / self.hexSpaceAfter) * self.hexSpaceWidth,
+						dx+self.xAscii + self.dxAscii * column,
 						itemY + floor(self.linePadding * 0.5),
 						ceil(self.charHeight * 1.2))
 		logging.warning("trying to paint outside viewport %r", offset)

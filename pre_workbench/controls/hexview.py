@@ -208,7 +208,7 @@ class HexView2(QAbstractScrollArea):
 		if len(self.selHeurMatches) > 0:
 			mnu = ctx.addMenu("Selection Heuristic Matches")
 			for match in self.selHeurMatches:
-				mnu.addAction(filledColorIcon(match.color, 16), "[%d:%d] %s" % (match.start, match.end, match.description),
+				mnu.addAction(filledColorIcon(match.color, 16), "[%d:%d] %s" % (match.start, match.end-1, match.description),
 							  lambda match=match: self.select(match.start, match.end-1, match.buffer))
 		ctx.addSeparator()
 		#ctx.addAction("Selection %d-%d (%d bytes)"%(self.selStart,self.selEnd,self.selLength()))
@@ -927,6 +927,14 @@ class HexView2(QAbstractScrollArea):
 			if dy is not None:
 				qp.fillRect(xHex, y, self.dxHex, dy, self.fsHover)
 				qp.fillRect(xAscii, y, self.dxAscii, dy, self.fsHover)
+
+			if len(self.selHeurMatches) > 0:
+				startY = self.height()-10
+				for match in self.selHeurMatches:
+					if match.buffer == self.lastHit.buffer and match.start <= self.lastHit.offset and match.end > self.lastHit.offset:
+						qp.setPen(QColor(match.color))
+						qp.drawText(10, startY, "[%d:%d] %s" % (match.start, match.end-1, match.description))
+						startY -= 15
 
 	def highlightMatch(self, qp: QPainter, matchrange: Tuple[int, int, int], desc: str, color: QColor):
 		(bufIdx, start, end) = matchrange

@@ -40,6 +40,7 @@ def rangeBefore(bbuf, range, amount=16):
 	return bufIdx, max(0, selMin - amount), selMin
 
 
+
 def intToVarious(*values):
 	for value in values:
 		if value < 0:
@@ -102,7 +103,7 @@ def fuzzySelectionLengthMatcher(editor: "HexView2", qp: QPainter, bbuf: ByteBuff
 		for match, desc in findInRange(bbuf, [extendRange(bbuf, (bufIdx, start,start))], intToVarious(sellen+1, sellen+2, sellen+4)):
 			editor.highlightMatch(qp, match, "Fuzzy Selection Length as " + desc, QColor("#993399"))
 
-
+'''
 @SelectionHelpers.register(color="#775511", defaultEnabled=False)
 def debug_highlightMatchRange(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer, sel, options):
 	"""
@@ -112,7 +113,7 @@ def debug_highlightMatchRange(editor: "HexView2", qp: QPainter, bbuf: ByteBuffer
 
 	"""
 	editor.highlightMatch(qp, rangeBefore(bbuf, sel), "debug_highlightMatchRange", QColor("#775511"))
-
+'''
 
 @SelectionHelpers.register(color="#666666", defaultEnabled=True)
 def highlightSelectionAsLength(editor: "HexView2", qp: QPainter, bbuf:ByteBuffer, sel, options):

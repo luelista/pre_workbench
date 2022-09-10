@@ -21,6 +21,7 @@ from base64 import b64encode, b64decode
 from typing import Optional, List, Tuple
 
 import yaml
+from PyQt5 import QtCore
 from PyQt5.QtCore import (Qt, pyqtSignal, QAbstractItemModel, QModelIndex, pyqtSlot)
 from PyQt5.QtWidgets import QTextEdit, QTabWidget, QWidget, QVBoxLayout, \
     QMenu, \
@@ -143,7 +144,7 @@ class PacketListModel(QAbstractItemModel):
 
         return None
 
-    def index(self, row, column, parent):
+    def index(self, row, column, parent = QModelIndex()):
         if not self.hasIndex(row, column, parent):
             return QModelIndex()
 
@@ -219,7 +220,7 @@ class PacketListWidget(QWidget):
         layout.addWidget(self.packetlist)
         self.ctx_item_actions = [
             QAction(getIcon("document-search-result.png"), "Item Details", triggered=lambda: self.showData(self.getSelectedBuffers()), enabled=False),
-            QAction(getIcon("flag.png"), "Mark/Unmark Selected Packets", triggered=self._markUnmarkSelection, enabled=False),
+            QAction(getIcon("flag.png"), "Mark/Unmark Selected Buffers", triggered=self._markUnmarkSelection, enabled=False),
         ]
         self.ctx_general_actions = [
             QAction(getIcon("binocular-flag.png"), "Find By Expression", triggered=self._findByExpression),
@@ -231,19 +232,33 @@ class PacketListWidget(QWidget):
         ]
 
     def _findByExpression(self):
-        expr_str = QInputDialog.getText(self, "Find By Expression", "Please enter expression. All rows for which the expression is true will be marked, all others unmarked.", text=self.lastFindExpression)[0]
+        expr_str = QInputDialog.getText(self, "Find By Expression", "Please enter expression. All rows for which the expression is true will be selected.", text=self.lastFindExpression)[0]
         if not expr_str: return
         self.lastFindExpression = expr_str
         expr = Expression(expr_str=expr_str)
         matches = 0
+        model = self.packetlist.selectionModel()
+        model.clearSelection()
         for rowIndex, buf in enumerate(self.packetlistmodel.listObject.buffers):
-            match = buf.metadata['marked'] = bool(expr.evaluate_bbuf(buf))
-            if match: matches += 1
+            match = bool(expr.evaluate_bbuf(buf))
+            if match:
+                matches += 1
+                if matches == 1:
+                    self.packetlist.setCurrentIndex(self.packetlistmodel.index(rowIndex, 0))
+                model.select(self.packetlistmodel.index(rowIndex, 0),
+                             QtCore.QItemSelectionModel.Select | QtCore.QItemSelectionModel.Rows)
             self.packetlistmodel.headerDataChanged.emit(Qt.Vertical, rowIndex, rowIndex)
         QMessageBox.information(self, "Find By Expression", f"Of {len(self.packetlistmodel.listObject.buffers)} buffers, {matches} matched the expression " + expr.serialize())
 
     def _rowHeaderClicked(self, rowIndex: int):
         self.packetlistmodel.markPacket(rowIndex)
+
+    def selectMarked(self):
+        model = self.packetlist.selectionModel()
+        model.clearSelection()
+        for rowIndex, buf in enumerate(self.packetlistmodel.listObject.buffers):
+            if buf.metadata.get('marked'):
+                model.select(self.packetlistmodel.index(rowIndex, 0), QtCore.QItemSelectionModel.Select | QtCore.QItemSelectionModel.Rows)
 
     def setContents(self, lstObj: Optional[ByteBufferList]):
         self.listObject = lstObj
@@ -274,6 +289,7 @@ class PacketListWidget(QWidget):
                 ctx.addAction(action)
             self._buildRunMacroOnBufferSubmenu(ctx, "Run Macro On" + (" Selected Buffers" if len(self.packetlist.selectionModel().selectedRows()) > 1 else " Buffer"))
             ctx.addSeparator()
+        ctx.addAction("Select Marked Buffers", lambda: self.selectMarked())
         ctx.addAction("Select All", lambda: self.packetlist.selectAll())
         for action in self.ctx_general_actions:
             ctx.addAction(action)

@@ -406,6 +406,15 @@ class MacroListDockWidget(QWidget):
 	option_types=["-","text","color","font","select","check","int"]
 	CONTAINER_ROLE = QtCore.Qt.UserRole + 100
 	MACRO_NAME_ROLE = QtCore.Qt.UserRole + 101
+	MACRO_ICONS = {
+		'NONE': 'script.png',
+		'BYTE_ARRAY': 'script-attribute.png',
+		'BYTE_BUFFER': 'script-attribute-b.png',
+		'BYTE_BUFFER_LIST': 'script-attribute-l.png',
+		'DATA_SOURCE': 'script-attribute-d.png',
+		'STRING': 'script-attribute-s.png',
+		'SELECTION_HEURISTIC': 'script-attribute-h.png',
+	}
 	def __init__(self):
 		super().__init__()
 		self._initUI()
@@ -429,15 +438,17 @@ class MacroListDockWidget(QWidget):
 		for container_id, container in APP().macro_containers.items():
 			root = QTreeWidgetItem(self.treeView, [container.containerTitle])
 			root.setExpanded(True)
+			root.setIcon(0, getIcon("box.png"))
 			root.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
 			self._loadMacros(root, container)
 
 	def _loadMacros(self, root, container):
-		names = container.getMacroNames()
-		for name in names:
-			item = QTreeWidgetItem(root, [name])
+		macroList = container.getMacros()
+		for macroItem in macroList:
+			item = QTreeWidgetItem(root, [macroItem.name])
+			item.setIcon(0, getIcon(MacroListDockWidget.MACRO_ICONS.get(macroItem.input_type, "script.png")))
 			item.setData(0, MacroListDockWidget.CONTAINER_ROLE, container)
-			item.setData(0, MacroListDockWidget.MACRO_NAME_ROLE, name)
+			item.setData(0, MacroListDockWidget.MACRO_NAME_ROLE, macroItem.name)
 
 	def _customContextMenuRequested(self, point):
 		item = self.treeView.itemAt(point)
@@ -479,7 +490,7 @@ class MacroListDockWidget(QWidget):
 		if macro.input_type == Macro.TYPE_NONE:
 			macro.execute(None)
 		else:
-			TODO()
+			QMessageBox.warning(self, "Not implemented", "Please call with input data of type: " + macro.input_type)
 
 	def exportMacro(self, macro):
 		fileName, _ = QFileDialog.getSaveFileName(self, "Export Macro", os.path.join(APP().project.projectFolder, macro.name + ".macro.yml"), "Macro (*.macro.yml)")

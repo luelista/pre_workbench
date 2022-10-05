@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import traceback
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from glob import glob
 import os.path
 from typing import List, Optional
@@ -14,6 +14,8 @@ from pre_workbench.configs import SettingsField
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 
 last_params = defaultdict(dict)
+
+MacroListItem = namedtuple('MacroListItem', ['name', 'input_type'])
 
 class Macro:
 	name: str
@@ -55,10 +57,14 @@ class Macro:
 	def getSettingsFields(self):
 		return [SettingsField(**kw) for kw in self.options]
 
-	def execute(self, input, params=None):
-		hash = hashlib.sha256(self.code.encode('utf-8')).digest()
+	@property
+	def isTrusted(self):
 		from pre_workbench import configs
-		if hash not in configs.getValue("TrustedMacroHashes", []):
+		hash = hashlib.sha256(self.code.encode('utf-8')).digest()
+		return hash in configs.getValue("TrustedMacroHashes", [])
+
+	def execute(self, input, params=None):
+		if not self.isTrusted:
 			QMessageBox.warning(MainWindow, "Refusing to Run Untrusted Macro", "This macro is untrusted. \n\nTo mark it as trusted, open it in the macro editor, review the code, and then save it.\n\nBe careful: Macros run without any additional sandboxing in the context of this applications, and may write to all your user files.")
 			return None
 		if params is None and len(self.options) > 0:
@@ -96,20 +102,20 @@ class SysMacroContainer:
 		self.containerId = "BUILTIN"
 		self.containerTitle = "Bundled with pre_workbench"
 
-	def _loadMacro(self, filename):
+	def _loadMacro(self, filename: str) -> Macro:
 		with open(filename, "r") as f:
 			data = yaml.safe_load(f)
 		return Macro(self, os.path.basename(filename.replace(".macro.yml", "")), data["input_type"], data["output_type"], data["code"], data["options"], data["metadata"], None)
 
-	def getMacroNames(self):
-		return [macro.name for macro in self.macros]
+	def getMacros(self) -> List[MacroListItem]:
+		return [MacroListItem(macro.name, macro.input_type) for macro in self.macros]
 
-	def getMacroNamesByInputTypes(self, inputTypes):
+	def getMacroNamesByInputTypes(self, inputTypes: List[str]) -> List[str]:
 		return [macro.name for macro in self.macros if macro.input_type in inputTypes]
 
-	def getMacro(self, name):
+	def getMacro(self, name: str) -> Macro:
 		return next(macro for macro in self.macros if macro.name == name)
 
 	@property
-	def macrosEditable(self):
+	def macrosEditable(self) -> bool:
 		return False

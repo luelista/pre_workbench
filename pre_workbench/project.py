@@ -20,7 +20,7 @@ import sqlite3
 from typing import List
 
 from pre_workbench.interactive_fic import InteractiveFormatInfoContainer
-from pre_workbench.macros.macro import Macro
+from pre_workbench.macros.macro import Macro, MacroListItem
 from pre_workbench.structinfo import xdrm
 
 class ProjectFormatInfoContainer(InteractiveFormatInfoContainer):
@@ -107,10 +107,10 @@ class Project:
                     (new_set_name, set_name,))
         self.db.commit()
 
-    def getMacroNames(self):
+    def getMacros(self) -> List[MacroListItem]:
         cur = self.db.cursor()
-        cur.execute("SELECT name FROM macros")
-        return [x[0] for x in cur.fetchall()]
+        cur.execute("SELECT name, input_type FROM macros")
+        return [MacroListItem(*x) for x in cur.fetchall()]
 
     def getMacroNamesByInputTypes(self, inputTypes: List[str]):
         cur = self.db.cursor()

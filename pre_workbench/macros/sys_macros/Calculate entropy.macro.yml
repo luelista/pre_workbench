@@ -1,5 +1,5 @@
 ---
-name: Calculate entropy
+name: Calculate Entropy
 input_type: BYTE_BUFFER
 output_type: NONE
 options: []

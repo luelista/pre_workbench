@@ -257,7 +257,6 @@ class HexView2(QAbstractScrollArea):
 		for container_id, container, macroName in APP().find_macros_by_input_types(["BYTE_ARRAY"]):
 			menu.addAction(macroName, lambda c=container, name=macroName: c.getMacro(name).execute(self.getRangeBytes(self.selRange())))
 
-
 	def _buildGeneralContextMenu(self, ctx):
 		ctx.addAction("Select all", lambda: self.selectAll())
 		ctx.addSeparator()

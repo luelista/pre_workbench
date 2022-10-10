@@ -484,7 +484,8 @@ class MacroListDockWidget(QWidget):
 	def _onDblClick(self, item: QTreeWidgetItem, columnIdx: int):
 		container = item.data(0, MacroListDockWidget.CONTAINER_ROLE)
 		macroname = item.data(0, MacroListDockWidget.MACRO_NAME_ROLE)
-		self.executeMacro(container.getMacro(macroname))
+		if macroname:
+			self.executeMacro(container.getMacro(macroname))
 
 	def executeMacro(self, macro):
 		if macro.input_type == Macro.TYPE_NONE:

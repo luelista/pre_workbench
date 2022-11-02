@@ -418,18 +418,21 @@ class WorkbenchMain(QMainWindow):
 
 	def showAboutBox(self):
 		from pre_workbench import errorhandler
+		def link(href, prefix=""):
+			if href is None: return "None"
+			return f"<a href='{prefix}{href}'>{href}</a>"
 		showWidgetDlg(QTextBrowser(minimumWidth=520,minimumHeight=300,searchPaths=icon_searchpaths,openLinks=False,anchorClicked=navigateBrowser,
 							html="<img src='appicon.png' style='float: left; '><br><b>Protocol Reverse Engineering Workbench</b><br>"
-							"Version " + get_app_version() +"<br><br>"
+							f"Version {get_app_version()}<br><br>"
 							"Copyright (c) 2022 Mira Weller<br>"
 							"Licensed under the GNU General Public License Version 3<br style='clear:left'><br><hr>"
 							"<table>"
-							"<tr><td>Website: </td><td><a href='"+ consts.WEBSITE_URL + "'>"+ consts.WEBSITE_URL + "</a></td></tr>"
-							"<tr><td>Issue Tracker: </td><td><a href='"+ consts.ISSUE_TRACKER_URL + "'>"+ consts.ISSUE_TRACKER_URL + "</a></td></tr>"
+							f"<tr><td>Website: </td><td>{link(consts.WEBSITE_URL)}</td></tr>"
+							f"<tr><td>Issue Tracker: </td><td>{link(consts.ISSUE_TRACKER_URL)}</td></tr>"
 							"<tr><td>&nbsp;</td><td></td></tr>"
-							"<tr><td>Config Dir: </td><td><a href='file:" + configs.dirs.user_config_dir + "'>" + configs.dirs.user_config_dir + "</a></td></tr>"
-							"<tr><td>Log File: </td><td>" + errorhandler.logFile + "</td></tr>"
-							"<tr><td>Plugins Dir: </td><td><a href='file:" + APP().plugins_dir + "'>" + APP().plugins_dir + "</a></td></tr>" +
+							f"<tr><td>Config Dir: </td><td>{link(configs.dirs.user_config_dir, 'file:')}</td></tr>"
+							f"<tr><td>Log File: </td><td>{errorhandler.logFile}</td></tr>"
+							f"<tr><td>Plugins Dir: </td><td>{link(APP().plugins_dir, 'file:')}</td></tr>" +
 							("<tr><td>Loaded Plugins:</td><td>" + "<br>".join(APP().plugins.keys())+"</td></tr>" if len(APP().plugins) > 0 else "")
 							+ "</table>"),
 					  "About PRE Workbench", lambda: None, self, buttons=QDialogButtonBox.Close)

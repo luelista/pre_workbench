@@ -21,6 +21,7 @@ import re
 import subprocess
 import tempfile
 import weakref
+from binascii import hexlify
 from copy import deepcopy
 
 import yaml
@@ -479,7 +480,8 @@ class MacroListDockWidget(QWidget):
 	def _onDblClick(self, item: QTreeWidgetItem, columnIdx: int):
 		container = item.data(0, MacroListDockWidget.CONTAINER_ROLE)
 		macroname = item.data(0, MacroListDockWidget.MACRO_NAME_ROLE)
-		self.executeMacro(container.getMacro(macroname))
+		if macroname:
+			self.executeMacro(container.getMacro(macroname))
 
 	def executeMacro(self, macro):
 		if macro.input_type == Macro.TYPE_NONE:
@@ -716,17 +718,22 @@ class SearchDockWidget(QWidget):
 
 	def _initUI(self):
 		toolbar = QToolBar()
-		toolbar.addAction("Find", self._runTool)
 		self.cmdLineEdit = QComboBox(editable=True, minimumWidth=200)
 		QShortcut(QKeySequence(QtCore.Qt.Key_Return), self.cmdLineEdit, activated=self._runTool, context=QtCore.Qt.WidgetWithChildrenShortcut)
 		self._updateMru()
 		toolbar.addWidget(self.cmdLineEdit)
+		toolbar.addAction(getIcon("magnifier-left.png"), "Find", self._runTool)
+		self.displayAsHexAction = QAction(getIcon("document-binary.png"), "Display Results as Hex String", self, triggered=self._runTool)
+		self.displayAsHexAction.setCheckable(True)
+		toolbar.addAction(self.displayAsHexAction)
+
 		self.treeView = QTreeWidget()
 		self.treeView.setColumnCount(2)
 		self.treeView.setColumnWidth(0, 300)
 		self.treeView.headerItem().setText(0, "Result")
 		self.treeView.headerItem().setText(1, "Offset")
-		self.treeView.itemClicked.connect(self._itemClicked)
+		self.treeView.currentItemChanged.connect(self._currentItemChanged)
+		self.treeView.setSelectionMode(QAbstractItemView.ExtendedSelection)
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(toolbar)
 		windowLayout.addWidget(self.treeView)
@@ -756,14 +763,18 @@ class SearchDockWidget(QWidget):
 					root.setText(0, "Buffer %d: %r" % (i, buf.metadata))
 					root.setExpanded(True)
 				x = QTreeWidgetItem(root)
-				x.setText(0, match.group(0).decode('latin1'))
+				if self.displayAsHexAction.isChecked():
+					x.setText(0, hexlify(match.group(0), b':').decode('latin1'))
+				else:
+					x.setText(0, match.group(0).decode('latin1'))
 				x.setText(1, str(match.start()))
 				x.setData(0, QtCore.Qt.UserRole, Range(match.start(), match.end(), buffer_idx=i))
 
-	def _itemClicked(self, item):
+	def _currentItemChanged(self, item, prevItem):
+		if not item: return
 		range = item.data(0, QtCore.Qt.UserRole)
-		if range:
-			self.hexview.selectRange(range, True)
+		if not range: return
+		self.hexview.selectRange(range, True)
 
 
 

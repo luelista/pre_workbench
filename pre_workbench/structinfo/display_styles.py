@@ -46,7 +46,21 @@ def ip6(b):
 
 
 @ExprFunctions.register()
+def getrange(param, key):
+	return param[key]
+
+@ExprFunctions.register()
 def snip(param):
 	return str(param)[:32]
+
+@ExprFunctions.register()
+def iif(cond, true_val, false_val):
+	return true_val if cond else false_val
+
+@ExprFunctions.register()
+def choice(cond, *vals):
+	for i in range(0, len(vals), 2):
+		if vals[i] == cond: return vals[i+1]
+	return ""
 
 

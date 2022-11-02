@@ -87,10 +87,10 @@ class Evaluator(Transformer):
 			return node[0] and node[2]
 
 	def fun_expr(self, node):
-		name, param = node
+		name, params = node[0], node[1:]
 		fn, meta = ExprFunctions.find(name=name)
 		if fn:
-			return fn(param)
+			return fn(*params)
 		else:
 			raise Exception("Call to unknown function '"+name+"'")
 
@@ -170,6 +170,8 @@ class ByteBufferEvaluator(Evaluator):
 		if id == "fields":
 			return self.bbuf.fields
 		frame = generic_unpack_value(self.bbuf.fi_tree)
+		if id == "root":
+			return frame
 		#print(frame)
 		if frame is not None and id in frame:
 			return generic_unpack_value(frame[id])

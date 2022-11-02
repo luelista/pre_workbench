@@ -167,6 +167,7 @@ class VariantStructFI:
 	def init(self, children, **kw):
 		self.children = [deserialize_fi(c) for c in children]
 		self.size = None
+
 	def _to_text(self, indent, refs, all_params):
 		if len(self.children) == 1:
 			return params_to_text(indent, refs, all_params, ) + self.children[0].to_text(indent, refs)

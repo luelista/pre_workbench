@@ -45,6 +45,7 @@ class RangeTreeWidget(QTreeWidget):
 	BytesOffsetRole = QtCore.Qt.UserRole + 1
 	BytesSizeRole = QtCore.Qt.UserRole + 2
 	SourceDescRole = QtCore.Qt.UserRole + 3
+	PathComponentRole = QtCore.Qt.UserRole + 4
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
@@ -136,6 +137,7 @@ class RangeTreeWidget(QTreeWidget):
 					ctx.addAction(name+"\t"+key, lambda style=style: self.styleSelection(source, **style))
 				ctx.addSeparator()
 			ctx.addAction("Copy", lambda: setClipboardText("\t".join(item.text(i) for i in range(item.columnCount()))))
+			ctx.addAction("Copy expression", lambda: setClipboardText(self.getExpressionForField(item)))
 		ctx.addSeparator()
 		self._buildGenericContextMenu(ctx)
 
@@ -214,6 +216,19 @@ class RangeTreeWidget(QTreeWidget):
 			self._afterUpdate()
 
 		showTypeEditorDlg("format_info.tes", "RepeatStructFI", { "children": element.serialize() }, ok_callback=ok_callback)
+
+	def getExpressionForField(self, field: QTreeWidgetItem):
+		path = []
+		while field.parent():
+			component = field.data(0, RangeTreeWidget.PathComponentRole)
+			if not component.startswith("["):
+				component = "." + component
+			path.insert(0, component)
+			field = field.parent()
+		path_str = "".join(path)
+		if path_str.startswith("."): path_str = path_str[1:]
+		if path_str.startswith("["): path_str = "root" + path_str
+		return path_str
 
 	def _afterUpdate(self):
 		# TODO BUG - this causes a parse of the wrong container to be shown in the Grammar Parse Result!
@@ -294,6 +309,7 @@ def Range_addToTree(range: Range, parent: QTreeWidgetItem, printableOnly: bool =
 		me.setData(0, RangeTreeWidget.BytesOffsetRole, range.start)
 		me.setData(0, RangeTreeWidget.BytesSizeRole, range.bytes_size)
 		me.setData(0, RangeTreeWidget.SourceDescRole, x.source_desc)
+		me.setData(0, RangeTreeWidget.PathComponentRole, range.field_name)
 		me.setFont(5, getMonospaceFont())
 		me.setText(0, truncate_str(text0))
 		me.setText(1, truncate_str(text1))

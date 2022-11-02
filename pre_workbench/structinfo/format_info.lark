@@ -105,7 +105,7 @@ MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 paren_expr: "(" expression ")"
 compare_expr: expression COMP_OP expression
 param_expr: "$" IDENTIFIER | "${" expression "}"
-fun_expr: IDENTIFIER "(" expression ")"
+fun_expr: IDENTIFIER "(" expression ("," expression)* ")"
 DOTS: "´"+
 hierarchy_expr: DOTS
 array_expr: primary_expression "[" expression "]"

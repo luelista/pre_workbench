@@ -456,8 +456,8 @@ def resolveSchema(schemaFile):
 	if isinstance(schemaFile, str): return TypeEditorSchema(open(respath(schemaFile),'rb').read())
 	return None
 
-def showTypeEditorDlg(schemaFile, typeName, values=None, title="Editor", ok_callback=None):
-	dlg = QDialog()
+def showTypeEditorDlg(schemaFile, typeName, values=None, title="Editor", ok_callback=None, parent=None):
+	dlg = QDialog(parent)
 	dlg.setWindowTitle(title)
 	dlg.setLayout(QVBoxLayout())
 	dlg.setStyleSheet("StructuredTypeEditor { border: 1px solid #bbb }")

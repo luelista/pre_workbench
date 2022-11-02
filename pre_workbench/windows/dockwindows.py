@@ -29,7 +29,7 @@ from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices, QColor, QKeySequence
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox, \
-	QShortcut, QFileDialog
+	QShortcut, QFileDialog, QDialog
 
 import pre_workbench.app
 from pre_workbench import configs
@@ -48,8 +48,7 @@ from pre_workbench.windows.content.textfile import ScintillaEdit
 from pre_workbench.typeeditor import JsonView, showTypeEditorDlg
 from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.util import PerfTimer, truncate_str
-
-
+from pre_workbench.windows.dialogs.editmacro import EditMacroDialog
 
 
 @DockWidgetTypes.register(title="Project Files", icon="folder-tree.png", dock="Left", showFirstRun=True)
@@ -402,7 +401,6 @@ class RangeListWidget(QWidget):
 
 @DockWidgetTypes.register(title="Macros", icon="scripts.png", dock="Right", showFirstRun=False)
 class MacroListDockWidget(QWidget):
-	option_types=["-","text","color","font","select","check","int"]
 	CONTAINER_ROLE = QtCore.Qt.UserRole + 100
 	MACRO_NAME_ROLE = QtCore.Qt.UserRole + 101
 	MACRO_ICONS = {
@@ -458,12 +456,10 @@ class MacroListDockWidget(QWidget):
 			if macroname:
 				ctx.addAction("Execute", lambda: self.executeMacro(container.getMacro(macroname)))
 				if container.macrosEditable:
-					ctx.addAction("Edit code", lambda: self.editCode(container.getMacro(macroname)))
-					ctx.addAction("Properties", lambda: self.editPreferences(container.getMacro(macroname)))
-					ctx.addAction("Edit options", lambda: self.editOptions(container.getMacro(macroname)))
-					ctx.addAction("Delete macro", lambda: self.deleteMacro(container, macroname))
+					ctx.addAction("Edit", lambda: self.editMacro(container.getMacro(macroname)))
+					ctx.addAction("Delete", lambda: self.deleteMacro(container, macroname))
 				else:
-					ctx.addAction("View code", lambda: self.editCode(container.getMacro(macroname)))
+					ctx.addAction("View code", lambda: self.editMacro(container.getMacro(macroname)))
 				ctx.addSeparator()
 				for target_container_id, target_container in APP().macro_containers.items():
 					if target_container.macrosEditable and target_container != container:
@@ -513,16 +509,14 @@ class MacroListDockWidget(QWidget):
 			SettingsField("input_type", "Macro/Input Type", "select", {"options": list(zip(Macro.TYPES, Macro.TYPES))}),
 			SettingsField("output_type", "Output Type", "select", {"options": list(zip(Macro.TYPES, Macro.TYPES))}),
 		]
-	def editPreferences(self, macro):
-		result = showSettingsDlg(MacroListDockWidget.MacroPreferencesDef,
-								 {"name": macro.name, "input_type": macro.input_type, "output_type": macro.output_type},
-								 title="Edit Properties Of Macro \"" + macro.name + "\"", parent=self,
-								  help_callback=lambda: navigateBrowser(MACRO_PROPERTIES_HELP_URL))
-		if not result: return
-		macro.name = result["name"]
-		macro.input_type = result["input_type"]
-		macro.output_type = result["output_type"]
-		macro.container.storeMacro(macro)
+
+	def editMacro(self, macro):
+		dlg = EditMacroDialog(self, macro)
+		if dlg.exec() == QDialog.Rejected: return
+		if macro.container.macrosEditable:
+			macro.container.storeMacro(macro)
+		hash = hashlib.sha256(macro.code.encode('utf-8')).digest()
+		configs.updateMru("TrustedMacroHashes", hash, 255)
 		self._loadList()
 
 	def createMacro(self, container):
@@ -543,32 +537,6 @@ class MacroListDockWidget(QWidget):
 		new_macro = Macro(target_container, result["name"], result["input_type"], result["output_type"], macro.code, deepcopy(macro.options), deepcopy(macro.metadata), None)
 		target_container.storeMacro(new_macro)
 		self._loadList()
-
-	def editCode(self, macro):
-		verb = "Edit" if macro.container.macrosEditable else "View"
-		from PyQt5.Qsci import QsciLexerPython
-		res = showScintillaDialog(self, verb + " Code Of Macro \""+macro.name+"\"", macro.code, None,
-								  readonly=not macro.container.macrosEditable, lexer=QsciLexerPython(),
-								  help_callback=lambda: navigateBrowser(MACRO_CODE_HELP_URL))
-		if res:
-			if macro.container.macrosEditable:
-				macro.code = res
-				macro.container.storeMacro(macro)
-			hash = hashlib.sha256(res.encode('utf-8')).digest()
-			configs.updateMru("TrustedMacroHashes", hash, 255)
-
-	def editOptions(self, macro):
-		verb = "Edit" if macro.container.macrosEditable else "View"
-		from PyQt5.Qsci import QsciLexerYAML
-		options = [{"id":x["id"], "title":x["title"], "field": [ MacroListDockWidget.option_types.index(x["fieldType"]), x["params"] ]} for x in macro.options]
-		res = showTypeEditorDlg("settingsgroup.tes", "SettingsGroup", options, verb + " Options Of Macro \""+macro.name+"\"", )
-		if res:
-			if macro.container.macrosEditable:
-				#macro.options = yaml.safe_load(res)
-				macro.options = [{"id":x["id"], "title":x["title"], "fieldType": MacroListDockWidget.option_types[x["field"][0]], "params": x["field"][1]} for x in res]
-				print(macro.options)
-				macro.container.storeMacro(macro)
-
 
 
 @DockWidgetTypes.register(title="Selection Heuristics", icon="table-select-cells.png")

@@ -37,7 +37,7 @@ cdef class Range:
 		return self.bytes_size
 
 	cpdef bint contains(self, int i):
-		return self.start <= i < self.end
+		return self.start < self.end and self.start <= i < self.end
 
 	cpdef bint overlaps(self, Range other):
 		return self.contains(other.start) or self.contains(other.end - 1) or \

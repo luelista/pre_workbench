@@ -46,6 +46,7 @@ class RangeTreeWidget(QTreeWidget):
 	BytesSizeRole = QtCore.Qt.UserRole + 2
 	SourceDescRole = QtCore.Qt.UserRole + 3
 	PathComponentRole = QtCore.Qt.UserRole + 4
+	BufferIndexRole = QtCore.Qt.UserRole + 5
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
@@ -77,9 +78,9 @@ class RangeTreeWidget(QTreeWidget):
 
 	def updateTree(self, fi_trees):
 		self.clear()
-		for fi_tree in fi_trees:
+		for buf_idx, fi_tree in enumerate(fi_trees):
 			if fi_tree is None: continue
-			Range_addToTree(fi_tree, self, self.onlyPrintable)
+			Range_addToTree(buf_idx, fi_tree, self, self.onlyPrintable)
 
 	def _fiTreeItemActivated(self, item, column):
 		pass
@@ -92,7 +93,10 @@ class RangeTreeWidget(QTreeWidget):
 		while iterator.value():
 			item = iterator.value()
 			itemRange = item.data(0, RangeTreeWidget.RangeRole)
-			bgColor = QColor("#dddddd") if itemRange is not None and itemRange.overlaps(range) else QColor("#ffffff")
+			itemBufferIdx = item.data(0, RangeTreeWidget.BufferIndexRole)
+			bgColor = QColor("#dddddd") if (
+					itemRange is not None and itemBufferIdx == range.buffer_idx and len(itemRange) > 0 and itemRange.overlaps(range)
+			) else QColor("#ffffff")
 			with PerfTimer("setBackground"):
 				item.setBackground(0, bgColor)
 			#item.setProperty("class", "highlighted" if itemRange is not None and itemRange.overlaps(range) else "")
@@ -285,7 +289,7 @@ class RangeTreeWidget(QTreeWidget):
 	#endregion
 
 
-def Range_addToTree(range: Range, parent: QTreeWidgetItem, printableOnly: bool = False):
+def Range_addToTree(buf_idx: int, range: Range, parent: QTreeWidgetItem, printableOnly: bool = False):
 	x = range
 	collapse = x.field_name.startswith("_")
 	text0 = x.field_name
@@ -310,6 +314,7 @@ def Range_addToTree(range: Range, parent: QTreeWidgetItem, printableOnly: bool =
 		me.setData(0, RangeTreeWidget.BytesSizeRole, range.bytes_size)
 		me.setData(0, RangeTreeWidget.SourceDescRole, x.source_desc)
 		me.setData(0, RangeTreeWidget.PathComponentRole, range.field_name)
+		me.setData(0, RangeTreeWidget.BufferIndexRole, buf_idx)
 		me.setFont(5, getMonospaceFont())
 		me.setText(0, truncate_str(text0))
 		me.setText(1, truncate_str(text1))
@@ -320,11 +325,11 @@ def Range_addToTree(range: Range, parent: QTreeWidgetItem, printableOnly: bool =
 		elif type(x.value) == dict:
 			if not collapse: me.setExpanded(True)
 			for item in x.value.values():
-				Range_addToTree(item, me, printableOnly)
+				Range_addToTree(buf_idx, item, me, printableOnly)
 		elif type(x.value) == list:
 			if not collapse:me.setExpanded(True)
 			for item in x.value:
-				Range_addToTree(item, me, printableOnly)
+				Range_addToTree(buf_idx, item, me, printableOnly)
 		else:
 			try:
 				me.setText(3, truncate_str(x.source_desc.formatter(x.value)))
@@ -336,8 +341,8 @@ def Range_addToTree(range: Range, parent: QTreeWidgetItem, printableOnly: bool =
 	else:
 		if type(x.value) == dict:
 			for item in x.value.values():
-				Range_addToTree(item, parent, printableOnly)
+				Range_addToTree(buf_idx, item, parent, printableOnly)
 		if type(x.value) == list:
 			for item in x.value:
-				Range_addToTree(item, parent, printableOnly)
+				Range_addToTree(buf_idx, item, parent, printableOnly)
 

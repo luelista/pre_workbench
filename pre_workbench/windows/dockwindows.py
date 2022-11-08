@@ -271,9 +271,11 @@ class RangeTreeDockWidget(QWidget):
 	def _fiTreeItemSelected(self, item, previous):
 		if item is None: return
 		range = item.data(0, RangeTreeWidget.RangeRole)
+		buf_idx = item.data(0, RangeTreeWidget.BufferIndexRole)
 		hexView = self.lastHexView()
 		if range is not None and hexView is not None:
-			hexView.selectRange(range, scrollIntoView=True)
+			sel_range = Range(range.start, range.end, buffer_idx=buf_idx)
+			hexView.selectRange(sel_range, scrollIntoView=True)
 
 	def on_meta_updated(self, event_id, param):
 		if param is None or not self.isVisible(): return

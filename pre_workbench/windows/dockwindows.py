@@ -506,7 +506,7 @@ class MacroListDockWidget(QWidget):
 		with open(fileName, "r") as f:
 			x = yaml.safe_load(f)
 			macro = Macro(container, x["name"], x["input_type"], x["output_type"], x["code"], x["options"], x["metadata"], None)
-			self.editPreferences(macro)
+			self.editMacro(macro)
 
 	MacroPreferencesDef = [
 			SettingsField("name", "Name", "text", {}),
@@ -529,7 +529,7 @@ class MacroListDockWidget(QWidget):
 		if not result: return
 		macro = Macro(container, result["name"], result["input_type"], result["output_type"], "", [], {}, None)
 		container.storeMacro(macro)
-		self.editCode(macro)
+		self.editMacro(macro)
 		self._loadList()
 
 	def copyMacro(self, macro, target_container):

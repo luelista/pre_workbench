@@ -2,25 +2,25 @@
 title: Getting Started
 ---
 
-# 🦄
+## 🦄
 TBD
 
 
 
-# Video Walkthrough
+## Video Walkthrough
 
 <iframe width="830" height="540" src="https://www.youtube.com/embed/U3op5UreV1Q" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 
-# Command Line Interface
+## Command Line Interface
 
 Although PRE Workbench is mainly a GUI application, there are some command line arguments to
 the main application, and there is a separate tool to run parsers directly from the command
 line.
 
-## prewb
+### prewb
 
-### Usage
+#### Usage
 Just run `prewb` to start the GUI application.
 
 Pass a directory path to start with this specific project, or run `prewb --choose-project`
@@ -54,9 +54,9 @@ optional arguments:
 On Windows, the `prewb` command runs the application in GUI mode, preventing command line output. To see the log output,
 use the `prewb_c` command which runs in console mode.
 
-## prewb_parse
+### prewb_parse
 
-### Usage
+#### Usage
 ```
 usage: prewb_parse [-h] [-P DIR] [-F FILENAME] [-e GRAMMAR] [-d NAME] [-i FILENAME] [-x HEXSTRING] [--json]
 
@@ -79,7 +79,7 @@ optional arguments:
   --json                Print json output
 ```
 
-### Examples
+#### Examples
 ```
 $ prewb_parse -e "_ struct {foo UINT8 bar UINT8}" -x "1122"
 {

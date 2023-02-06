@@ -2,7 +2,7 @@
 title: Syntax Reference
 ---
 
-# Grammar Files
+## Grammar Files
 A grammar file consists of a map of names to type definitions, in the format `name1 definition1 name2 definition2 ...`, each element separated by white-space. The following sections explain all available base types from which the type definitions can be assembled.
 
 ```
@@ -14,7 +14,7 @@ params: ("(" [parampair ("," parampair)*] ")")?
 parampair: IDENTIFIER "=" value
 ```
 
-# Example
+## Example
 The following grammar definition defines a simple protocol, with a magic number in the beginning of the packet,
 followed by repeated TLV (type-length-value) items.
 ```
@@ -42,7 +42,7 @@ Parsing the following example data, consisting of the magic number and two TLV i
 ![Parser Result](images/example-parse-result.png)
 
 
-# Parameters
+## Parameters
 
 Some parameters are recognized on all types, where the `params` element is accepted. Other parameters are recognized on 
 specific types only, but can also be declared on any surrounding container type, causing them to cascade to the children
@@ -57,14 +57,14 @@ specific types only, but can also be declared on any surrounding container type,
 | hide |  | If specified, this field is hidden from the Grammar Parse Result tree view |
 
 
-# Further Examples
+## Further Examples
 
 For further examples, have a look at the test cases for the [parser](https://github.com/luelista/pre_workbench/blob/master/tests/test_grammar_parser.py) 
 and [syntax](https://github.com/luelista/pre_workbench/blob/master/tests/test_grammar_code_syntax.py).
 
-# Type Definitions
+## Type Definitions
 
-## named
+### named
 
 ```
 named: IDENTIFIER params
@@ -104,7 +104,7 @@ mytype
 | parse_with    | named   | Usually used on BYTES or UINT_BYTES fields, causes the value to be parsed as a child parsing unit. This allows to run the child parser with a fixed length, by specifying `size` or using UINT_BYTES. |
 
 
-## struct
+### struct
 A struct is defined as an ordered list of named field definitions, where each field has a type.
 
 ```
@@ -124,7 +124,7 @@ If the name of a struct field starts with an underscore, it's contents will be c
 
 
 
-## repeat
+### repeat
 
 ```
 repeat: "repeat" params type
@@ -147,7 +147,7 @@ int32_array struct(endianness=">") {
 | until_invalid       | boolean  |  |
 
 
-## variant
+### variant
 
 ```
 variant: "variant" params "{" type* "}"
@@ -167,7 +167,7 @@ capture_file variant {
 
 
 
-## switch
+### switch
 
 ```
 switch: "switch" expression params "{" ("case" expression ":" type)* "}"
@@ -189,7 +189,7 @@ my_packet struct {
 
 
 
-## union
+### union
 
 ```
 union: "union" params "{" (IDENTIFIER type)* "}"
@@ -205,7 +205,7 @@ u_s union {
 
 
 
-## bits
+### bits
 
 ```
 bits: "bits" params "{" (IDENTIFIER ":" number)* "}"
@@ -232,11 +232,11 @@ header bits(endianness="<") {
 | endianness    | String  | "<" (Little endian) or ">" (Big endian). |
 
 
-# Expressions
+## Expressions
 
 TODO: describe expression syntax 
 
-## Built-in functions
+### Built-in functions
 
 Currently, all functions have exactly one parameter.
 

@@ -1,16 +1,19 @@
-# Wireshark Dissector Code Generator
+# Code Generator for Wireshark Dissectors
 
 PRE Workbench provides a proof-of-concept code generator for Wireshark Lua dissectors, which supports a subset 
 of the protocol grammar language. 
 
 ## Supported Features
+
 Types:
+
 * struct
 * repeat
 * INT / UINT, STRING, BYTES
 * named reference to other types defined in the same file
 
 Parameters:
+
 * INT, UINT: endianness
 * INT, UINT: magic
 * BYTES, INT, UINT: show="hex"
@@ -18,6 +21,7 @@ Parameters:
 * STRING, BYTES: size
 
 Expressions:
+
 * references to INT / UINT fields in the same structure or a parent structure 
 * basic maths
 

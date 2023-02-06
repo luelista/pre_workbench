@@ -4,7 +4,7 @@ title: Key Bindings Reference
 
 
 
-# Global
+## Global
 
 | Key | Action |
 | --- | --- |
@@ -16,7 +16,7 @@ title: Key Bindings Reference
 | ctrl-Q | Exit |
 
 
-# Hex Editor
+## Hex Editor
 
 | Key | Action |
 | --- | --- |
@@ -33,7 +33,7 @@ title: Key Bindings Reference
 
 
 
-# Code Editor
+## Code Editor
 
 | Key | Action |
 | --- | --- |
@@ -43,7 +43,7 @@ title: Key Bindings Reference
 
 
 
-# Grammar Definition Code
+## Grammar Definition Code
 
 | Key | Action |
 | --- | --- |

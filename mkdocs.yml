@@ -1,0 +1,29 @@
+site_name: PRE Workbench
+theme:
+  name: material
+  favicon: images/appicon.ico
+  features:
+    - content.action.edit
+  palette:
+    primary: purple
+
+nav:
+  - Home: index.md
+  - Installation: install.md
+  - Getting Started: getting-started.md
+  - Syntax Reference: syntax-reference.md
+  - Code Generation: code-generation.md
+  - Key Bindings: key-bindings.md
+  - Extending: extending.md
+
+repo_url: https://github.com/luelista/pre_workbench
+edit_uri: edit/main/docs/
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/luelista/pre_workbench
+    - icon: fontawesome/brands/mastodon
+      link: https://chaos.social/@luelistan
+
+copyright: Copyright &copy; 2020 - 2023 Mira Weller
+

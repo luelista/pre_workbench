@@ -2,7 +2,9 @@
 title: Welcome to PRE Workbench Docs
 ---
 
-# Documentation
+# Welcome to PRE Workbench Docs
+
+## Documentation
 <a href="#screenshot"><img src="images/app-screenshot.png" style="width: 50%; float:right"></a>
 
 [Installation](install)
@@ -18,7 +20,7 @@ title: Welcome to PRE Workbench Docs
 [Wireshark Dissector Generator](code-generation)
 
 
-# Features
+## Features
 
 
 ## Data import

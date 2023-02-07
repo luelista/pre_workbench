@@ -1,45 +1,31 @@
 ---
+template: home.html
 title: Welcome to PRE Workbench Docs
 ---
 
 # Welcome to PRE Workbench Docs
-
-## Documentation
-<a href="#screenshot"><img src="images/app-screenshot.png" style="width: 50%; float:right"></a>
-
-[Installation](install)
-
-[Getting Started](getting-started)
-
-[Syntax Reference](syntax-reference)
-
-[Key Bindings](key-bindings)
-
-[Plugins and Macros](extending)
-
-[Wireshark Dissector Generator](code-generation)
-
+PRE Workbench is a software that supports reverse engineers in analyzing proprietary binary protocols, using a **custom-built HEX viewer** for binary data and a specialized **[description language for binary protocol structures](syntax-reference.md)**. Our software supports verifying the documented structure with fast round-trip times as well as **[generating Wireshark dissectors](code-generation.md)** as output.
 
 ## Features
 
 
-## Data import
+### Data import
 - Load PCAP files
 - Load binary files, single or a complete folder as package list
 - Load CSV files, using one column as payload (hex/base64 encoded) and the rest as metadata
 
-## Interactive Hexdump
-### Heuristics
+### Interactive Hexdump
+#### Heuristics
 - Recognize length fields
 - highlight matching length fields for selection
 - Evaluate selection as length field
 - Highlight same content
 
-### Annotations
+#### Annotations
 - color and text highlighting of byte sequences
 - Application of the annotations to further packages
 
-### Interactive documentation of procotol structure as grammar
+#### Interactive documentation of procotol structure as grammar
 - Description language for binary protocols
 - "Click-Grammar": Edit in parallel using code and GUI (see screencast below)
 - Applying a grammar to multiple packages
@@ -48,7 +34,6 @@ title: Welcome to PRE Workbench Docs
 <blockquote class="imgur-embed-pub" lang="en" data-id="a/1t0hMp8"  ><a href="//imgur.com/a/1t0hMp8">PRE Workbench (Click-Grammar)</a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>
 
 
-## Other features
 ### Data inspector
 Parse the selection as different data types (Signed/Unsigned Int, Big/Little Endian, ...).
 
@@ -66,5 +51,5 @@ To enable plugin support, configure a plugin directory in the settings dialog. M
 [release notes](https://github.com/luelista/pre_workbench/releases/tag/0.7.8).
 You can find some example plugins on [Github](https://github.com/luelista/prewb_example_plugins).
 
-# Screenshot
+## Screenshot
 ![Screenshot](images/app-screenshot.png)

@@ -58,3 +58,24 @@ We therefore decided on an approach that compromises between memory and access t
 There are more complex and more efficient data structures to store intervals, for example interval trees `cormenIntroductionAlgorithms2009` and nested containment lists `alekseyenkoNestedContainmentList2007`. However, we found our chunked approach fast enough for a lag-free GUI in regular use of the application. This approach is implemented in the `RangeList` class of our application.
 
 
+## XDRmap
+
+The application config file and some project settings are internally encoded in the XDRmap format. This utility can be used to convert them to the human-readable YAML file for debugging purposes.
+
+This format allows maps (dictionaries) and lists of values to be stored
+in a format based on the [xdrlib](https://docs.python.org/3/library/xdrlib.html) module. It has similar capabilities as JSON,
+with added support of integers, byte arrays and UUIDs.
+The loads and dumps methods allow the specification of a magic value, which
+is prefixed to / expected as prefix of the encoded data, to simplify the
+creation of custom binary file formats.
+
+Each encoded value starts with a 4-byte header, which encodes the type of the value, and either encodes the length of following data, or contains the whole data by itself.
+
+``` title="Type codes"
+XDRM_inlong = 0b000  # rest: value
+XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false, 0x1005 = UUID
+XDRM_utf8   = 0b100  # rest: length in bytes
+XDRM_bytes  = 0b101  # rest: length in bytes
+XDRM_array  = 0b110  # rest: count
+XDRM_map    = 0b111  # rest: pair-count
+```

@@ -2,18 +2,6 @@
 title: Syntax Reference
 ---
 
-## Grammar Files
-A grammar file consists of a map of names to type definitions, in the format `name1 definition1 name2 definition2 ...`, each element separated by white-space. The following sections explain all available base types from which the type definitions can be assembled.
-
-```
-grammar_file: field*
-field: IDENTIFIER type
-type: named | struct | repeat | variant | switch | union | bits
-
-params: ("(" [parampair ("," parampair)*] ")")?
-parampair: IDENTIFIER "=" value
-```
-
 ## Example
 The following grammar definition defines a simple protocol, with a magic number in the beginning of the packet,
 followed by repeated TLV (type-length-value) items.
@@ -40,6 +28,18 @@ Parsing the following example data, consisting of the magic number and two TLV i
 ```
 
 ![Parser Result](images/example-parse-result.png)
+
+## Grammar Files
+A grammar file consists of a map of names to type definitions, in the format `name1 definition1 name2 definition2 ...`, each element separated by white-space. The following sections explain all available base types from which the type definitions can be assembled.
+
+```
+grammar_file: field*
+field: IDENTIFIER type
+type: named | struct | repeat | variant | switch | union | bits
+
+params: ("(" [parampair ("," parampair)*] ")")?
+parampair: IDENTIFIER "=" value
+```
 
 
 ## Parameters

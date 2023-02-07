@@ -1,6 +1,7 @@
 site_name: PRE Workbench
 theme:
   name: material
+  custom_dir: docs/.theme
   favicon: images/favicon.png
   features:
     - content.action.edit
@@ -17,6 +18,7 @@ nav:
   - Home: index.md
   - Installation: install.md
   - Getting Started: getting-started.md
+  - Data Sources: data-sources.md
   - Syntax Reference: syntax-reference.md
   - Code Generation: code-generation.md
   - Key Bindings: key-bindings.md

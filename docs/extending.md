@@ -65,6 +65,9 @@ The macro expects a `bytes` type (sequence of bytes without metadata).
 It can be executed in the HexView context menu after
 selecting a byte range.
 
+#### STRING
+The macro expects a character string as input. It can be executed from the selection context menu of all text editor components in the application.
+
 #### DATA_SOURCE
 The macro shows up in the *Data Source Type* select box in the Data Source Window.
 It's output (to be placed in the `output` variable by the macro) will

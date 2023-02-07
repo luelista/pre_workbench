@@ -97,3 +97,26 @@ $ prewb_parse -e "_ repeat UINT8" -x "11223344"
 ```
 
 
+### prewb_codegen
+
+### xdrmap
+
+Converts between the binary [XDRmap file format](internals.md#xdrmap) and YAML.
+
+#### Usage
+```
+usage: xdrmap [-h] [-m HEXSTR] [-D] [-E] [-i INPUT] [-v]
+
+XDRmap encoder/decoder
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m HEXSTR, --magic HEXSTR
+                        Magic value prefix, encoded as hex string
+  -D, --decode          Decodes input from XDRmap to YAML
+  -E, --encode          Encodes input from YAML to XDRmap
+  -i INPUT, --input INPUT
+                        Input file (default: "-" for stdin)
+  -v, --verbose         Enable verbose logging to stderr
+```
+

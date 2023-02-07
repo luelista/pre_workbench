@@ -20,7 +20,7 @@ the virtualenv in which your PRE Workbench is installed. This way, you get full 
 To manage macros, use the *Macros* tool window (View > Tool Windows > Macros). There you can create, import, export, edit
 and run your macros.
 
-Macros can be stored in your user directory (~/.config / %APPDATA%) and in the project database (.pre_workbench).
+Macros can be stored in your user directory (`~/.config` or `%APPDATA%`) and in the project database (`.pre_workbench`).
 Additionally, some example macros are bundled with the application.
 
 You can also copy macros between the different storage locations (builtin, user, project).
@@ -52,12 +52,12 @@ The macro has no input. It can be executed by double-clicking it in the
 Macros tool window.
 
 #### BYTE_BUFFER
-The macro expects a single ByteBuffer as input. It can be executed by right-clicking
+The macro expects a single [ByteBuffer](#bytebuffer) as input. It can be executed by right-clicking
 a packet in a PacketListWidget or in the context menu of a HexView.
 If multiple packets are selected, the macro is called repeatedly.
 
 #### BYTE_BUFFER_LIST
-The macro expects a ByteBufferList as input. It can be executed in the
+The macro expects a [ByteBufferList](#bytebufferlist) as input. It can be executed in the
 same ways as a BYTE_BUFFER macro, but is only called once.
 
 #### BYTE_ARRAY
@@ -75,19 +75,70 @@ be displayed in the Data Source Window's output widget.
 
 
 <a name="macro-code-help"></a>
-### Helper Functions
-Without additional imports, the following helper functions are available to macros:
 
-#### `navigateBrowser(url: str)`
+## API
+
+### Global Helper Functions
+The following helper functions are available to macros without any additional import statements. To use them in a plugin, add the following import:
+
+```py title="To use macro environment in plugin:"
+from pre_workbench.macros.macroenv import *
+```
+
+#### System browser
+```py
+navigateBrowser(url: str)
+```
+
+<div class="result" markdown>
+
 Opens the system web browser on the specified URL.
 
-#### `getClipboardText() -> str`
+</div>
+
+#### Clipboard access
+```py
+getClipboardText() -> str
+```
+<div class="result" markdown>
 Returns the text contents of the system clipboard.
+</div>
 
-#### `setClipboardText(text: str)`
+```py
+setClipboardText(text: str)
+```
+<div class="result" markdown>
 Sets the contents of the system clipboard to the given text.
+</div>
 
-#### `showScintillaDialog(parent, title, content, ok_callback, readonly=False, lexer=None, help_callback=None) -> str | None`
+#### Dialogs
+
+```py
+alert(msg, title)
+```
+<div class="result" markdown>
+Displays a messagebox with the specified message and title.
+</div>
+
+```py
+confirm(msg, title) -> bool
+```
+<div class="result" markdown>
+Displays a messagebox with OK and Cancel buttons. Returns True if the user clicks OK.
+</div>
+
+```py
+prompt(msg, defaultText, title) -> (str, bool)
+```
+<div class="result" markdown>
+Displays a text input dialog asking the user for one line of text. Returns the entered string and a boolean which is True if the user clicks OK.
+</div>
+
+```py
+showScintillaDialog(parent, title, content, ok_callback, readonly=False, 
+                    lexer=None, help_callback=None) -> str | None
+```
+<div class="result" markdown>
 
 Example usage for a readonly dialog:  
 `showScintillaDialog(MainWindow, "View results", my_result_string, None, readonly=True)`
@@ -95,49 +146,101 @@ Example usage for a readonly dialog:
 Example usage for an editor dialog:  
 `edited_data = showScintillaDialog(MainWindow, "Edit data", initial_data, None)`
 
+</div>
 
-#### `alert(msg, title)`
-Displays a messagebox with the specified message and title.
+```py
+showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, 
+                     title: str="Select ...", parent=None, ok_callback=None, 
+                     multiselect=False, help_callback=None)
+```
+<div class="result" markdown>
+Displays a dialog which allows the user to select one or more items from a list box.
+</div>
 
-#### `confirm(msg, title) -> bool`
-Displays a messagebox with OK and Cancel buttons. Returns True if the user clicks OK.
 
-#### `prompt(msg, defaultText, title) -> (str, bool)`
-Displays a text input dialog asking the user for one line of text. Returns the entered string and a boolean which is True if the user clicks OK.
+#### Logging
 
-#### `log(msg, *args, **kwargs)`
+```py
+log(msg, *args, **kwargs)
+```
+<div class="result" markdown>
 Logs a message with level INFO. The arguments are interpreted as in [logging.debug](https://docs.python.org/3/library/logging.html#logging.debug).
+</div>
 
-#### `logging.debug(), logging.info(), logging.warning(), logging.error()`
-[Python reference](https://docs.python.org/3/library/logging.html#logger-objects)
+```py
+logging.debug(), logging.info(), logging.warning(), logging.error()
+```
+<div class="result" markdown>
+See [Python reference](https://docs.python.org/3/library/logging.html#logger-objects).
+</div>
 
-#### `showListSelectDialog(listOptions: List[Tuple[Any, str]], selectedOption, title: str="Select ...", parent=None, ok_callback=None, multiselect=False, help_callback=None)`
 
-#### `MainWindow`
-Reference to the application main window. Can be used as the parent for dialogs.
+#### Object display
 
-#### `zoom(obj: ByteBuffer | ByteBufferList | List[ByteBuffer])`
+```py
+zoom(obj: ByteBuffer | ByteBufferList | List[ByteBuffer])
+```
+<div class="result" markdown>
 Temporarily displays an object in the "Zoom" tool window.
+</div>
+
+```py
+openAsUntitled(obj: ByteBuffer | ByteBufferList | List[ByteBuffer] | str)
+```
+<div class="result" markdown>
+Open a new untitled file with the specified contents.
+
+| Parameter type | Which window type is opened |
+|-|-|
+| ByteBuffer | HexFileWindow | 
+|  ByteBufferList or List[ByteBuffer] | PcapngFileWindow |
+|  str | TextFileWindow |
+</div>
 
 
-#### `ByteBuffer(buffer: bytes, metadata: Dict[str, any])`
+### Available Classes
+
+#### ByteBuffer
+*Defined in pre_workbench/objects.py*
+
+##### constructor
+```py
+ByteBuffer(buffer: bytes, metadata: Dict[str, any])
+```
+
 Returns a new ByteBuffer object.
 
+##### Methods
 
-#### `ByteBufferList()`
+* `toHexDump(offset=0, length=None) -> str`
+* `toHex(offset=0, length=None, joiner="", format="%02x") -> str`
+* `len(buffer) -> int`
+
+##### Properties
+
+* `buffer.buffer -> bytearray`
+* `buffer.metadata -> Dict[str, any]`
+
+#### ByteBufferList
+*Defined in pre_workbench/objects.py*
+
+##### constructor
+```py
+ByteBufferList()
+```
+
 Returns a new ByteBufferList object.
 
-Methods:
+##### Methods
 * `list.add(obj: ByteBufferList)`
 
-Properties:
+##### Properties
 * `list.buffers -> List[ByteBuffer]`
 * `list.metadata -> Dict[str, any]`
 
+#### MainWindow
+*Defined in pre_workbench/mainwindow.py*
 
-#### `openAsUntitled(obj: ByteBuffer | ByteBufferList | List[ByteBuffer] | str)`
-Open a new untitled file with the specified contents.
-In case of ByteBuffer, a HexFileWindow is opened. 
-In case of ByteBufferList or List[ByteBuffer], a PcapngFileWindow is opened.
-In case of str, a TextFileWindow is opened.
+Accessible as global variable `MainWindow`.
 
+Reference to the application main window. Can be used as the parent for dialogs.

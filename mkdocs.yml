@@ -1,12 +1,18 @@
 site_name: PRE Workbench
 theme:
   name: material
-  favicon: images/appicon.ico
+  favicon: images/favicon.png
   features:
     - content.action.edit
   palette:
     primary: purple
-
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - markdown.extensions.md_in_html:
 nav:
   - Home: index.md
   - Installation: install.md
@@ -15,6 +21,7 @@ nav:
   - Code Generation: code-generation.md
   - Key Bindings: key-bindings.md
   - Extending: extending.md
+  - Internals: internals.md
 
 repo_url: https://github.com/luelista/pre_workbench
 edit_uri: edit/main/docs/
@@ -22,8 +29,12 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/luelista/pre_workbench
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pre-workbench/
     - icon: fontawesome/brands/mastodon
       link: https://chaos.social/@luelistan
 
 copyright: Copyright &copy; 2020 - 2023 Mira Weller
 
+extra_css:
+  - assets/css/style.css

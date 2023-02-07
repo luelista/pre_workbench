@@ -8,6 +8,7 @@ PRE Workbench is a software that supports reverse engineers in analyzing proprie
 
 ## Features
 
+<img src="images/datasources.png" alt="Data Source Window" style="float:right;max-width:40%">
 
 ### Data import
 - Load PCAP files
@@ -25,6 +26,7 @@ PRE Workbench is a software that supports reverse engineers in analyzing proprie
 - color and text highlighting of byte sequences
 - Application of the annotations to further packages
 
+<img src="images/clickgrammar.png" alt="ClickGrammar" style="float:right;max-width:40%">
 #### Interactive documentation of procotol structure as grammar
 - Description language for binary protocols
 - "Click-Grammar": Edit in parallel using code and GUI (see screencast below)

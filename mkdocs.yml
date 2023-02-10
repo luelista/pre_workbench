@@ -2,6 +2,7 @@ site_name: PRE Workbench
 theme:
   name: material
   custom_dir: docs/.theme
+  font: False
   favicon: images/favicon.png
   features:
     - content.action.edit

@@ -1,4 +1,5 @@
 site_name: PRE Workbench
+site_url: https://luelista.github.io/pre_workbench/
 theme:
   name: material
   custom_dir: docs/.theme

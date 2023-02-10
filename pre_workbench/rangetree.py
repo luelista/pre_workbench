@@ -206,7 +206,7 @@ class RangeTreeWidget(QTreeWidget):
 		def ok_callback(result):
 			element.from_text(result)
 			self._afterUpdate()
-		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback, help_callback=lambda: navigateBrowser(SYNTAX_REFERENCE_URL))
+		showScintillaDialog(self, "Edit field", element.to_text(0, None), ok_callback=ok_callback, lexer="pgdl:anytype", help_callback=lambda: navigateBrowser(SYNTAX_REFERENCE_URL))
 
 	def editField2(self, element: FormatInfo):
 		def ok_callback(params):

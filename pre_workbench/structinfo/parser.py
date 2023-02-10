@@ -39,8 +39,8 @@ def parse_definition_map_into_container(txt, container, start="start"):
 	ast = fi_parser.parse(txt, start=start)
 
 	for definition in ast.children:
-		container.definitions[definition.children[1]] = transformer.transform(definition.children[2])
-		container.definition_comments[definition.children[1]] = transformer.transform(definition.children[0])
+		container.definitions[str(definition.children[1])] = transformer.transform(definition.children[2])
+		container.definition_comments[str(definition.children[1])] = transformer.transform(definition.children[0])
 	container.main_name = ast.children[0].children[1]
 
 

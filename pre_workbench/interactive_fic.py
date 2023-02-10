@@ -34,6 +34,7 @@ class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
 		self.updated.emit()
 
 	def get_fi_by_def_name(self, def_name):
+		def_name = str(def_name)
 		try:
 			return self.definitions[def_name]
 		except KeyError:

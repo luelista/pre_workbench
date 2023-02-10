@@ -17,10 +17,11 @@
 import logging
 
 import darkdetect
-from PyQt5.Qsci import QsciScintilla, QsciLexerCPP, QsciAPIs
+from PyQt5.Qsci import QsciScintilla, QsciLexerCPP, QsciAPIs, QsciLexerCustom, QsciLexer
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QStatusTipEvent, QFontInfo, QFont, QContextMenuEvent
 from PyQt5.QtWidgets import QVBoxLayout, QDialog, QApplication
+from lark import Token
 
 from pre_workbench import configs
 from pre_workbench.app import GlobalEvents
@@ -31,6 +32,9 @@ from pre_workbench.typeregistry import DataWidgetTypes
 
 configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
 					   "Font", "Font", "font", {}, "monospace,12,-1,7,50,0,0,0,0,0", None)
+
+configs.registerOption(SettingsSection("View", "View", "Scintilla", "Code Editor"),
+					   "UseQsciLexerFormatinfo2", "Use custom syntax highlighter", "check", {}, True, None)
 
 
 @DataWidgetTypes.register(handles=[str,])
@@ -44,6 +48,7 @@ class ScintillaEdit(QsciScintilla):
 		super().__init__(parent)
 
 		is_dark_mode = darkdetect.isDark()
+		logging.debug("Dark Mode? %r", is_dark_mode)
 
 		# Margin 0 is used for line numbers
 		self.setMarginWidth(0, 45)
@@ -65,15 +70,20 @@ class ScintillaEdit(QsciScintilla):
 
 		# Current line visible with special background color
 		self.setCaretLineVisible(True)
-		self.setCaretLineBackgroundColor(QColor("#3f3038" if is_dark_mode else "#ffe4e4"))
+		self.setCaretLineBackgroundColor(QColor("#3f3038" if is_dark_mode else "#ffe9e9"))
 		self.setCaretForegroundColor(QColor("#ffffff" if is_dark_mode else "#000000"))
 
 		# Configure Lexer
 
-		if lexer:
+		if isinstance(lexer, QsciLexer):
 			self._lexer = lexer
-		else:
-			self._lexer = QsciLexerFormatinfo()
+		elif (not lexer) or (isinstance(lexer, str) and lexer.startswith("pgdl:")):
+			lexer_start = "start"
+			if lexer: lexer_start = lexer.split(":")[1]
+			if configs.getValue("View.Scintilla.UseQsciLexerFormatinfo2"):
+				self._lexer = QsciLexerFormatinfo2(self, lexer_start)
+			else:
+				self._lexer = QsciLexerCPP(self)
 
 			autocompletions = format_info.builtinTypes.keys()
 			self._api = QsciAPIs(self._lexer)
@@ -119,13 +129,25 @@ class ScintillaEdit(QsciScintilla):
 		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_LINENUMBER, 0x555555 if is_dark_mode else 0xcccccc)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.CommentLine, 0x777777)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Comment, 0x666666)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Keyword, 0x0000aa)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.KeywordSet2, 0x000055)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x00aa00)
-		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x00aa00)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Operator, 0x005555)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Number, 0x0000bb)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Keyword, 0xaa0000)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETWEIGHT, QsciLexerCPP.Keyword, 900)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerFormatinfo2.Name_Function, 0x5775ad)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerFormatinfo2.Name_Attribute, 0x507070)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerFormatinfo2.Keyword_Constant, 0xaa0000)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerFormatinfo2.Name_Builtin, 0xd9596e)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.SingleQuotedString, 0x4d7d1c)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.DoubleQuotedString, 0x4d7d1c)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.Identifier, 0x000000)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerCPP.GlobalClass, 0xb946a8)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBOLD, QsciLexerCPP.GlobalClass, 1)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACELIGHT, 0x333300 if is_dark_mode else 0xdddd33)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_BRACEBAD, 0x3333ff)
 		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciScintilla.STYLE_BRACEBAD, 0xffffff)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciLexerFormatinfo2.Syntax_error, 0xaafefe)
+		self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciLexerFormatinfo2.Syntax_error, 0x000000)
+
 
 	def _on_margin_clicked(self, nmargin, nline, modifiers):
 		# Toggle marker for the line the margin was clicked on
@@ -200,6 +222,113 @@ class QsciLexerFormatinfo(QsciLexerCPP):
 		else:
 			return super().keywords(p_int)
 
+class QsciLexerFormatinfo2(QsciLexerCustom):
+	Punctuation = 27
+	Number = 4
+	Operator = 10
+	String_Double = 6
+	Comment_Multiline = 1
+	Name = 11           			# IDENTIFIER
+	Name_Class = 19     			# GLOBAL_IDENTIFIER
+	Name_Property = 25  			# FIELD_NAME_IDENTIFIER
+	Name_Variable_Instance = 11		# VAR_REF_IDENTIFIER
+	Name_Builtin = 9					# TYPE_REF_IDENTIFIER
+	Name_Function = 14				# FUN_NAME_IDENTIFIER
+	Name_Attribute = 16				# KEY_IDENTIFIER
+	Keyword = 5
+	Keyword_Constant = 17
+	Syntax_error = 2
+
+	def __init__(self, parent, lexer_start):
+		super().__init__(parent)
+		self.lexer_start = lexer_start
+		self.create_parser()
+		self.create_styles()
+
+	def create_styles(self):
+		self.token_styles = {
+			"LBRACE": QsciLexerFormatinfo2.Punctuation,
+			"RBRACE": QsciLexerFormatinfo2.Punctuation,
+			"ESCAPED_STRING": QsciLexerFormatinfo2.String_Double,
+			"NUMBER": QsciLexerFormatinfo2.Number,
+			"LPAR": QsciLexerFormatinfo2.Punctuation,
+			"RPAR": QsciLexerFormatinfo2.Punctuation,
+			"COMMA": QsciLexerFormatinfo2.Punctuation,
+			"LSQB": QsciLexerFormatinfo2.Punctuation,
+			"RSQB": QsciLexerFormatinfo2.Punctuation,
+			"EQUAL": QsciLexerFormatinfo2.Operator,
+			"COLON": QsciLexerFormatinfo2.Operator,
+			"DOT": QsciLexerFormatinfo2.Operator,
+			"DOTS": QsciLexerFormatinfo2.Operator,
+			"TERM_OP": QsciLexerFormatinfo2.Operator,
+			"FACTOR_OP": QsciLexerFormatinfo2.Operator,
+			"CONJ_OP": QsciLexerFormatinfo2.Operator,
+			"EQ_OP": QsciLexerFormatinfo2.Operator,
+			"COMP_OP": QsciLexerFormatinfo2.Operator,
+			"DOLLAR": QsciLexerFormatinfo2.Operator,
+
+			"IDENTIFIER": QsciLexerFormatinfo2.Name,
+			"GLOBAL_IDENTIFIER": QsciLexerFormatinfo2.Name_Class,
+			"FIELD_NAME_IDENTIFIER": QsciLexerFormatinfo2.Name_Property,
+			"VAR_REF_IDENTIFIER": QsciLexerFormatinfo2.Name_Variable_Instance,
+			"TYPE_REF_IDENTIFIER": QsciLexerFormatinfo2.Name_Builtin,
+			"FUN_NAME_IDENTIFIER": QsciLexerFormatinfo2.Name_Function,
+			"KEY_IDENTIFIER": QsciLexerFormatinfo2.Name_Attribute,
+
+			"VARIANT": QsciLexerFormatinfo2.Keyword,
+			"STRUCT": QsciLexerFormatinfo2.Keyword,
+			"BITS": QsciLexerFormatinfo2.Keyword,
+			"UNION": QsciLexerFormatinfo2.Keyword,
+			"SWITCH": QsciLexerFormatinfo2.Keyword,
+			"CASE": QsciLexerFormatinfo2.Keyword,
+			"REPEAT": QsciLexerFormatinfo2.Keyword,
+
+			"TRUE": QsciLexerFormatinfo2.Keyword_Constant,
+			"FALSE": QsciLexerFormatinfo2.Keyword_Constant,
+			"NULL": QsciLexerFormatinfo2.Keyword_Constant,
+
+			"MULTILINE_COMMENT": QsciLexerFormatinfo2.Comment_Multiline,
+		}
+
+	def create_parser(self):
+		from pre_workbench.structinfo.expr import fi_parser_hilight
+		self.lark = fi_parser_hilight
+
+	def language(self):
+		return "FormatInfo"
+
+	def description(self, style):
+		return {v: k for k, v in self.token_styles.items()}.get(style, "")
+
+	def styleText(self, start, end):
+		text = self.parent().text()
+		last_pos = 0
+
+		try:
+			tree = self.lark.parse(text, self.lexer_start, )
+		except Exception as e:
+			self.startStyling(start)
+			self.setStyling(end-start, QsciLexerFormatinfo2.Syntax_error)
+			print(e)
+			return
+		self.startStyling(0)
+		try:
+			for token in tree.scan_values(lambda x:True):
+				#print("token: ",token, isinstance(token, lark.Token))
+				if not isinstance(token, Token): continue
+				ws_len = token.start_pos - last_pos
+				if ws_len:
+					self.setStyling(ws_len, 0)    # whitespace
+
+				token_len = len(bytearray(token, "utf-8"))
+				typ = token.type
+				if typ == "IDENTIFIER" and token.column == 1: typ = "DEF_IDENTIFIER"
+				self.setStyling(token_len, self.token_styles.get(typ, 0))
+				if not typ in self.token_styles: print(typ)
+
+				last_pos = token.start_pos + token_len
+		except Exception as e:
+			print(e)
 
 def showScintillaDialog(parent, title, content, ok_callback, readonly=False, lexer=None, help_callback=None):
 	dlg = QDialog(parent)

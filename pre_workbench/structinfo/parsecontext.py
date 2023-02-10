@@ -69,7 +69,7 @@ class FormatInfoContainer:
 			raise Exception("unsupported file type")
 
 	def get_fi_by_def_name(self, def_name):
-			return self.definitions[def_name]
+			return self.definitions[str(def_name)]
 
 class stack_frame:
 	__slots__ = ('desc', 'value', 'id', 'buf_offset', 'buf_limit_end')

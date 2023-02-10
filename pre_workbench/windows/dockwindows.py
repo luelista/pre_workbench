@@ -35,20 +35,19 @@ from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, Q
 import pre_workbench.app
 from pre_workbench import configs
 from pre_workbench.algo.range import Range
-from pre_workbench.configs import getIcon, SettingsField
-from pre_workbench.consts import MACRO_CODE_HELP_URL, MACRO_PROPERTIES_HELP_URL, SYNTAX_REFERENCE_URL
-from pre_workbench.controls.genericwidgets import showSettingsDlg
-from pre_workbench.controls.scintillaedit import showScintillaDialog
-from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, TODO, navigateBrowser
 from pre_workbench.app import navigate
+from pre_workbench.configs import getIcon, SettingsField
+from pre_workbench.consts import MACRO_PROPERTIES_HELP_URL, SYNTAX_REFERENCE_URL
+from pre_workbench.controls.genericwidgets import showSettingsDlg
+from pre_workbench.errorhandler import ConsoleWindowLogHandler
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, navigateBrowser
 from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
-from pre_workbench.windows.content.textfile import ScintillaEdit
-from pre_workbench.typeeditor import JsonView, showTypeEditorDlg
+from pre_workbench.typeeditor import JsonView
 from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
 from pre_workbench.util import PerfTimer, truncate_str
+from pre_workbench.windows.content.textfile import ScintillaEdit
 from pre_workbench.windows.dialogs.editmacro import EditMacroDialog
 
 

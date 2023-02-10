@@ -44,7 +44,7 @@ setuptools.setup(
 		'PyQt5>=5.11.3',
 		'appdirs>=1.4.3',
 		'QScintilla>=2.11.2',
-		'lark-parser>=0.7.5',
+		'lark>=1.1.5',
 		'psutil>=5.0.0',
 		'bitstring>=3.1.9',
 		'PyQtAds>=3.8.1',

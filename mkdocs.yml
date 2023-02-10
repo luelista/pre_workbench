@@ -5,6 +5,7 @@ theme:
   favicon: images/favicon.png
   features:
     - content.action.edit
+    - content.code.annotate #
   palette:
     primary: purple
 markdown_extensions:

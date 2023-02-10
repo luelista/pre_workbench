@@ -5,8 +5,8 @@ title: Syntax Reference
 ## Example
 The following grammar definition defines a simple protocol, with a magic number in the beginning of the packet,
 followed by repeated TLV (type-length-value) items.
-```
 
+```pgdl
 MyProto struct (endianness=">"){
 	magic UINT32(magic=2864434397, color="#aa0000")
 	tlvs repeat MyTLV
@@ -22,7 +22,7 @@ MyTLV struct {
 ```
 
 Parsing the following example data, consisting of the magic number and two TLV items, with MyProto from above grammar, gives us the results shown in the screenshot below:
-```
+```hexdump
 00000000: AA BB CC DD 00 DD 00 04  41 41 41 41 00 EE 00 10  ........AAAA....
 00000010: 00 11 22 33 44 55 66 77  88 99 AA BB CC DD EE FF  .."3DUfw........
 ```
@@ -75,21 +75,21 @@ In any place where a type is expected, a name can be used to reference another t
 This allows for generalization, because the same type can be references in multiple places (e.g. to define a common header shared by many different packet types). It also can make the grammar easier to read, because special cases can be put away at the end of the file, and the nesting depth can be reduced.
 After the type name, parameters configuring parsing or visualization details can be provided in parentheses. This makes it possible to define more generic types, where e.g. the endianness is left open until the usage.
 
-```
-UINT32(endianness="<")
---> unsigned integer, 4 byte, little endian.
+```pgdl
+/* --> unsigned integer, 4 byte, little endian. */
+a UINT32(endianness="<")
 
-IPv4
---> IP version 4 address, in binary, in network byte order.
+/* --> IP version 4 address, in binary, in network byte order. */
+b IPv4
 
-STRING[32](charset="utf-8")
---> character string in UTF-8 encoding, 32 bytes long
+/* --> character string in UTF-8 encoding, 32 bytes long */
+c STRING[32](charset="utf-8")
 
-UINT_STRING(size_len=2, endianness=">", charset="utf-8")
---> character string in UTF-8 encoding, with an unsigned integer, 2 byte, big endian prefix specifing the string length.
+/* --> character string in UTF-8 encoding, with an unsigned integer, 2 byte, big endian prefix specifing the string length. */
+d UINT_STRING(size_len=2, endianness=">", charset="utf-8")
   
-mytype
---> custom type declared elsewhere
+/* --> custom type declared elsewhere */
+e mytype
 ```
 
 
@@ -112,13 +112,14 @@ struct: "struct" params "{" (IDENTIFIER type)* "}"
 ```
 
 
-```
-pascal_string struct {
+```pgdl
+pascal_string struct { /* (1)! */ 
 	length UINT16(endianness=">")
 	value STRING[length](charset="utf8")
 }
-# note: a pascal_string could be defined more easily using the UINT_STRING built-in, as shown above
 ```
+
+1.  note: a pascal_string could be defined more easily using the UINT_STRING built-in, as shown above
 
 If the name of a struct field starts with an underscore, it's contents will be collapsed in the tree view by default.
 
@@ -131,7 +132,7 @@ repeat: "repeat" params type
 ```
 
 
-```
+```pgdl
 int32_array struct(endianness=">") {
 	count UINT16
 	items repeat(times=(count)) INT32
@@ -154,7 +155,7 @@ variant: "variant" params "{" type* "}"
 ```
 
 
-```
+```pgdl
 capture_file variant {
 	pcapng_file(endianness=">")
 	pcapng_file(endianness="<")
@@ -174,7 +175,7 @@ switch: "switch" expression params "{" ("case" expression ":" type)* "}"
 ```
 
 
-```
+```pgdl
 my_packet struct {
 	header struct {
 		type UINT8
@@ -195,7 +196,7 @@ my_packet struct {
 union: "union" params "{" (IDENTIFIER type)* "}"
 ```
 
-```
+```pgdl
 u_s union {
 	unsigned UINT16
 	signed INT16
@@ -211,7 +212,7 @@ u_s union {
 bits: "bits" params "{" (IDENTIFIER ":" number)* "}"
 ```
 
-```
+```pgdl
 header bits(endianness="<") {
 	TRX : 15
 	res_1 : 1

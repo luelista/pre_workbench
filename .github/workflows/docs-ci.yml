@@ -31,7 +31,7 @@ jobs:
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install mkdocs-material 
+      - run: pip install mkdocs-material git+https://github.com/luelista/pygments-pgdl-lexer.git
       - run: mkdocs build --site-dir public
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1

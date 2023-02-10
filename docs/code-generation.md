@@ -30,7 +30,7 @@ Expressions:
 
 Store your protocol grammar either in a project or in a text file `my_proto.txt`:
 
-```
+```pgdl
 MyProto struct(endianness=">") {
     magic UINT32(magic=2864434397, show="hex", color="#aa0000")
     tlv_count UINT32
@@ -46,7 +46,7 @@ MyTLV struct(endianness=">") {
 
 Call the code generator as follows:
 
-```
+```shell
 prewb_codegen -P path/to/project -o ~/.local/lib/wireshark/plugins/my_proto.lua --dissector-table udp.port:4321
 # or
 prewb_codegen -F my_proto.txt -o ~/.local/lib/wireshark/plugins/my_proto.lua --dissector-table udp.port:4321
@@ -55,7 +55,7 @@ prewb_codegen -F my_proto.txt -o ~/.local/lib/wireshark/plugins/my_proto.lua --d
 Run Wireshark and load a PCAP file containing protocol samples in a UDP file on port 4321. Alternatively, start a capture on
 the loopback device, enter filter `udp.port==4321` and send some samples using netcat:
 
-```
+```shell
 # example with 2 TLVs, one without payload
 printf '\xAA\xBB\xCC\xDD\x00\x00\x00\x02\x00\x80\x00\x03\x01\x02\x03\x00\xFF\x00\x00' | nc -u localhost 4321
 

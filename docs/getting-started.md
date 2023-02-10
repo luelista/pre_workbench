@@ -2,9 +2,11 @@
 title: Getting Started
 ---
 
-## 🦄
-TBD
+## First Run
 
+* After [Installation](install.md), run PRE Workbench by double-clicking the program icon (Windows and macOS) or running the `prewb` command (Linux).
+* On first run, you'll be asked to choose or create a project directory. Files from this directory will be available to be loaded into the app. PRE Workbench will create a project database file named `.pre_workbench` in this folder, but nothing else will be touched in the folder. Later on, you can change the directory from the main menu.
+* tbd.
 
 
 ## Video Walkthrough

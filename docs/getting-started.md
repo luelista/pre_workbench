@@ -101,6 +101,8 @@ $ prewb_parse -e "_ repeat UINT8" -x "11223344"
 
 ### prewb_codegen
 
+See [here](code-generation.md#usage).
+
 ### xdrmap
 
 Converts between the binary [XDRmap file format](internals.md#xdrmap) and YAML.

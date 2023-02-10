@@ -252,6 +252,15 @@ Currently, all functions have exactly one parameter.
 | snip    | Truncates the parameter to 32 bytes, if longer. |
 | pad     | Returns the number of bytes required to pad the current buffer to a multiple of N bytes. |
 
+#### Example
 
+``` pgdl title="Using the pad() function to pad TLVs to word boundaries"
+PaddedTlvs struct {
+    type UINT32
+    length UINT32
+    value BYTES[length]
+    _padding BYTES[pad(4)]
+}
+```
 
 [charsets]: <https://docs.python.org/3/library/codecs.html#standard-encodings>

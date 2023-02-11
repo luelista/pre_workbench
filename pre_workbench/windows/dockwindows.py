@@ -30,7 +30,7 @@ from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices, QColor, QKeySequence
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView, QWidget, QVBoxLayout, QAbstractItemView, QMenu, \
 	QAction, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QTextEdit, QToolBar, QComboBox, QMessageBox, \
-	QShortcut, QFileDialog, QDialog
+	QShortcut, QFileDialog, QDialog, QTextBrowser
 
 import pre_workbench.app
 from pre_workbench import configs
@@ -40,7 +40,8 @@ from pre_workbench.configs import getIcon, SettingsField
 from pre_workbench.consts import MACRO_PROPERTIES_HELP_URL, SYNTAX_REFERENCE_URL
 from pre_workbench.controls.genericwidgets import showSettingsDlg
 from pre_workbench.errorhandler import ConsoleWindowLogHandler
-from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, navigateBrowser
+from pre_workbench.guihelper import filledColorIcon, getMonospaceFont, runProcessWithDlg, APP, navigateBrowser, \
+	setClipboardText
 from pre_workbench.macros.macro import Macro
 from pre_workbench.rangetree import RangeTreeWidget
 from pre_workbench.structinfo.parsecontext import AnnotatingParseContext
@@ -107,6 +108,7 @@ class FileBrowserWidget(QWidget):
 											   triggered=lambda dummy, meta=meta: navigate("WINDOW", "Type="+meta['name'], "FileName="+selectedFile)))
 				ctx.addSeparator()
 				ctx.addAction("Open in Default Application", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(selectedFile)))
+			ctx.addAction("Copy Path", lambda: setClipboardText(self.model.rootPath()))
 		else:
 			ctx.addAction("Open in File Manager", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.model.rootPath())))
 		#ctx.addAction("Set root folder ...", lambda: self.selectRootFolder(preselect=selectedFolder))
@@ -324,6 +326,7 @@ class DataInspectorWidget(QWidget):
 		super().__init__()
 		self.selbytes = None
 		self._initUI()
+		self._loadDefinitionList()
 		self.loadFormatInfo()
 		self.fiTreeWidget.formatInfoContainer.updated.connect(self.parse)
 
@@ -345,11 +348,17 @@ class DataInspectorWidget(QWidget):
 			self.fiTreeWidget.updateTree([fi_tree])
 
 	def _initUI(self):
+		self.definitionSelect = QComboBox()
+		self.definitionSelect.setEditable(False)
 		self.fiTreeWidget = RangeTreeWidget()
 		windowLayout = QVBoxLayout()
+		windowLayout.addWidget(self.definitionSelect)
 		windowLayout.addWidget(self.fiTreeWidget)
 		windowLayout.setContentsMargins(0,0,0,0)
 		self.setLayout(windowLayout)
+
+	def _loadDefinitionList(self):
+		self.definitionSelect.addItem("Data Inspector")
 
 	def loadFormatInfo(self):
 		#definition = configs.getValue("DataInspectorDef", DataInspectorWidget.defaultdef)
@@ -552,7 +561,7 @@ class SelectionHeuristicsConfigWidget(QWidget):
 
 	def _initUI(self):
 		self.listView = QListWidget()
-		self.infoBox = QTextEdit()
+		self.infoBox = QTextBrowser()
 		windowLayout = QVBoxLayout()
 		windowLayout.addWidget(self.listView)
 		windowLayout.addWidget(self.infoBox)
@@ -580,7 +589,7 @@ class SelectionHeuristicsConfigWidget(QWidget):
 			self.listView.addItem(item)
 
 	def currentItemChanged(self, current, previous):
-		self.infoBox.setText(inspect.cleandoc(current.data(self.HELPER_ROLE).__doc__) if current is not None else "")
+		self.infoBox.setPlainText(inspect.cleandoc(current.data(self.HELPER_ROLE).__doc__) if current is not None else "")
 
 	def itemChanged(self, item):
 		configs.setValue(f'SelHeur.{item.data(self.HELPER_ROLE).__name__}.enabled', item.checkState() == QtCore.Qt.Checked)
@@ -617,46 +626,6 @@ class RpcDockWidget(QWidget):
 
 	def _initUI(self):
 		pass
-
-
-# @DockWidgetTypes.register(title="Binwalk", icon="regular-expression-search-match.png", dock="Bottom", showFirstRun=False)
-class BinwalkDockWidget(QWidget):
-	def __init__(self):
-		super().__init__()
-		self._initUI()
-		self.selBytes = None
-
-	def _initUI(self):
-		toolbar = QToolBar()
-		toolbar.addAction("Run", self._runBinwalk)
-		self.treeView = QTreeWidget()
-		self.treeView.setColumnCount(3)
-		self.treeView.setColumnWidth(1, 300)
-		self.treeView.headerItem().setText(0, "Name")
-		self.treeView.headerItem().setText(1, "Offset")
-		self.treeView.headerItem().setText(2, "Description")
-		windowLayout = QVBoxLayout()
-		windowLayout.addWidget(toolbar)
-		windowLayout.addWidget(self.treeView)
-		windowLayout.setContentsMargins(0,0,0,0)
-		self.setLayout(windowLayout)
-
-	def on_selected_bytes_updated(self, selBytes):
-		self.selBytes = selBytes
-
-	def _runBinwalk(self):
-		self.treeView.clear()
-		if not self.selBytes: return
-		import binwalk
-		result = binwalk.scan(self.selBytes.decode('latin1'), string=True, signature=True)
-		for module in result:
-			root = QTreeWidgetItem(self.treeView)
-			root.setText(0, module.name)
-			for result in module.results:
-				x = QTreeWidgetItem(root)
-				x.setText(0, result.file.name)
-				x.setText(1, "0x%.8X"%result.offset)
-				x.setText(2, result.description)
 
 
 @DockWidgetTypes.register(title="External Tools", icon="toolbox--arrow.png", dock="Bottom", showFirstRun=False)

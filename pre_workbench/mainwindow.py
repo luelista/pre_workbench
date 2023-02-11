@@ -45,7 +45,7 @@ from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
 # noinspection PyUnresolvedReferences
 from pre_workbench.windows.dockwindows import FileBrowserWidget, MdiWindowListWidget, StructInfoTreeWidget, \
-	StructInfoCodeWidget, DataInspectorWidget, BinwalkDockWidget, ExtToolDockWidget, SearchDockWidget, \
+	StructInfoCodeWidget, DataInspectorWidget, ExtToolDockWidget, SearchDockWidget, \
 	MacroListDockWidget
 from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidget, SelectionHeuristicsConfigWidget, LogWidget
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg, showListSelectDialog, \

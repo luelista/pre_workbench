@@ -27,11 +27,16 @@ from pre_workbench.typeregistry import WindowTypes
 @WindowTypes.register(icon="document-binary.png")
 class HexFileWindow(QWidget, MdiFile):
 	meta_updated = pyqtSignal(str, object)
-	def __init__(self, **params):
+	def __init__(self, binaryData=None, **params):
 		super().__init__()
 		self.params = params
 		self._initUI()
 		self.initMdiFile(params.get("fileName"), params.get("isUntitled", False), "All files (*.*)", "untitled%d.bin")
+		if binaryData:
+			self.dataDisplay.setBytes(binaryData)
+
+	def saveParams(self):
+		return super().saveParams()
 
 	def sizeHint(self):
 		return QSize(600,400)

@@ -35,7 +35,7 @@ class PcapngFileWindow(QWidget, MdiFile):
 
 	def saveParams(self):
 		self.params["state"] = self.dataDisplay.saveState()
-		return self.params
+		return super().saveParams()
 
 	def sizeHint(self):
 		return QSize(600,400)

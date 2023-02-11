@@ -15,11 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from PyQt5.QtCore import (pyqtSignal, QObject)
-from PyQt5.QtWidgets import QMessageBox
 
 import pre_workbench.app
 from pre_workbench.structinfo.parsecontext import FormatInfoContainer
-from pre_workbench.structinfo.serialization import deserialize_fi
 
 
 class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
@@ -38,11 +36,11 @@ class InteractiveFormatInfoContainer(QObject, FormatInfoContainer):
 		try:
 			return self.definitions[def_name]
 		except KeyError:
-			if QMessageBox.question(pre_workbench.app.MainWindow, "Parser", "Reference to undefined type '" + def_name + "'. Create it now?") == QMessageBox.Yes:
-				from pre_workbench.typeeditor import showTypeEditorDlg
-				params = showTypeEditorDlg("format_info.tes", "AnyFI", title="Create type '"+def_name+"'")
-				if params is None: raise
-				self.definitions[def_name] = deserialize_fi(params)
+			from pre_workbench.controls.scintillaedit import showScintillaDialog
+			code = showScintillaDialog(pre_workbench.app.MainWindow, "Reference to undefined type '" + def_name + "'. Create it now?", "", lexer="pgdl:anytype")
+			if code:
+				from pre_workbench.structinfo.parser import parse_definition
+				self.definitions[def_name] = parse_definition(code)
 				self.write_file(self.file_name)
 				return self.definitions[def_name]
 			else:

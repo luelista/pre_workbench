@@ -242,11 +242,11 @@ class HexView2(QAbstractScrollArea):
 		ctx.addSeparator()
 
 		if self.selLength() > 1:
-			if self.project:
-				menu = ctx.addMenu( "Apply Annotation Set For Selection")
-				for name in self.project.getAnnotationSetNames():
-					#TODO implement this
-					menu.addAction(name, lambda name=name: print(name))
+			#if self.project:
+			#	menu = ctx.addMenu( "Apply Annotation Set For Selection")
+			#	for name in self.project.getAnnotationSetNames():
+			#		#TODO implement this
+			#		menu.addAction(name, lambda name=name: print(name))
 			self._buildParseBufferSubmenu(ctx, "Parse Selection", -1, None)
 		else:
 			self._buildLoadAnnotationSetSubmenu(ctx, "Load Annotation Set", self.selBuffer, self.buffers[self.selBuffer].annotation_set_name)

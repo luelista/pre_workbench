@@ -23,28 +23,27 @@ from math import ceil, floor
 
 from bitstring import BitStream
 
-from pre_workbench.structinfo import FITypes, ExprFunctions
+from pre_workbench.structinfo import FITypes, ExprFunctions, xdrm
 from pre_workbench.structinfo.exceptions import *
 from pre_workbench.structinfo.expr import deserialize_expr, Expression
 from pre_workbench.structinfo.parsecontext import ParseContext
-from pre_workbench.structinfo.serialization import recursive_serialize, deserialize_fi
 from pre_workbench.structinfo.valueenc import StructInfoValueEncoder
 
-
+@xdrm.Serializable.register(class_id=0x1000)
 class FormatInfo:
-	def __init__(self, info=None, typeRef=None, params=None):
+	def __init__(self, typeRef, params):
 		self.params = dict()
-		if info is not None: self.deserialize(info)
-		if typeRef is not None: self.setContents(typeRef, params)
-
-	def deserialize(self, info):
-		type_id, params = info
-		t, _ = FITypes.find(type_id=type_id)
-		self.setContents(t, params)
-
-	def setContents(self, typeRef, params):
 		self.fi = typeRef()
 		self.updateParams(**params)
+
+	@staticmethod
+	def __deserialize__(info):
+		type_id, params = info
+		t, _ = FITypes.find(type_id=type_id)
+		return FormatInfo(t, params)
+
+	def __serialize__(self):
+		return [type(self.fi).type_id, self.params]
 
 	def updateParams(self, **changes):
 		for k,v in changes.items():
@@ -77,9 +76,6 @@ class FormatInfo:
 		item = parse_definition(txt)
 		self.fi = item.fi
 		self.params = item.params
-
-	def serialize(self):
-		return [type(self.fi).type_id, recursive_serialize(self.params)]
 
 	def extra_params(self, removewhat=['children','def_name'], context=None):
 		return {i:self._eval_if_needed(self.params[i], context) for i in self.params if not i in removewhat}
@@ -139,7 +135,7 @@ class FormatInfo:
 @FITypes.register(type_id=2)
 class StructFI:
 	def init(self, children, **kw):
-		self.children = [(str(name), deserialize_fi(c), comment) for (comment, name, c) in children]
+		self.children = [(str(name), c, comment) for (comment, name, c) in children]
 		try:
 			self.size = sum(c.size for (name, c, comment) in self.children)
 		except:
@@ -165,7 +161,7 @@ class StructFI:
 @FITypes.register(type_id=3)
 class VariantStructFI:
 	def init(self, children, **kw):
-		self.children = [deserialize_fi(c) for c in children]
+		self.children = [c for c in children]
 		self.size = None
 
 	def _to_text(self, indent, refs, all_params):
@@ -200,7 +196,7 @@ class VariantStructFI:
 @FITypes.register(type_id=4)
 class RepeatStructFI:
 	def init(self, children, times=None, until="false", until_invalid=False, **kw):
-		self.children = deserialize_fi(children)
+		self.children = children
 		if times is not None:
 			self.times_expr = deserialize_expr(times)
 			self.until_expr = None
@@ -244,7 +240,7 @@ class RepeatStructFI:
 @FITypes.register(type_id=5)
 class SwitchFI:
 	def init(self, expr, children, **kw):
-		self.children = [(deserialize_expr(expr), deserialize_fi(c)) for (expr, c) in children]
+		self.children = [(deserialize_expr(expr), c) for (expr, c) in children]
 		self.expr = deserialize_expr(expr)
 		self.size = None
 
@@ -434,7 +430,7 @@ class FieldFI:
 @FITypes.register(type_id=8)
 class UnionFI:
 	def init(self, children, **kw):
-		self.children = [(str(name), deserialize_fi(c), comment) for (comment, name, c) in children]
+		self.children = [(str(name), c, comment) for (comment, name, c) in children]
 		try:
 			self.size = sum(c.size for (name, c, comment) in self.children)
 		except:

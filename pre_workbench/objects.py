@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Optional
 import binascii
 import re, struct
 
-from pre_workbench.structinfo import hexdump
+from pre_workbench.structinfo import hexdump, xdrm
 from PyQt5.QtCore import (pyqtSignal, QObject)
 
 from pre_workbench.guihelper import getClipboardText
@@ -32,7 +32,10 @@ class ReloadRequired(Exception):
 	pass
 
 
+# register here, because Cython doesn't like annotations
+xdrm.Serializable.register(class_id=0x2000)(Range)
 
+@xdrm.Serializable.register(class_id=0x2001)
 class ByteBuffer(QObject):
 	__slots__ = ('metadata', 'buffer', 'length', 'ranges', 'fields', 'fi_tree', 'fi_root_name', 'fi_container', 'annotation_set_name', 'subflow_categories')
 	on_new_data = pyqtSignal()
@@ -47,6 +50,17 @@ class ByteBuffer(QObject):
 		self.fi_container = None
 		self.annotation_set_name = None
 		self.subflow_categories = dict()
+
+	def __serialize__(self):
+		return [self.metadata, self.buffer, list(self.ranges), self.fi_root_name, self.annotation_set_name]
+
+	@staticmethod
+	def __deserialize__(ary):
+		metadata, buffer, ranges, fi_root_name, annotation_set_name = ary
+		bbuf = ByteBuffer(buffer, metadata)
+		bbuf.setRanges(ranges)
+		bbuf.fi_root_name = fi_root_name
+		bbuf.annotation_set_name = annotation_set_name
 
 	def setContent(self, buf):
 		if buf is None:
@@ -93,6 +107,7 @@ class ByteBuffer(QObject):
 		self.ranges = RangeList(len(self), list())
 	def setRanges(self, ranges):
 		self.ranges = RangeList(len(self), list(ranges))
+		self.fields = {r.metadata["name"]: r for r in self.ranges if "name" in r.metadata}
 
 	def appendBytes(self, newBytes, meta=None):
 		start = len(self)
@@ -159,7 +174,7 @@ class ByteBuffer(QObject):
 			bbuf.appendBytes(binascii.unhexlify(re.match(r"^\s*[a-fA-F0-9]{8,}\s+((?:[a-fA-F0-9]{2} {0,2})+)", line).group(1).replace(" ","")))
 		return bbuf
 
-
+@xdrm.Serializable.register(class_id=0x2002)
 class ByteBufferList(QObject):
 	__slots__ = ('metadata', 'buffers', 'buffers_hash', 'updating')
 	metadata: Dict[str, Any]
@@ -175,6 +190,16 @@ class ByteBufferList(QObject):
 		self.buffers = list()
 		self.buffers_hash = dict()
 		self.updating = None
+
+	def __serialize__(self):
+		return [self.metadata, self.buffers]
+
+	@staticmethod
+	def __deserialize__(data):
+		obj = ByteBufferList()
+		obj.metadata = data[0]
+		obj.buffers = data[1]
+		return obj
 
 	def add(self, bbuf: ByteBuffer):
 		self.buffers.append(bbuf)

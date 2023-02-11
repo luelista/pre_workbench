@@ -1,6 +1,9 @@
 from typing import Optional
 
+from pre_workbench.structinfo import xdrm
+
 cdef class Range:
+	class_id = 0x2000
 	cdef readonly object value
 	cdef readonly object source_desc
 	cdef readonly str field_name
@@ -22,6 +25,15 @@ cdef class Range:
 		self.buffer_idx = buffer_idx
 		self.exception = None
 		if meta: self.metadata.update(meta)
+
+	def __serialize__(self):
+		return [self.start, self.end, self.value, self.source_desc, self.field_name, self.metadata, self.buffer_idx, self.exception]
+
+	@staticmethod
+	def __deserialize__(ary):
+		range = Range(*ary[0:7])
+		range.exception = ary[7]
+		return range
 
 	def __str__(self):
 		return "Range[%d:%d name=%s, value=%r, desc=%r]" % (

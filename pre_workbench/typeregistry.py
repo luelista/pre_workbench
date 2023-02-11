@@ -27,6 +27,7 @@ class TypeRegistry(QObject):
 	def register(self, **meta):
 		def wrapper(typ):
 			for k,v in meta.items():
+				if hasattr(typ, k) and getattr(typ, k) == v: continue
 				setattr(typ, k, v)
 			if not "name" in meta:
 				meta["name"] = typ.__name__

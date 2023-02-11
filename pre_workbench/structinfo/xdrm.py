@@ -30,6 +30,8 @@ import xdrlib
 from uuid import UUID
 import logging
 
+from pre_workbench.typeregistry import TypeRegistry
+
 XDRM_inlong = 0b000  # rest: value
 XDRM_number = 0b001  # rest: 0x0800 = hyper, 0x0802 = double, 0x0010 = null, 0x0011 = undefined, 0x0012 = true, 0x0013 = false, 0x1005 = UUID
 XDRM_utf8   = 0b100  # rest: length in bytes
@@ -37,6 +39,7 @@ XDRM_bytes  = 0b101  # rest: length in bytes
 XDRM_array  = 0b110  # rest: count
 XDRM_map    = 0b111  # rest: pair-count
 
+Serializable = TypeRegistry()
 
 def loads(data, magic=bytes()):
 	if data[0:len(magic)] != magic:
@@ -69,6 +72,9 @@ def _unpack_xdrm(unpacker):
 		return False
 	elif type == XDRM_number and rest == 0x1005:
 		return UUID(bytes=unpacker.unpack_fopaque(0x10))
+	elif type == XDRM_number and (rest & 0x1fff) == 0x1fff:
+		serialize_id = rest >> 13  #16-bit class ID
+		return Serializable.find(class_id=serialize_id).__deserialize__(_unpack_xdrm(unpacker))
 	elif type == XDRM_utf8:
 		return unpacker.unpack_fstring(rest).decode("utf-8",'surrogateescape')
 	elif type == XDRM_bytes:
@@ -122,11 +128,11 @@ def _pack_xdrm(packer, data):
 	elif typ is UUID:
 		packer.pack_uint(XDRM_number | (0x1005 << 3))
 		packer.pack_fopaque(0x10, data.bytes)
+	elif hasattr(data, "__serialize__") and hasattr(type(data), "class_id"):
+		logging.warning("WARNING: calling serialize on "+str(typ)+" ")
+		packer.pack_uint(XDRM_number | (0x1fff << 3) | (type(data).class_id << 16))
+		_pack_xdrm(packer, data.__serialize__())
 	else:
-		if hasattr(data, "serialize"):
-			logging.warning("WARNING: calling serialize on "+str(typ)+" ")
-			_pack_xdrm(packer, data.serialize())
-			return
 		#raise Exception("can't pack "+str(typ))
 		logging.warning("WARNING: packing "+str(typ)+" as str")
 		bin = str(data).encode("utf-8",'surrogateescape')

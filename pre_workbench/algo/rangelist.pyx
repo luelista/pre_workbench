@@ -88,6 +88,9 @@ cdef class RangeList:
 	def __len__(self):
 		return len(self.ranges)
 
+	def __iter__(self):
+		return self.ranges.__iter__()
+
 	def append(self, el):
 		cdef int firstChunk = el.start // self.chunkSize
 		cdef int lastChunk = el.end // self.chunkSize

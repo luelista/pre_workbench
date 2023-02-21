@@ -17,8 +17,8 @@
 
 from pre_workbench.typeregistry import TypeRegistry
 
-FITypes = TypeRegistry()
-ExprFunctions = TypeRegistry()
+FITypes = TypeRegistry("FITypes")
+ExprFunctions = TypeRegistry("ExprFunctions")
 
 # noinspection PyUnresolvedReferences
 import pre_workbench.structinfo.display_styles

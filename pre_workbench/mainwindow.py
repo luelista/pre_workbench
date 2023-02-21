@@ -51,8 +51,7 @@ from pre_workbench.windows.dockwindows import RangeTreeDockWidget, RangeListWidg
 from pre_workbench.controls.genericwidgets import MemoryUsageWidget, showPreferencesDlg, showListSelectDialog, \
 	showSettingsDlg
 from pre_workbench.typeeditor import JsonView
-from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes
-from pre_workbench.windows.content.hexfile import HexFileWindow
+from pre_workbench.typeregistry import WindowTypes, DockWidgetTypes, dump_type_registries
 
 configs.registerOption(SettingsSection('General', 'General', 'Updates', 'Updates'),
 							   "CheckForUpdates", "Check for updates on each application start", "check", {}, True, None)
@@ -433,12 +432,13 @@ class WorkbenchMain(QMainWindow):
 							f"<tr><td>Config Dir: </td><td>{link(configs.dirs.user_config_dir, 'file:')}</td></tr>"
 							f"<tr><td>Log File: </td><td>{errorhandler.logFile}</td></tr>"
 							f"<tr><td>Plugins Dir: </td><td>{link(APP().plugins_dir, 'file:')}</td></tr>" +
-							("<tr><td>Loaded Plugins:</td><td>" + "<br>".join(APP().plugins.keys())+"</td></tr>" if len(APP().plugins) > 0 else "")
-							+ "</table>"),
+							("<tr><td>Loaded Plugins:</td><td>" + "<br>".join(APP().plugins.keys())+"</td></tr>" if len(APP().plugins) > 0 else "") +
+						    "</table>"),
 					  "About PRE Workbench", lambda: None, self, buttons=QDialogButtonBox.Close)
 
 	def onPreferences(self):
-		res = showPreferencesDlg(configs.configDefinitions, configs.configDict, "Preferences", self)
+		res = showPreferencesDlg(configs.configDefinitions, configs.configDict, "Preferences", self,
+								 extra_pages=[(SettingsSection("typeRegistries", "Type Registries","",""), JsonView(jdata=dump_type_registries()), [])])
 		if res is not None:
 			for k,v in res.items():
 				configs.setValue(k,v)

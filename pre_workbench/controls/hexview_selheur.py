@@ -27,7 +27,7 @@ from pre_workbench.typeregistry import TypeRegistry
 if TYPE_CHECKING:
 	from pre_workbench.controls.hexview import HexView2
 
-SelectionHelpers = TypeRegistry()
+SelectionHelpers = TypeRegistry("SelectionHelpers")
 
 
 def extendRange(bbuf, range, amount=16):

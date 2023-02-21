@@ -16,13 +16,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from PyQt5.QtCore import QObject, pyqtSignal
 
+all_registries = []
 
 class TypeRegistry(QObject):
 	updated = pyqtSignal()
 
-	def __init__(self):
+	def __init__(self, name):
 		super().__init__()
+		self.setObjectName("TypeReg_"+name)
 		self.types = list()
+		all_registries.append(self)
 
 	def register(self, **meta):
 		def wrapper(typ):
@@ -57,6 +60,10 @@ class TypeRegistry(QObject):
 		return [("", "")] + [(typ.__name__, meta[displayMeta]) for typ, meta in self.types]
 
 
-WindowTypes = TypeRegistry()
-DataWidgetTypes = TypeRegistry()
-DockWidgetTypes = TypeRegistry()
+def dump_type_registries():
+	out = {reg.objectName(): {typ.__name__: meta for typ, meta in reg.types} for reg in all_registries}
+	return out
+
+WindowTypes = TypeRegistry("WindowTypes")
+DataWidgetTypes = TypeRegistry("DataWidgetTypes")
+DockWidgetTypes = TypeRegistry("DockWidgetTypes")

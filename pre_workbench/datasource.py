@@ -42,7 +42,7 @@ except FileNotFoundError:
 	tsharkDefault = ""
 registerOption(group, "tsharkBinary", "tshark Binary", "text", {"fileselect":"open"}, tsharkDefault, None)
 
-DataSourceTypes = TypeRegistry()
+DataSourceTypes = TypeRegistry("DataSourceTypes")
 
 
 class DataSource(QObject):

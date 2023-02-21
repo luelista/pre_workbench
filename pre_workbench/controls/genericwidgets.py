@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, \
 	QAction, QLabel, QColorDialog, QDoubleSpinBox, QTabWidget, QGroupBox, QFontDialog, QListWidget, QListWidgetItem, \
 	QDialog
 
-from pre_workbench.configs import getIcon, SettingsField
+from pre_workbench.configs import getIcon, SettingsField, SettingsSection
 from pre_workbench.consts import INT32_MIN, INT32_MAX
 from pre_workbench.guihelper import showWidgetDlg, filledColorIcon, makeWidgetDlg
 from pre_workbench.syshelper import get_current_rss
@@ -35,7 +35,7 @@ def showSettingsDlg(definition: List[SettingsField], values=None, title: str="Op
 	sg = SettingsGroup(definition, values)
 	return showWidgetDlg(sg, title, lambda: values, parent, ok_callback, min_width, help_callback)
 
-def showPreferencesDlg(definition: Dict[str, List[SettingsField]], values=None, title: str="Preferences", parent=None, ok_callback=None, help_callback=None):
+def showPreferencesDlg(definition: Dict[SettingsSection, List[SettingsField]], values=None, title: str="Preferences", parent=None, ok_callback=None, help_callback=None, extra_pages=[]):
 	if values == None: values = {}
 
 	tabWidget = QTabWidget()
@@ -52,6 +52,11 @@ def showPreferencesDlg(definition: Dict[str, List[SettingsField]], values=None, 
 		tab = getTab(section)
 		sg = SettingsGroup(secDef, values, section.subsectionTitle)
 		tab.layout().addWidget(sg)
+
+	for section, mainWidget, buttons in extra_pages:
+		tab = getTab(section)
+		tab.layout().addWidget(mainWidget, stretch=1)
+
 
 	tabWidget.setMinimumWidth(600)
 	return showWidgetDlg(tabWidget, title, lambda: values, parent, ok_callback, help_callback=help_callback)

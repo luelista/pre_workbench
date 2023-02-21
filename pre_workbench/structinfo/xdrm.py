@@ -39,7 +39,7 @@ XDRM_bytes  = 0b101  # rest: length in bytes
 XDRM_array  = 0b110  # rest: count
 XDRM_map    = 0b111  # rest: pair-count
 
-Serializable = TypeRegistry()
+Serializable = TypeRegistry("Serializable")
 
 def loads(data, magic=bytes()):
 	if data[0:len(magic)] != magic:

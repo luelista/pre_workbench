@@ -77,7 +77,7 @@ class MacroDataSource(SyncDataSource):
 		return macro.execute(None, self.params)
 
 
-@DataSourceTypes.register(DisplayName="Binary file")
+@DataSourceTypes.register(DisplayName="Binary file", Async=False, OutputType="BYTE_BUFFER")
 class FileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -96,7 +96,7 @@ class FileDataSource(SyncDataSource):
 		return bbuf
 
 
-@DataSourceTypes.register(DisplayName="Directory of binary files")
+@DataSourceTypes.register(DisplayName="Directory of binary files", Async=False, OutputType="BYTE_BUFFER_LIST")
 class DirectoryOfBinFilesDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -123,7 +123,7 @@ class DirectoryOfBinFilesDataSource(SyncDataSource):
 		return plist
 
 
-@DataSourceTypes.register(DisplayName = "CSV file")
+@DataSourceTypes.register(DisplayName = "CSV file", Async=False, OutputType="BYTE_BUFFER_LIST")
 class CSVFileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -184,7 +184,7 @@ class CSVFileDataSource(SyncDataSource):
 		return plist
 
 
-@DataSourceTypes.register(DisplayName = "PCAP file")
+@DataSourceTypes.register(DisplayName = "PCAP file", Async=False, OutputType="BYTE_BUFFER_LIST")
 class PcapFileDataSource(SyncDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -235,7 +235,7 @@ class AbstractTsharkDataSource(DataSource):
 		self.process.kill()
 
 
-@DataSourceTypes.register(DisplayName = "PCAP file via Tshark")
+@DataSourceTypes.register(DisplayName = "PCAP file via Tshark", Async=True, OutputType="BYTE_BUFFER_LIST")
 class TsharkPcapFileDataSource(AbstractTsharkDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -254,7 +254,7 @@ class TsharkPcapFileDataSource(AbstractTsharkDataSource):
 		return args
 
 
-@DataSourceTypes.register(DisplayName = "Live capture via Tshark")
+@DataSourceTypes.register(DisplayName = "Live capture via Tshark", Async=True, OutputType="BYTE_BUFFER_LIST")
 class TsharkLiveDataSource(AbstractTsharkDataSource):
 	@staticmethod
 	def getConfigFields():
@@ -276,7 +276,7 @@ class TsharkLiveDataSource(AbstractTsharkDataSource):
 		return args
 
 
-@DataSourceTypes.register(DisplayName = "Live capture via PCAP over stdout")
+@DataSourceTypes.register(DisplayName = "Live capture via PCAP over stdout", Async=True, OutputType="BYTE_BUFFER_LIST")
 class LivePcapCaptureDataSource(DataSource):
 	@staticmethod
 	def getConfigFields():

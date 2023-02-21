@@ -532,3 +532,9 @@ class DynamicDataWidget(QWidget):
     def childActionProxy(self):
         return self.childWidget
 
+    def saveState(self):
+        if hasattr(self.childWidget, 'saveState'): return self.childWidget.saveState()
+        return None
+
+    def restoreState(self, state):
+        if hasattr(self.childWidget, 'restoreState'): return self.childWidget.restoreState(state)

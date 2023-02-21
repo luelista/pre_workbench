@@ -309,7 +309,7 @@ class QsciLexerFormatinfo2(QsciLexerCustom):
 		except Exception as e:
 			self.startStyling(start)
 			self.setStyling(end-start, QsciLexerFormatinfo2.Syntax_error)
-			print(e)
+			logging.info("Syntax Highlight Parser Error: %s",e)
 			return
 		self.startStyling(0)
 		try:

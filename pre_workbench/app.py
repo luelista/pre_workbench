@@ -102,6 +102,7 @@ class WorkbenchApplication(QApplication):
 
 		prj_dir = self._find_project()
 		if not prj_dir: sys.exit(1)
+		logging.info("Loading project "+prj_dir)
 		self.project = Project(prj_dir, "PROJECT", "Project: "+os.path.basename(prj_dir))
 		configs.updateMru("ProjectMru", prj_dir, 5)
 		configs.setValue("LastProjectDir", self.project.projectFolder)

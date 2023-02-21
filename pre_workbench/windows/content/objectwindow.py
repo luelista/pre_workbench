@@ -35,7 +35,7 @@ from pre_workbench.typeregistry import WindowTypes
 class ObjectWindow(QWidget):
 	meta_updated = pyqtSignal(str, object)
 
-	def __init__(self, name=None, dataSourceType="", collapseSettings=False, **kw):
+	def __init__(self, name=None, dataSourceType="", collapseSettings=False, dataObject=None, **kw):
 		super().__init__()
 		kw["name"] = name if name is not None else os.path.basename(kw["fileName"]) if "fileName" in kw else "Untitled"
 		kw["dataSourceType"] = dataSourceType
@@ -43,13 +43,15 @@ class ObjectWindow(QWidget):
 		self.params = {}
 
 		self.dataSource = None
-		self.dataObject = None
 		self.dataSourceType = ""
 		self._initUI(collapseSettings)
+		self.dataObject = dataObject
+		self.dataDisplay.setContents(dataObject)
 		self.setConfig(kw)
 
 	def saveParams(self):
 		self.params["collapseSettings"] = not self.sourceConfig.isVisible()
+		self.params["dataObject"] = self.dataObject
 		return self.params
 
 	def sizeHint(self):

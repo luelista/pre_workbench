@@ -41,12 +41,12 @@ XDRM_map    = 0b111  # rest: pair-count
 
 Serializable = TypeRegistry("Serializable")
 
-def loads(data, magic=bytes()):
+def loads(data, magic=bytes(), enable_deserialize=True):
 	if data[0:len(magic)] != magic:
 		raise Exception("Invalid file format (magic number expected=%r, got=%r)" % (magic, data[0:len(magic)]))
 	data = data[len(magic):]
 	unpacker = xdrlib.Unpacker(data)
-	return _unpack_xdrm(unpacker)
+	return _unpack_xdrm(unpacker, enable_deserialize)
 
 
 def dumps(data, magic=bytes()):
@@ -55,7 +55,7 @@ def dumps(data, magic=bytes()):
 	return magic + packer.get_buffer()
 
 
-def _unpack_xdrm(unpacker):
+def _unpack_xdrm(unpacker, enable_deserialize=True):
 	typecode = unpacker.unpack_uint()
 	type, rest = typecode & 0b111, typecode >> 3
 	if type == XDRM_inlong:
@@ -74,19 +74,28 @@ def _unpack_xdrm(unpacker):
 		return UUID(bytes=unpacker.unpack_fopaque(0x10))
 	elif type == XDRM_number and (rest & 0x1fff) == 0x1fff:
 		serialize_id = rest >> 13  #16-bit class ID
-		return Serializable.find(class_id=serialize_id).__deserialize__(_unpack_xdrm(unpacker))
+		if enable_deserialize:
+			clazz, _ = Serializable.find(class_id=serialize_id)
+			if not clazz: raise Exception("unknown class id 0x%04X" % (serialize_id, ))
+			try:
+				return clazz.__deserialize__(_unpack_xdrm(unpacker, enable_deserialize))
+			except:
+				logging.error("Failed to deserialize class %s", clazz)
+				return None
+		else:
+			return ("__serialized__", serialize_id, _unpack_xdrm(unpacker, enable_deserialize))
 	elif type == XDRM_utf8:
 		return unpacker.unpack_fstring(rest).decode("utf-8",'surrogateescape')
 	elif type == XDRM_bytes:
 		return unpacker.unpack_fopaque(rest)
 	elif type == XDRM_array:
-		result = [_unpack_xdrm(unpacker) for _ in range(rest)]
+		result = [_unpack_xdrm(unpacker, enable_deserialize) for _ in range(rest)]
 		return result
 	elif type == XDRM_map:
 		result = {}
 		for _ in range(rest):
-			key = _unpack_xdrm(unpacker)
-			result[key] = _unpack_xdrm(unpacker)
+			key = _unpack_xdrm(unpacker, enable_deserialize)
+			result[key] = _unpack_xdrm(unpacker, enable_deserialize)
 		return result
 	else:
 		raise Exception("invalid typecode 0x%08x (type=%d, rest=0x%x) at offset 0x%x" % (typecode, type, rest, unpacker.get_position()))
@@ -129,12 +138,12 @@ def _pack_xdrm(packer, data):
 		packer.pack_uint(XDRM_number | (0x1005 << 3))
 		packer.pack_fopaque(0x10, data.bytes)
 	elif hasattr(data, "__serialize__") and hasattr(type(data), "class_id"):
-		logging.warning("WARNING: calling serialize on "+str(typ)+" ")
+		logging.info("calling serialize on "+str(typ)+" ")
 		packer.pack_uint(XDRM_number | (0x1fff << 3) | (type(data).class_id << 16))
 		_pack_xdrm(packer, data.__serialize__())
 	else:
 		#raise Exception("can't pack "+str(typ))
-		logging.warning("WARNING: packing "+str(typ)+" as str")
+		logging.warning("WARNING: packing "+str(typ)+" as str %r", str(data))
 		bin = str(data).encode("utf-8",'surrogateescape')
 		packer.pack_uint(XDRM_utf8 | (len(bin) << 3))
 		packer.pack_fopaque(len(bin), bin)
@@ -154,6 +163,9 @@ def run_cli():
 						help='Input file (default: "-" for stdin)')
 	parser.add_argument('-v', '--verbose', action='store_true',
 						help='Enable verbose logging to stderr')
+	parser.add_argument('-S', '--no-deserialize', action='store_true',
+						help='Disable deserialization of objects')
+
 	args = parser.parse_args()
 	logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
 	try:
@@ -172,7 +184,7 @@ def run_cli():
 			sys.stdout.buffer.write(dumps(o, magic=magic))
 		else:
 			logging.debug("Decoding from %d bytes of data", len(data))
-			o = loads(data, magic=magic)
+			o = loads(data, magic=magic, enable_deserialize=not args.no_deserialize)
 			print(yaml.dump(o, explicit_start=True, sort_keys=False))
 	except EOFError:
 		logging.error("XDRmap failed: Unexpected end of file\n")

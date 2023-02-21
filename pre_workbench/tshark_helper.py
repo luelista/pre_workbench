@@ -102,7 +102,7 @@ class PdmlToPacketListParser:
 
 
 	def end(self,tag):
-		self.parse_context.log("</%s>"%tag,self.cur_proto)
+		if self.parse_context: self.parse_context.log("</%s>"%tag,self.cur_proto)
 		if tag == "pdml":
 			self.parse_context.log("done")
 		elif tag == "packet":

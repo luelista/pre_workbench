@@ -52,15 +52,16 @@ class ByteBuffer(QObject):
 		self.subflow_categories = dict()
 
 	def __serialize__(self):
-		return [self.metadata, self.buffer, list(self.ranges), self.fi_root_name, self.annotation_set_name]
+		return [self.metadata, self.buffer, [], self.fi_root_name, self.annotation_set_name]
 
 	@staticmethod
 	def __deserialize__(ary):
 		metadata, buffer, ranges, fi_root_name, annotation_set_name = ary
 		bbuf = ByteBuffer(buffer, metadata)
-		bbuf.setRanges(ranges)
+		#bbuf.setRanges(ranges)
 		bbuf.fi_root_name = fi_root_name
 		bbuf.annotation_set_name = annotation_set_name
+		return bbuf
 
 	def setContent(self, buf):
 		if buf is None:

@@ -1,7 +1,7 @@
 from typing import Optional
 
-from pre_workbench.structinfo import xdrm
-
+# registered in objects.py, because Cython doesn't like annotations
+#xdrm.Serializable.register(class_id=0x2000)
 cdef class Range:
 	class_id = 0x2000
 	cdef readonly object value

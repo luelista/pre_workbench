@@ -86,8 +86,8 @@ class WorkbenchMain(QMainWindow):
 
 	def restoreChildren(self):
 		for wndInfo in self.project.getValue("ChildrenInfo", []):
-			clz, _ = WindowTypes.find(name=wndInfo["clz"])
 			try:
+				clz, _ = WindowTypes.find(name=wndInfo["clz"])
 				wnd = clz(**wndInfo["par"])
 				wnd.setObjectName(str(wndInfo["id"]))
 				self.showChild(wnd)

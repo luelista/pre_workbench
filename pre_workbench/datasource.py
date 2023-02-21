@@ -20,8 +20,10 @@ import binascii
 import glob
 import logging
 import os
+import time
 
 from PyQt5.QtCore import (pyqtSignal, QObject, QProcess)
+from PyQt5.QtNetwork import QUdpSocket, QHostAddress
 
 from pre_workbench.bbuf_parsing import apply_grammar_on_bbuf
 from pre_workbench.configs import SettingsField, SettingsSection, registerOption, getValue
@@ -333,6 +335,50 @@ class LivePcapCaptureDataSource(DataSource):
 		self.process.terminate()
 		self.process.waitForFinished(500)
 		self.process.kill()
+
+@DataSourceTypes.register(DisplayName = "UDP listener", Async=True, OutputType="BYTE_BUFFER_LIST")
+class UdpListenerDataSource(DataSource):
+	@staticmethod
+	def getConfigFields():
+		return [
+			SettingsField("bind_address", "UDP Bind Address", "text", {"default":"0.0.0.0"}),
+			SettingsField("bind_port", "UDP Bind Port", "int", {"default":0}),
+		]
+
+	def startFetch(self):
+		self.plist = ByteBufferList()
+
+		self.socket = QUdpSocket()
+		self.socket.readyRead.connect(self.onReadyRead)
+		self.socket.disconnected.connect(self.onProcessFinished)
+		if not self.socket.bind(QHostAddress(self.params["bind_address"]), int(self.params["bind_port"])):
+			return None
+		self.logger.info("Listening on address %s port %d", self.socket.localAddress().toString(), self.socket.localPort())
+
+		return self.plist
+
+	def tryParseHeader(self):
+		for headerFI, packetFI in PcapFormats:
+			try:
+				header = headerFI.read_from_buffer(self.ctx)
+				self.packetFI = packetFI
+				self.plist.metadata.update(header)
+				return
+			except invalid as ex:
+				self.logger.debug("invalid pcap format, trying next (exception: %r)", ex)
+		raise invalid(self.ctx, "no PcapVariant matched")
+
+	def onReadyRead(self):
+		while self.socket.hasPendingDatagrams():
+			datagram_bytes, sender_ip, sender_port = self.socket.readDatagram(4096)
+			self.plist.add(ByteBuffer(datagram_bytes, {'source': "%s:%d"%(sender_ip.toString(),sender_port), 'timestamp': time.time()}))
+
+
+	def onProcessFinished(self):
+		self.on_finished.emit()
+
+	def cancelFetch(self):
+		self.socket.close()
 
 def formatinfoSelect(dialog):
 	names = APP().project.formatInfoContainer.definitions.keys()

@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Build Packages
+name: Test and Build
 on:
   push:
     branches: [ "main" ]
@@ -70,13 +70,14 @@ jobs:
     - name: Install dependencies + Package
       run: |
         python3 -V
-        python3 -m pip install --upgrade pip build virtualenv PyInstaller pytest
+        python3 -m pip install --upgrade pip build virtualenv PyInstaller
         python3 -m virtualenv venv
         source venv/bin/activate
         python3 -m pip install -r requirements.txt
     - name: Test with pytest
       run: |
         source venv/bin/activate
+        python3 -m pip install pytest
         make dev
         pytest tests
     - name: Package

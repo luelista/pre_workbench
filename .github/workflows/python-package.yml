@@ -50,6 +50,5 @@ jobs:
         name: windows-packages
         path: |
           dist/*
-          dist_pyi/PRE Workbench
-          scripts/PREWorkbench_Windows*.exe
+          Output/PREWorkbench_Windows*.exe
         

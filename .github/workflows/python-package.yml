@@ -62,8 +62,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip build virtualenv
-        python -m pip install -r requirements.txt
+        which python3
+        ls /usr/bin/python*
+        python3 -m pip install --upgrade pip build virtualenv
+        python3 -m pip install -r requirements.txt
     - name: Package
       run: |
         make pyinstaller
@@ -72,6 +74,6 @@ jobs:
       with:
         name: macos-packages
         path: |
-          dist_pyi/PRE Workbench.app.zip
+          dist_pyi/PRE_Workbench_macOS.zip
 
         

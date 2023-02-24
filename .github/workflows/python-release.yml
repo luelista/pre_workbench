@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: write
-  
+
 jobs:
 
   build-linux:
@@ -68,8 +68,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip build virtualenv
-        python -m pip install -r requirements.txt
+        python3 -m pip install --upgrade pip build virtualenv
+        python3 -m pip install -r requirements.txt
     - name: Package
       run: |
         make pyinstaller
@@ -78,7 +78,7 @@ jobs:
     - name: Release
       uses: softprops/action-gh-release@v1
       files: |
-        dist_pyi/
+        dist_pyi/PRE_Workbench_macOS.zip
       if: startsWith(github.ref, 'refs/tags/')
       prerelease: contains(github.ref, '-')
 

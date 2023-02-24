@@ -4,10 +4,12 @@
 name: Build Packages
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - "*.*.*"
 
+permissions:
+  contents: write
+  
 jobs:
 
   build-linux:
@@ -26,10 +28,12 @@ jobs:
     - name: Package
       run: |
         python -m build
-    - uses: actions/upload-artifact@v3
-      with:
-        name: linux-packages
-        path: dist/*
+        
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: dist/*
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
 
 
 
@@ -46,12 +50,14 @@ jobs:
       run: |
         python -m build
         scripts\build_installer.bat
-    - uses: actions/upload-artifact@v3
-      with:
-        name: windows-packages
-        path: |
-          dist/*
-          Output/PREWorkbench_Windows*.exe
+        
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: |
+        dist/*.whl
+        Output/PREWorkbench_Windows*.exe
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
 
         
 
@@ -68,10 +74,12 @@ jobs:
       run: |
         make pyinstaller
         (cd dist_pyi && zip -r PRE_Workbench_macOS.zip PRE\ Workbench.app)
-    - uses: actions/upload-artifact@v3
-      with:
-        name: macos-packages
-        path: |
-          dist_pyi/PRE Workbench.app.zip
+        
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: |
+        dist_pyi/
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
 
         

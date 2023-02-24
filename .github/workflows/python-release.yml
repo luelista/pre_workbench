@@ -73,6 +73,15 @@ jobs:
         python3 -m virtualenv venv
         source venv/bin/activate
         python3 -m pip install -r requirements.txt
+    - name: Test with pytest
+      run: |
+        source venv/bin/activate
+        python3 -m pip install pytest
+        make dev
+        pytest tests
+    - name: Package
+      run: |
+        source venv/bin/activate
         make pyinstaller
         (cd dist_pyi && zip -r PRE_Workbench_macOS.zip PRE\ Workbench.app)
     - name: Release

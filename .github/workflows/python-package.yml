@@ -44,8 +44,12 @@ jobs:
     - name: Package
       run: |
         python -m build
+        scripts\build_installer.bat
     - uses: actions/upload-artifact@v3
       with:
         name: windows-packages
-        path: dist/*
+        path: |
+          dist/*
+          dist_pyi/PRE Workbench
+          scripts/PREWorkbench_Windows*.exe
         

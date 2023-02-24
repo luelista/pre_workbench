@@ -3,12 +3,8 @@
 
 name: Build Packages
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+permissions:
+  contents: write
 jobs:
 
   build-linux:
@@ -31,7 +27,14 @@ jobs:
       with:
         name: linux-packages
         path: dist/*
-        
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: dist/*
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
+
+
+
   build-win:
 
     runs-on: windows-latest
@@ -51,4 +54,39 @@ jobs:
         path: |
           dist/*
           Output/PREWorkbench_Windows*.exe
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: |
+        dist/*.whl
+        Output/PREWorkbench_Windows*.exe
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
+
+        
+
+  build-macos:
+
+    runs-on: macos-10.15
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip build virtualenv
+        python -m pip install -r requirements.txt
+    - name: Package
+      run: |
+        make pyinstaller
+        (cd dist_pyi && zip -r PRE_Workbench_macOS.zip PRE\ Workbench.app)
+    - uses: actions/upload-artifact@v3
+      with:
+        name: macos-packages
+        path: |
+          dist_pyi/PRE Workbench.app.zip
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      files: |
+        dist_pyi/
+      if: startsWith(github.ref, 'refs/tags/')
+      prerelease: contains(github.ref, '-')
+
         

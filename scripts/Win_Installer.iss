@@ -28,7 +28,7 @@ LicenseFile=..\LICENSE
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
-OutputBaseFilename=PRE_Workbench_Windows_
+OutputBaseFilename=PRE_Workbench_Windows_{#SetupSetting("AppVersion")}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

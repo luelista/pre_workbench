@@ -21,7 +21,7 @@ jobs:
         python-version: "3.10"
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip build pytest
+        python -m pip install build pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with pytest
       run: |
@@ -58,7 +58,7 @@ jobs:
         name: windows-packages
         path: |
           dist/*
-          Output/PREWorkbench_Windows*.exe
+          scripts/Output/*.exe
 
         
 
@@ -84,11 +84,11 @@ jobs:
       run: |
         source venv/bin/activate
         make pyinstaller
-        (cd dist_pyi && zip -r PRE_Workbench_macOS.zip PRE\ Workbench.app)
+        (cd dist_pyi && zip -r PRE_Workbench_macOS_$(git describe --tags).zip PRE\ Workbench.app)
     - uses: actions/upload-artifact@v3
       with:
         name: macos-packages
         path: |
-          dist_pyi/PRE_Workbench_macOS.zip
+          dist_pyi/*.zip
 
         

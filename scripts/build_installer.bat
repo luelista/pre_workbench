@@ -13,7 +13,7 @@ call venv\Scripts\activate.bat
 
 pip install .
 pip install PyInstaller Cython
-rem python setup.py build_ext --inplace
+python setup.py build_ext --inplace
 
 pyinstaller --distpath=dist_pyi --noconfirm "PRE Workbench.spec"
 

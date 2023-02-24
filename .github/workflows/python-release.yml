@@ -56,7 +56,7 @@ jobs:
       with:
         files: |
           dist/*.whl
-          Output/PREWorkbench_Windows*.exe
+          Output/*.exe
         prerelease: ${{ contains(github.ref, '-') }}
 
         
@@ -69,26 +69,27 @@ jobs:
     - name: Install dependencies + Package
       run: |
         python3 -V
-        python3 -m pip install --upgrade pip build virtualenv PyInstaller
+        python3 -m pip install --upgrade pip build virtualenv PyInstaller setuptools_scm
         python3 -m virtualenv venv
         source venv/bin/activate
-        python3 -m pip install -r requirements.txt
+        python3 -m pip install .
+        git describe --all
+        python -m setuptools_scm
     - name: Test with pytest
       run: |
         source venv/bin/activate
         python3 -m pip install pytest
-        make dev
         pytest tests
     - name: Package
       run: |
         source venv/bin/activate
         make pyinstaller
-        (cd dist_pyi && zip -r PRE_Workbench_macOS.zip PRE\ Workbench.app)
+        (cd dist_pyi && zip -r PRE_Workbench_macOS_$(python -m setuptools_scm).zip PRE\ Workbench.app)
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          dist_pyi/PRE_Workbench_macOS.zip
+          dist_pyi/*.zip
         prerelease: ${{ contains(github.ref, '-') }}
 
         

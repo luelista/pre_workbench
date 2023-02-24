@@ -25,6 +25,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with pytest
       run: |
+        make dev
         pytest tests
     - name: Package
       run: |
@@ -47,6 +48,7 @@ jobs:
         python -m pip install -r requirements.txt
     - name: Test with pytest
       run: |
+        python3 setup.py build_ext --inplace
         pytest tests
     - name: Package
       run: |
@@ -75,6 +77,7 @@ jobs:
     - name: Test with pytest
       run: |
         source venv/bin/activate
+        make dev
         pytest tests
     - name: Package
       run: |

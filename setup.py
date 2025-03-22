@@ -48,7 +48,7 @@ setuptools.setup(
 		'psutil>=5.0.0',
 		'bitstring>=3.1.9',
 		'PyQtAds>=3.8.1',
-		'darkdetect==0.6.0',
+		'darkdetect>=0.6.0',
 		'PyYAML>=6.0',
 	],
 	classifiers=[

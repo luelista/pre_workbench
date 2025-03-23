@@ -29,7 +29,7 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSignalMapper, QTimer, pyqtSignal, QUrl)
 from PyQt5.QtGui import QKeySequence, QColor, QDesktopServices
 from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QWidget, QMessageBox, QToolButton, QLabel, QApplication, \
 	QPushButton, QTextBrowser, QDialogButtonBox
-from PyQtAds import ads
+import PyQtAds as ads
 
 from pre_workbench.consts import WDGEN_HELP_URL
 from pre_workbench.errorhandler import check_for_updates

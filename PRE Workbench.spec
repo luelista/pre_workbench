@@ -23,7 +23,7 @@ a = Analysis(['run_workbench.py'],
              ],
              hiddenimports=[
                 'PyQt5.QtPrintSupport',  # why ???
-                'PyQtAds.ads'
+                'PyQtAds'
              ],
              hookspath=[],
              hooksconfig={},

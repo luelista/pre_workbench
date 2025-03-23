@@ -47,7 +47,7 @@ setuptools.setup(
 		'lark>=1.1.5',
 		'psutil>=5.0.0',
 		'bitstring>=3.1.9',
-		'PyQtAds>=3.8.1',
+		'PyQtAds>=4.2.0',
 		'darkdetect>=0.6.0',
 		'PyYAML>=6.0',
 	],

@@ -16,7 +16,7 @@
       packages.${system} = {
         pyqtads = pp.buildPythonPackage rec {
           pname = "PyQtAds";
-          version = "3.8.4";
+          version = "4.3.1";  # 4.4.0 has a change making DockComponentsFactory.h / DockComponentsFactory.sip incompatbile (QSharedPointer return type)
           pyproject = true;
 
           disabled = pp.pythonOlder "3.11";
@@ -25,18 +25,14 @@
                   owner = "githubuser0xFFFF";
                   repo = "Qt-Advanced-Docking-System";
                   rev = "refs/tags/${version}";
-                  hash = "sha256-LojmwuCdcwJLlgDcg/09WTfr8ROCZCL56eZuBuuyQvk=";
+                  hash = "sha256-5wOmhjV/RoKvd018YC4J8EFCCkq+3B6AXAsPtW+RZHU=";
           };
 
           # from https://github.com/NixOS/nixpkgs/blob/46606678d54c34c1b2f346605224acae7908cd67/pkgs/development/python-modules/pyqtdatavisualization/default.nix#L6
           postPatch = ''
             substituteInPlace pyproject.toml \
               --replace-fail "[tool.sip.project]" "[tool.sip.project]''\nsip-include-dirs = [\"${pp.pyqt5}/${pp.python.sitePackages}/PyQt5/bindings\"]" \
-              --replace-warn '"sip >=6.0.2, <6.6"' '"sip >=6.0.2, <6.9"' \
-              --replace-warn '# "src/linux/FloatingWidgetTitleBar.h",' '"'"src/linux/FloatingWidgetTitleBar.h; platform_system == 'Linux'"'",' \
-              --replace-warn '# "src/linux/FloatingWidgetTitleBar.cpp",' '"'"src/linux/FloatingWidgetTitleBar.cpp; platform_system == 'Linux'"'",'
-            substituteInPlace project.py \
-              --replace-fail 'super().apply_user_defaults(tool)' 'self.builder_settings.append("unix:!macx {\nLIBS += -lxcb\nQT += gui-private\n}"); super().apply_user_defaults(tool)'
+              --replace-warn "dunder-init = true" ""
           '';
 
           build-system = [
@@ -59,10 +55,11 @@
                   pkgs.libsForQt5.qt5.qtbase
                   pkgs.xorg.libxcb
           ];
-          propagatedBuildInputs = [ pp.pyqt5 ];
+          propagatedBuildInputs = [ pp.pyqt5 pp.pyqt5-sip ];
           dependencies = [
                   pp.pyqt5
                   pp.pyqt5-sip
+                  pp.sip
           ];
           dontWrapQtApps = true;
 

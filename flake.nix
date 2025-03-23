@@ -106,6 +106,7 @@
           nativeBuildInputs = [
             pkgs.libsForQt5.qt5.qtbase
             pkgs.libsForQt5.wrapQtAppsHook
+            pkgs.copyDesktopItems
           ];
 
           nativeInputs = [ pkgs.qt5.wrapQtAppsHook ];

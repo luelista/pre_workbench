@@ -30,7 +30,7 @@ jobs:
     - name: Package
       run: |
         python -m build
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: linux-packages
         path: dist/*
@@ -53,7 +53,7 @@ jobs:
     - name: Package
       run: |
         scripts\build_installer.bat
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: windows-packages
         path: |
@@ -85,7 +85,7 @@ jobs:
         source venv/bin/activate
         make pyinstaller
         (cd dist_pyi && zip -r PRE_Workbench_macOS_$(git describe --tags).zip PRE\ Workbench.app)
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: macos-packages
         path: |

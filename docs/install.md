@@ -14,9 +14,7 @@ use the flake:
 
 * `nix run github:luelista/pre_workbench`
 
-* `nix shell github:luelista/pre_workbench`
-  
-  `prewb`
+* `nix shell github:luelista/pre_workbench` and run *prewb* or any of the [other commands](getting-started.md#command-line-interface).
 
 
 ## Install on macOS

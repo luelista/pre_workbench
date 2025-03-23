@@ -7,6 +7,18 @@ title: Installing PRE Workbench
 * PRE Workbench is available on the [Python Package Index as `pre_workbench`](https://pypi.org/project/pre-workbench/).
 * Pre-built releases are available on [Github](https://github.com/luelista/pre_workbench/releases).
 
+## Run on NixOS
+
+If you use NixOS and have [flakes enabled](https://nixos.wiki/wiki/Flakes#Enable_flakes_temporarily), you can simply
+use the flake:
+
+* `nix run github:luelista/pre_workbench`
+
+* ```
+  nix shell github:luelista/pre_workbench
+  prewb
+  ```
+
 
 ## Install on macOS
 

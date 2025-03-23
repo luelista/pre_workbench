@@ -109,16 +109,25 @@
           ];
 
           nativeInputs = [ pkgs.qt5.wrapQtAppsHook ];
+          dontWrapGApps = true;
           dontWrapQtApps = true;
 
           src = ./.;
 
           # Arguments to be passed to `makeWrapper`, only used by buildPython*
           preFixup = ''
-          for app in "$out/bin/"*; do
-            wrapQtApp "$app"
-          done
+          makeWrapperArgs+=("''${qtWrapperArgs[@]}")
           '';
+
+          desktopItems = [
+            (pkgs.makeDesktopItem {
+              name = "pre_workbench";
+              desktopName = "PRE Workbench";
+              icon = ./pre_workbench/icons/appicon.png;
+              exec = "prewb";
+            })
+          ];
+
           meta = {
             mainProgram = "prewb";
             homepage = "https://luelista.net/pre_workbench/";

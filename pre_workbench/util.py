@@ -16,6 +16,7 @@
 
 import logging
 import time
+import sys, os.path
 
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -55,3 +56,32 @@ class SimpleThread(QThread):
             self.resultReturned.emit(self.thread_fn())
         except:
             logging.exception("Exception in SimpleThread")
+
+
+# from here: https://github.com/samdroid-apps/werkzeug/blob/268cad0016bcbccff8a8bb9190d39fdd12dc13d2/werkzeug/_reloader.py#L59
+def get_exe_for_reloading():
+    """Returns the executable. This contains a workaround for windows
+    if the executable is incorrectly reported to not have the .exe
+    extension which can cause bugs on reloading.  This also contains
+    a workaround for linux where the file is executable (possibly with
+    a program other than python)
+    """
+    rv = [sys.executable]
+    py_script = os.path.abspath(sys.argv[0])
+
+    if os.name == 'nt' and not os.path.exists(py_script) and \
+       os.path.exists(py_script + '.exe'):
+        py_script += '.exe'
+
+    windows_workaround = (
+        os.path.splitext(rv[0])[1] == '.exe'
+        and os.path.splitext(py_script)[1] == '.exe'
+    )
+    nix_workaround = os.path.isfile(py_script) and os.access(py_script, os.X_OK)
+
+    if windows_workaround or nix_workaround:
+        rv.pop(0)
+
+    rv.append(py_script)
+    return rv
+

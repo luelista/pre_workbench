@@ -40,7 +40,7 @@ from pre_workbench import configs, consts
 from pre_workbench import windows
 from pre_workbench.configs import getIcon, SettingsSection, SettingsField, icon_searchpaths
 from pre_workbench.datawidgets import DynamicDataWidget
-from pre_workbench.util import get_app_version, SimpleThread
+from pre_workbench.util import get_app_version, SimpleThread, get_exe_for_reloading
 from pre_workbench.windows.content.objectwindow import ObjectWindow
 from pre_workbench.windows.dialogs.manageannotationsets import ManageAnnotationSetsDialog
 # noinspection PyUnresolvedReferences
@@ -581,14 +581,7 @@ class WorkbenchMain(QMainWindow):
 
 	def openProjectInNewWindow(self, projectPath = "--choose-project"):
 		import subprocess
-		self_script = sys.argv[0]
-		# weird Windows magic
-		if self_script == sys.executable:  # PyInstaller on Windows
-			cmd_line = [self_script, projectPath]
-		elif not os.path.exists(self_script) and os.path.exists(self_script + '.exe'):  # PIP entry_points on Windows
-			cmd_line = [sys.executable, self_script + '.exe', projectPath]
-		else:  # everything else
-			cmd_line = [sys.executable, self_script, projectPath]
+		cmd_line = get_exe_for_reloading() + [projectPath]
 		logging.info('Starting new instance with cmd line: %r', cmd_line)
 		subprocess.Popen(cmd_line, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

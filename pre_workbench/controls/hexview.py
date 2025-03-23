@@ -127,7 +127,7 @@ class HexView2(QAbstractScrollArea):
 
 	@scrollY.setter
 	def scrollY(self, value):
-		self.verticalScrollBar().setValue(value)
+		self.verticalScrollBar().setValue(int(value))
 
 	@property
 	def firstLine(self):

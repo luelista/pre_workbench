@@ -14,10 +14,9 @@ use the flake:
 
 * `nix run github:luelista/pre_workbench`
 
-* ```
-  nix shell github:luelista/pre_workbench
-  prewb
-  ```
+* `nix shell github:luelista/pre_workbench`
+  
+  `prewb`
 
 
 ## Install on macOS
